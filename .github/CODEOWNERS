@@ -1,5 +1,0 @@
-# This file controls who is tagged for review for any given pull request.
-
-# leahecole is the default owner, wiht other Composer team members as backup
-
-*   @leahecole @rafalbiegacz
