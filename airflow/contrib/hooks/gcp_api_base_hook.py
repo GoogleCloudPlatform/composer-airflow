@@ -15,12 +15,14 @@
 import json
 
 import httplib2
+from googleapiclient.http import set_user_agent
 from oauth2client.client import GoogleCredentials
 from oauth2client.service_account import ServiceAccountCredentials
 
 from airflow.exceptions import AirflowException
 from airflow.hooks.base_hook import BaseHook
 from airflow.utils.log.logging_mixin import LoggingMixin
+from airflow.version import version
 
 
 class GoogleCloudBaseHook(BaseHook, LoggingMixin):
@@ -119,8 +121,7 @@ class GoogleCloudBaseHook(BaseHook, LoggingMixin):
         service hook connection.
         """
         credentials = self._get_credentials()
-        http = httplib2.Http()
-        return credentials.authorize(http)
+        return credentials.authorize(set_user_agent(httplib2.Http(), 'airflow-{}'.format(version)))
 
     def _get_field(self, f, default=None):
         """

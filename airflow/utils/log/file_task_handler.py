@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import logging
 import os
 import requests
@@ -41,6 +42,7 @@ class FileTaskHandler(logging.Handler):
         self.local_base = base_log_folder
         self.filename_template = filename_template
         self.filename_jinja_template = None
+        self.workflow_info = {}
 
         if "{{" in self.filename_template: #jinja mode
             self.filename_jinja_template = Template(self.filename_template)
@@ -54,8 +56,15 @@ class FileTaskHandler(logging.Handler):
         self.handler = logging.FileHandler(local_loc)
         self.handler.setFormatter(self.formatter)
         self.handler.setLevel(self.level)
+        self.workflow_info = {
+            'workflow': ti.dag_id,
+            'task-id': ti.task_id,
+            'execution-date': ti.execution_date.isoformat()
+        }
 
     def emit(self, record):
+        # @-@: special delimiter for appending workflow info.
+        record.msg = str(record.msg) + '@-@{}'.format(json.dumps(self.workflow_info))
         if self.handler is not None:
             self.handler.emit(record)
 

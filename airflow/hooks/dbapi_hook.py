@@ -164,9 +164,18 @@ class DbApiHook(BaseHook):
                     else:
                         cur.execute(s)
 
-            conn.commit()
+            if not conn.autocommit:
+                conn.commit()
 
     def set_autocommit(self, conn, autocommit):
+        """
+        Sets the autocommit flag on the connection
+        """
+        if not self.supports_autocommit and autocommit:
+            self.log.warn(
+                ("%s connection doesn't support "
+                 "autocommit but autocommit activated."),
+                getattr(self, self.conn_name_attr))
         conn.autocommit = autocommit
 
     def get_cursor(self):

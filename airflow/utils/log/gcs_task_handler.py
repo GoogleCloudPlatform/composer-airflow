@@ -102,6 +102,7 @@ class GCSTaskHandler(FileTaskHandler, LoggingMixin):
             # local machine even if there are errors reading remote logs, as
             # remote_log will contain error message.
             remote_log = self.gcs_read(remote_loc, return_error=True)
+            remote_log = '\n'.join([one_line[0:one_line.rfind('@-@')] for one_line in remote_log.split('\n')])
             log = '*** Reading remote log from {}.\n{}\n'.format(
                 remote_loc, remote_log)
         else:

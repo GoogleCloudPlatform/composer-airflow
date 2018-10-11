@@ -242,7 +242,6 @@ class BaseJob(Base, LoggingMixin):
                         TI.execution_date == DR.execution_date))
                 .filter(
                     DR.state == State.RUNNING,
-                    DR.external_trigger == False,
                     DR.run_id.notlike(BackfillJob.ID_PREFIX + '%'),
                     TI.state.in_(resettable_states))).all()
         else:
@@ -363,6 +362,11 @@ class DagFileProcessor(AbstractDagFileProcessor, LoggingMixin):
                 # process doesn't work, so changing the thread name instead.
                 threading.current_thread().name = thread_name
                 start_time = time.time()
+
+                # Reload Airflow and Airflow Plugins in each new DAG process.
+                import airflow
+                airflow.plugins_manager = six.moves.reload_module(airflow.plugins_manager)
+                airflow = six.moves.reload_module(airflow)
 
                 log.info("Started process (PID=%s) to work on %s",
                          os.getpid(), file_path)

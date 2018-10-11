@@ -103,7 +103,7 @@ def get_fernet():
         raise AirflowException('Failed to import Fernet, it may not be installed')
     try:
         return Fernet(configuration.get('core', 'FERNET_KEY').encode('utf-8'))
-    except ValueError as ve:
+    except (ValueError, TypeError) as ve:
         raise AirflowException("Could not create Fernet object: {}".format(ve))
 
 
@@ -999,9 +999,8 @@ class TaskInstance(Base, LoggingMixin):
         iso = self.execution_date.isoformat()
         BASE_URL = configuration.get('webserver', 'BASE_URL')
         return BASE_URL + (
-            "/admin/airflow/action"
-            "?action=success"
-            "&task_id={self.task_id}"
+            "/admin/airflow/success"
+            "?task_id={self.task_id}"
             "&dag_id={self.dag_id}"
             "&execution_date={iso}"
             "&upstream=false"

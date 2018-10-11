@@ -26,8 +26,8 @@ class GoogleCloudStorageHook(GoogleCloudBaseHook):
     """
 
     def __init__(self,
-                 google_cloud_storage_conn_id='google_cloud_storage_default',
-                 delegate_to=None):
+        google_cloud_storage_conn_id='google_cloud_storage_default',
+        delegate_to=None):
         super(GoogleCloudStorageHook, self).__init__(google_cloud_storage_conn_id,
                                                      delegate_to)
 
@@ -38,20 +38,17 @@ class GoogleCloudStorageHook(GoogleCloudBaseHook):
         http_authorized = self._authorize()
         return build('storage', 'v1', http=http_authorized)
 
-
     # pylint:disable=redefined-builtin
     def copy(self, source_bucket, source_object, destination_bucket=None,
-             destination_object=None):
+        destination_object=None):
         """
         Copies an object from a bucket to another, with renaming if requested.
-
         destination_bucket or destination_object can be omitted, in which case
         source bucket/object is used, but not both.
-
-        :param bucket: The bucket of the object to copy from.
-        :type bucket: string
-        :param object: The object to copy.
-        :type object: string
+        :param source_bucket: The bucket of the object to copy from.
+        :type source_bucket: string
+        :param source_object: The object to copy.
+        :type source_object: string
         :param destination_bucket: The destination of the object to copied to.
             Can be omitted; then the same bucket is used.
         :type destination_bucket: string
@@ -61,7 +58,7 @@ class GoogleCloudStorageHook(GoogleCloudBaseHook):
         destination_bucket = destination_bucket or source_bucket
         destination_object = destination_object or source_object
         if (source_bucket == destination_bucket and
-            source_object == destination_object):
+                    source_object == destination_object):
             raise ValueError(
                 'Either source/destination bucket or source/destination object '
                 'must be different, not both the same: bucket=%s, object=%s' %
@@ -85,10 +82,9 @@ class GoogleCloudStorageHook(GoogleCloudBaseHook):
 
 
     # pylint:disable=redefined-builtin
-    def download(self, bucket, object, filename=False):
+    def download(self, bucket, object, filename=None):
         """
         Get a file from Google Cloud Storage.
-
         :param bucket: The bucket to fetch from.
         :type bucket: string
         :param object: The object to fetch.
@@ -114,7 +110,6 @@ class GoogleCloudStorageHook(GoogleCloudBaseHook):
     def upload(self, bucket, object, filename, mime_type='application/octet-stream'):
         """
         Uploads a local file to Google Cloud Storage.
-
         :param bucket: The bucket to upload to.
         :type bucket: string
         :param object: The object name to set when uploading the local file.
@@ -135,7 +130,6 @@ class GoogleCloudStorageHook(GoogleCloudBaseHook):
     def exists(self, bucket, object):
         """
         Checks for the existence of a file in Google Cloud Storage.
-
         :param bucket: The Google cloud storage bucket where the object is.
         :type bucket: string
         :param object: The name of the object to check in the Google cloud
@@ -158,7 +152,6 @@ class GoogleCloudStorageHook(GoogleCloudBaseHook):
     def is_updated_after(self, bucket, object, ts):
         """
         Checks if an object is updated in Google Cloud Storage.
-
         :param bucket: The Google cloud storage bucket where the object is.
         :type bucket: string
         :param object: The name of the object to check in the Google cloud
@@ -197,7 +190,6 @@ class GoogleCloudStorageHook(GoogleCloudBaseHook):
         """
         Delete an object if versioning is not enabled for the bucket, or if generation
         parameter is used.
-
         :param bucket: name of the bucket, where the object resides
         :type bucket: string
         :param object: name of the object to delete
@@ -219,10 +211,9 @@ class GoogleCloudStorageHook(GoogleCloudBaseHook):
                 return False
             raise
 
-    def list(self, bucket, versions=None, maxResults=None, prefix=None):
+    def list(self, bucket, versions=None, maxResults=None, prefix=None, delimiter=None):
         """
         List all objects from the bucket with the give string prefix in name
-
         :param bucket: bucket name
         :type bucket: string
         :param versions: if true, list all versions of the objects
@@ -231,6 +222,8 @@ class GoogleCloudStorageHook(GoogleCloudBaseHook):
         :type maxResults: integer
         :param prefix: prefix string which filters objects whose name begin with this prefix
         :type prefix: string
+        :param delimiter: filters objects based on the delimiter (for e.g '.csv')
+        :type delimiter:string
         :return: a stream of object names matching the filtering criteria
         """
         service = self.get_conn()
@@ -243,16 +236,21 @@ class GoogleCloudStorageHook(GoogleCloudBaseHook):
                 versions=versions,
                 maxResults=maxResults,
                 pageToken=pageToken,
-                prefix=prefix
+                prefix=prefix,
+                delimiter=delimiter
             ).execute()
 
-            if 'items' not in response:
-                self.log.info("No items found for prefix: %s", prefix)
-                break
+            if 'prefixes' not in response:
+                if 'items' not in response:
+                    self.log.info("No items found for prefix: %s", prefix)
+                    break
 
-            for item in response['items']:
-                if item and 'name' in item:
-                    ids.append(item['name'])
+                for item in response['items']:
+                    if item and 'name' in item:
+                        ids.append(item['name'])
+            else:
+                for item in response['prefixes']:
+                    ids.append(item)
 
             if 'nextPageToken' not in response:
                 # no further pages of results, so stop the loop
@@ -263,3 +261,31 @@ class GoogleCloudStorageHook(GoogleCloudBaseHook):
                 # empty next page token
                 break
         return ids
+
+    def get_size(self, bucket, object):
+        """
+        Gets the size of a file in Google Cloud Storage.
+        :param bucket: The Google cloud storage bucket where the object is.
+        :type bucket: string
+        :param object: The name of the object to check in the Google cloud
+            storage bucket.
+        :type object: string
+        """
+        self.log.info('Checking the file size of object: %s in bucket: %s', object, bucket)
+        service = self.get_conn()
+        try:
+            response = service.objects().get(
+                bucket=bucket,
+                object=object
+            ).execute()
+
+            if 'name' in response and response['name'][-1] != '/':
+                # Remove Directories & Just check size of files
+                size = response['size']
+                self.log.info('The file size of %s is %s', object, size)
+                return size
+            else:
+                raise ValueError('Object is not a file')
+        except errors.HttpError as ex:
+            if ex.resp['status'] == '404':
+                raise ValueError('Object Not Found')
