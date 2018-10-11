@@ -25,7 +25,7 @@ def index():
     return redirect(url_for('admin.index'))
 
 
-@routes.route('/health')
+@routes.route('/_ah/health')
 def health():
     """ We can add an array of tests here to check the server's health """
     content = Markup(markdown.markdown("The server is healthy!"))
