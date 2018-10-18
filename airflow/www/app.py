@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import json
+import logging
+import os
 import socket
 import six
 
@@ -32,6 +35,15 @@ from airflow import settings
 from airflow import configuration
 
 
+try:
+    with open('/home/airflow/gcs/env_var.json', 'r') as env_var_json:
+        os.environ.update(json.load(env_var_json))
+except:
+    logging.warning('Using default Composer Environment Variables. Overrides '
+                    'have not been applied.')
+configuration = six.moves.reload_module(configuration)
+airflow.plugins_manager = six.moves.reload_module(airflow.plugins_manager)
+airflow = six.moves.reload_module(airflow)
 def create_app(config=None, testing=False):
     app = Flask(__name__)
     app.secret_key = configuration.get('webserver', 'SECRET_KEY')
@@ -40,6 +52,11 @@ def create_app(config=None, testing=False):
     csrf.init_app(app)
 
     app.config['TESTING'] = testing
+    try:
+        app.config['WEB_SERVER_NAME'] = configuration.get('webserver', 'WEB_SERVER_NAME')
+    except:
+        app.config['WEB_SERVER_NAME'] = ''
+
 
     airflow.load_login()
     airflow.login.login_manager.init_app(app)
@@ -98,7 +115,7 @@ def create_app(config=None, testing=False):
 
         admin.add_link(base.MenuLink(
             category='Docs', name='Documentation',
-            url='http://pythonhosted.org/airflow/'))
+            url='https://airflow.apache.org/'))
         admin.add_link(
             base.MenuLink(category='Docs',
                 name='Github',url='https://github.com/apache/incubator-airflow'))

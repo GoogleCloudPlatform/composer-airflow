@@ -885,6 +885,8 @@ class Airflow(BaseView):
                   "{}".format(failed_deps_str),
                   "error")
             return redirect(origin)
+        flash("The Run operation is currently not supported in Composer, but you can clear the task instance which will be executed automatically.")
+        return redirect(origin)
 
         executor.start()
         executor.queue_task_instance(
