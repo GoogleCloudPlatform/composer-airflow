@@ -27,6 +27,7 @@ import logging
 import os
 import pendulum
 import sys
+import socket
 from typing import Any
 
 from sqlalchemy import create_engine, exc
@@ -73,16 +74,17 @@ class DummyStatsLogger(object):
 
 Stats = DummyStatsLogger  # type: Any
 
-if conf.getboolean('scheduler', 'statsd_on'):
-    from statsd import StatsClient
+try:
+    if conf.getboolean('scheduler', 'statsd_on'):
+        from statsd import StatsClient
 
-    statsd = StatsClient(
-        host=conf.get('scheduler', 'statsd_host'),
-        port=conf.getint('scheduler', 'statsd_port'),
-        prefix=conf.get('scheduler', 'statsd_prefix'))
-    Stats = statsd
-else:
-    Stats = DummyStatsLogger
+        statsd = StatsClient(
+            host=conf.get('scheduler', 'statsd_host'),
+            port=conf.getint('scheduler', 'statsd_port'),
+            prefix=conf.get('scheduler', 'statsd_prefix'))
+        Stats = statsd
+except (socket.gaierror, ImportError):
+    log.warning("Could not configure StatsClient, using DummyStatsLogger instead.")
 
 HEADER = '\n'.join([
     r'  ____________       _____________',
