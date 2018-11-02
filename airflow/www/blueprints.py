@@ -36,7 +36,7 @@ def index():
     return redirect(url_for('admin.index'))
 
 
-@routes.route('/health')
+@routes.route('/_ah/health')
 def health():
     """
     An endpoint helping check the health status of the Airflow instance,
