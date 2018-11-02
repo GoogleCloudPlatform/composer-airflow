@@ -150,6 +150,11 @@ class DagFileProcessor(AbstractDagFileProcessor, LoggingMixin):
             threading.current_thread().name = thread_name
             start_time = time.time()
 
+            # Reload Airflow and Airflow Plugins in each new DAG process.
+            import airflow
+            airflow.plugins_manager = six.moves.reload_module(airflow.plugins_manager)
+            airflow = six.moves.reload_module(airflow)
+
             log.info("Started process (PID=%s) to work on %s",
                      os.getpid(), file_path)
             scheduler_job = SchedulerJob(dag_ids=dag_id_white_list, log=log)
