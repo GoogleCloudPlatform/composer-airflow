@@ -40,10 +40,6 @@ def upgrade():
     conn = op.get_bind()
     if conn.dialect.name == 'mysql':
         conn.execute("SET time_zone = '+00:00'")
-        cur = conn.execute("SELECT @@explicit_defaults_for_timestamp")
-        res = cur.fetchall()
-        if res[0][0] == 0:
-            raise Exception("Global variable explicit_defaults_for_timestamp needs to be on (1) for mysql")
 
         op.alter_column(table_name='chart', column_name='last_modified', type_=mysql.TIMESTAMP(fsp=6))
 
@@ -70,21 +66,27 @@ def upgrade():
         op.alter_column(table_name='log', column_name='execution_date', type_=mysql.TIMESTAMP(fsp=6))
 
         op.alter_column(table_name='sla_miss', column_name='execution_date', type_=mysql.TIMESTAMP(fsp=6),
-                        nullable=False)
+                        nullable=False, server_default=sa.text('CURRENT_TIMESTAMP(6)'))
         op.alter_column(table_name='sla_miss', column_name='timestamp', type_=mysql.TIMESTAMP(fsp=6))
 
-        op.alter_column(table_name='task_fail', column_name='execution_date', type_=mysql.TIMESTAMP(fsp=6))
+        op.alter_column(table_name='task_fail', column_name='execution_date', type_=mysql.TIMESTAMP(fsp=6),
+                        nullable=False, server_default=sa.text('CURRENT_TIMESTAMP(6)'))
         op.alter_column(table_name='task_fail', column_name='start_date', type_=mysql.TIMESTAMP(fsp=6))
         op.alter_column(table_name='task_fail', column_name='end_date', type_=mysql.TIMESTAMP(fsp=6))
 
         op.alter_column(table_name='task_instance', column_name='execution_date', type_=mysql.TIMESTAMP(fsp=6),
-                        nullable=False)
+                        nullable=False, server_default=sa.text('CURRENT_TIMESTAMP(6)'))
         op.alter_column(table_name='task_instance', column_name='start_date', type_=mysql.TIMESTAMP(fsp=6))
         op.alter_column(table_name='task_instance', column_name='end_date', type_=mysql.TIMESTAMP(fsp=6))
         op.alter_column(table_name='task_instance', column_name='queued_dttm', type_=mysql.TIMESTAMP(fsp=6))
 
-        op.alter_column(table_name='xcom', column_name='timestamp', type_=mysql.TIMESTAMP(fsp=6))
-        op.alter_column(table_name='xcom', column_name='execution_date', type_=mysql.TIMESTAMP(fsp=6))
+        op.alter_column(table_name='xcom', column_name='timestamp', type_=mysql.TIMESTAMP(fsp=6),
+                        nullable=False, server_default=sa.text('CURRENT_TIMESTAMP(6)'))
+        op.alter_column(table_name='xcom', column_name='execution_date', type_=mysql.TIMESTAMP(fsp=6),
+                        nullable=False, server_default=sa.text('CURRENT_TIMESTAMP(6)'))
+        conn.execute("alter table task_instance alter column execution_date drop default")
+        conn.execute("alter table sla_miss alter column execution_date drop default")
+        conn.execute("alter table task_fail alter column execution_date drop default")
     else:
         # sqlite and mssql datetime are fine as is.  Therefore, not converting
         if conn.dialect.name in ('sqlite', 'mssql'):
