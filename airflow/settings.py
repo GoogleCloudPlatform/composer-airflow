@@ -19,6 +19,8 @@ from __future__ import unicode_literals
 
 import logging
 import os
+import socket
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import scoped_session, sessionmaker
 from sqlalchemy.pool import NullPool
@@ -49,16 +51,17 @@ class DummyStatsLogger(object):
 
 Stats = DummyStatsLogger
 
-if conf.getboolean('scheduler', 'statsd_on'):
-    from statsd import StatsClient
+try:
+    if conf.getboolean('scheduler', 'statsd_on'):
+        from statsd import StatsClient
 
-    statsd = StatsClient(
-        host=conf.get('scheduler', 'statsd_host'),
-        port=conf.getint('scheduler', 'statsd_port'),
-        prefix=conf.get('scheduler', 'statsd_prefix'))
-    Stats = statsd
-else:
-    Stats = DummyStatsLogger
+        statsd = StatsClient(
+            host=conf.get('scheduler', 'statsd_host'),
+            port=conf.getint('scheduler', 'statsd_port'),
+            prefix=conf.get('scheduler', 'statsd_prefix'))
+        Stats = statsd
+except (socket.gaierror, ImportError):
+    log.warning("Could not configure StatsClient, using DummyStatsLogger instead.")
 
 HEADER = """\
   ____________       _____________
