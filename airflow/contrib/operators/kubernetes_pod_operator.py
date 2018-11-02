@@ -164,7 +164,8 @@ class KubernetesPodOperator(BaseOperator):
                  annotations=None,
                  resources=None,
                  affinity=None,
-                 config_file=None,
+                 # Changed from None for Cloud Composer
+                 config_file='/home/airflow/composer_kube_config',
                  xcom_push=False,
                  node_selectors=None,
                  image_pull_secrets=None,
