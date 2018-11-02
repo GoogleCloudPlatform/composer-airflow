@@ -2107,8 +2107,7 @@ class BaseOperator(LoggingMixin):
     # base list which includes all the attrs that don't need deep copy.
     _base_operator_shallow_copy_attrs = ('user_defined_macros',
                                          'user_defined_filters',
-                                         'params',
-                                         '_log',)
+                                         'params')
 
     # each operator should override this class attr for shallow copy attrs.
     shallow_copy_attrs = ()  # type: Iterable[str]
@@ -2240,7 +2239,7 @@ class BaseOperator(LoggingMixin):
         if dag:
             self.dag = dag
 
-        self._log = logging.getLogger("airflow.task.operators")
+        # self._log = logging.getLogger("airflow.task.operators")
 
         # lineage
         self.inlets = []
@@ -2492,15 +2491,15 @@ class BaseOperator(LoggingMixin):
                 setattr(result, k, copy.copy(v))
         return result
 
-    def __getstate__(self):
-        state = dict(self.__dict__)
-        del state['_log']
+    # def __getstate__(self):
+    #     state = dict(self.__dict__)
+    #     # del state['_log']
 
-        return state
+    #     return state
 
-    def __setstate__(self, state):
-        self.__dict__ = state
-        self._log = logging.getLogger("airflow.task.operators")
+    # def __setstate__(self, state):
+    #     self.__dict__ = state
+        # self._log = logging.getLogger("airflow.task.operators")
 
     def render_template_from_field(self, attr, content, context, jinja_env):
         """
