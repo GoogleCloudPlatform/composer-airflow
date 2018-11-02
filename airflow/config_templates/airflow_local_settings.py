@@ -69,9 +69,9 @@ DEFAULT_LOGGING_CONFIG = {
     },
     'handlers': {
         'console': {
-            'class': 'airflow.utils.log.logging_mixin.RedirectStdHandler',
+            'class': 'logging.StreamHandler',
             'formatter': 'airflow',
-            'stream': 'sys.stdout'
+            'stream': 'ext://sys.stdout'
         },
         'task': {
             'class': 'airflow.utils.log.file_task_handler.FileTaskHandler',
@@ -90,12 +90,12 @@ DEFAULT_LOGGING_CONFIG = {
         'airflow.processor': {
             'handlers': ['processor'],
             'level': LOG_LEVEL,
-            'propagate': False,
+            'propagate': True,
         },
         'airflow.task': {
             'handlers': ['task'],
             'level': LOG_LEVEL,
-            'propagate': False,
+            'propagate': True,
         },
         'flask_appbuilder': {
             'handler': ['console'],
