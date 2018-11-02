@@ -1094,7 +1094,6 @@ def worker(args):
         'concurrency': args.concurrency,
         'autoscale': autoscale,
         'hostname': args.celery_hostname,
-        'loglevel': conf.get('core', 'LOGGING_LEVEL'),
     }
 
     if conf.has_option("celery", "pool"):
