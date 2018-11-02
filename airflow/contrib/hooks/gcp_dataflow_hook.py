@@ -236,7 +236,7 @@ class DataFlowHook(GoogleCloudBaseHook):
             return ['--labels={}={}'.format(key, value)
                     for key, value in labels_dict.items()]
         self._start_dataflow(task_id, variables, name,
-                             ["python"] + py_options + [dataflow],
+                             ["python2"] + py_options + [dataflow],
                              label_formatter)
 
     @staticmethod

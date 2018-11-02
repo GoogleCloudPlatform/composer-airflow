@@ -21,6 +21,7 @@ import json
 import functools
 
 import httplib2
+from googleapiclient.http import set_user_agent
 import google.auth
 import google_auth_httplib2
 import google.oauth2.service_account
@@ -28,6 +29,7 @@ import google.oauth2.service_account
 from airflow.exceptions import AirflowException
 from airflow.hooks.base_hook import BaseHook
 from airflow.utils.log.logging_mixin import LoggingMixin
+from airflow.version import version
 
 
 _DEFAULT_SCOPES = ('https://www.googleapis.com/auth/cloud-platform',)
@@ -132,7 +134,7 @@ class GoogleCloudBaseHook(BaseHook, LoggingMixin):
         service hook connection.
         """
         credentials = self._get_credentials()
-        http = httplib2.Http()
+        http = set_user_agent(httplib2.Http(), 'airflow-{}'.format(version))
         authed_http = google_auth_httplib2.AuthorizedHttp(
             credentials, http=http)
         return authed_http
