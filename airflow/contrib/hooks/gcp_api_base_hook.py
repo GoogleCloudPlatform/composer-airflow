@@ -21,7 +21,6 @@ import json
 import functools
 
 import httplib2
-from googleapiclient.http import set_user_agent
 import google.auth
 import google_auth_httplib2
 import google.oauth2.service_account
@@ -128,13 +127,39 @@ class GoogleCloudBaseHook(BaseHook, LoggingMixin):
         """
         return self._get_credentials().token
 
+    def _set_user_agent(self, http, user_agent):
+        """
+        Set the user-agent on every request.
+        """
+        request_orig = http.request
+
+        # The closure that will replace 'httplib2.Http.request'.
+        def new_request(uri, method='GET', body=None, headers=None,
+                        redirections=httplib2.DEFAULT_MAX_REDIRECTS,
+                        connection_type=None):
+            """Modify the request headers to add the user-agent."""
+            new_headers = {}
+            if headers is not None:
+                new_headers = headers.copy()
+            if 'user-agent' in new_headers:
+                new_headers['user-agent'] = user_agent + ' ' + new_headers['user-agent']
+            else:
+                new_headers['user-agent'] = user_agent
+            resp, content = request_orig(uri, method, body, new_headers,
+                                redirections, connection_type)
+            return resp, content
+
+        http.request = new_request
+        return http
+
+
     def _authorize(self):
         """
         Returns an authorized HTTP object to be used to build a Google cloud
         service hook connection.
         """
         credentials = self._get_credentials()
-        http = set_user_agent(httplib2.Http(), 'airflow-{}'.format(version))
+        http = self._set_user_agent(httplib2.Http(), 'airflow-{}'.format(version))
         authed_http = google_auth_httplib2.AuthorizedHttp(
             credentials, http=http)
         return authed_http
