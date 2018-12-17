@@ -889,7 +889,7 @@ class Airflow(AirflowViewMixin, BaseView):
             return response
 
         logger = logging.getLogger('airflow.task')
-        task_log_reader = conf.get('core', 'task_log_reader')
+        task_log_reader = 'task'
         handler = next((handler for handler in logger.handlers
                         if handler.name == task_log_reader), None)
 
@@ -1166,7 +1166,8 @@ class Airflow(AirflowViewMixin, BaseView):
         if not valid_celery_config and not valid_kubernetes_config:
             flash("Only works with the Celery or Kubernetes executors, sorry", "error")
             return redirect(origin)
-
+        flash("The Run operation is currently not supported in Composer, but you can clear the task instance which will be executed automatically.")
+        return redirect(origin)
         ti = models.TaskInstance(task=task, execution_date=execution_date)
         ti.refresh_from_db()
 

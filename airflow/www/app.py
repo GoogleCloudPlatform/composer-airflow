@@ -18,6 +18,10 @@
 # under the License.
 #
 from typing import Any
+import json
+import logging
+import os
+import six
 
 import six
 from flask import Flask
@@ -42,6 +46,16 @@ from airflow.utils.net import get_hostname
 
 csrf = CSRFProtect()
 
+try:
+    with open('/home/airflow/gcs/env_var.json', 'r') as env_var_json:
+        os.environ.update(json.load(env_var_json))
+except:
+    logging.warning('Using default Composer Environment Variables. Overrides '
+                    'have not been applied.')
+if not configuration.getboolean('core', 'unit_test_mode'):
+    airflow.plugins_manager = six.moves.reload_module(airflow.plugins_manager)
+    airflow.configuration = six.moves.reload_module(airflow.configuration)
+    airflow = six.moves.reload_module(airflow)
 
 def create_app(config=None, testing=False):
     app = Flask(__name__)
@@ -59,8 +73,8 @@ def create_app(config=None, testing=False):
         'webserver', 'AUTHENTICATE')
 
     app.config['SESSION_COOKIE_HTTPONLY'] = True
-    app.config['SESSION_COOKIE_SECURE'] = conf.getboolean('webserver', 'COOKIE_SECURE')
-    app.config['SESSION_COOKIE_SAMESITE'] = conf.get('webserver', 'COOKIE_SAMESITE')
+    app.config['SESSION_COOKIE_SECURE'] = configuration.conf.getboolean('webserver', 'COOKIE_SECURE')
+    app.config['SESSION_COOKIE_SAMESITE'] = configuration.conf.get('webserver', 'COOKIE_SAMESITE')
 
     if config:
         app.config.from_mapping(config)
@@ -68,6 +82,10 @@ def create_app(config=None, testing=False):
     csrf.init_app(app)
 
     app.config['TESTING'] = testing
+    try:
+        app.config['WEB_SERVER_NAME'] = configuration.get('webserver', 'WEB_SERVER_NAME')
+    except:
+        app.config['WEB_SERVER_NAME'] = ''
 
     airflow.load_login()
     airflow.login.LOGIN_MANAGER.init_app(app)
@@ -96,7 +114,7 @@ def create_app(config=None, testing=False):
         vs = views
         av(vs.Airflow(name='DAGs', category='DAGs'))
 
-        if not conf.getboolean('core', 'secure_mode'):
+        if not configuration.conf.getboolean('core', 'secure_mode'):
             av(vs.QueryView(name='Ad Hoc Query', category="Data Profiling"))
             av(vs.ChartModelView(
                 models.Chart, Session, name="Charts", category="Data Profiling"))
