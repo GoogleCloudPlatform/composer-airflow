@@ -19,7 +19,7 @@
 #
 import importlib
 import socket
-from airflow.configuration import (conf, AirflowConfigException)
+import airflow.configuration
 
 
 def get_host_ip_address():
@@ -33,8 +33,8 @@ def get_hostname():
     """
     # First we attempt to fetch the callable path from the config.
     try:
-        callable_path = conf.get('core', 'hostname_callable')
-    except AirflowConfigException:
+        callable_path = airflow.configuration.conf.get('core', 'hostname_callable')
+    except airflow.configuration.AirflowConfigException:
         callable_path = None
 
     # Then we handle the case when the config is missing or empty. This is the
