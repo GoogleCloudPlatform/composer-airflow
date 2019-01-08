@@ -25,7 +25,9 @@ from flask_wtf.csrf import CSRFProtect
 csrf = CSRFProtect()
 
 import airflow
+airflow.configuration = six.moves.reload_module(airflow.configuration)
 from airflow import models, LoggingMixin
+airflow.models = six.moves.reload_module(airflow.models)
 from airflow.settings import Session
 
 from airflow.www.blueprints import routes
@@ -41,9 +43,9 @@ try:
 except:
     logging.warning('Using default Composer Environment Variables. Overrides '
                     'have not been applied.')
-configuration = six.moves.reload_module(configuration)
 airflow.plugins_manager = six.moves.reload_module(airflow.plugins_manager)
 airflow = six.moves.reload_module(airflow)
+
 def create_app(config=None, testing=False):
     app = Flask(__name__)
     app.secret_key = configuration.get('webserver', 'SECRET_KEY')
