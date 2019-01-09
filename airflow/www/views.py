@@ -175,12 +175,14 @@ def label_link(v, c, m, p):
     url = url_for(
         'airflow.chart', chart_id=m.id, iteration_no=m.iteration_no,
         **default_params)
-    return Markup("<a href='{url}'>{m.label}</a>".format(**locals()))
+    title = escape(m.label)
+    return Markup("<a href='{url}'>{title}</a>".format(**locals()))
 
 
 def pool_link(v, c, m, p):
-    url = '/admin/taskinstance/?flt1_pool_equals=' + m.pool
-    return Markup("<a href='{url}'>{m.pool}</a>".format(**locals()))
+    title = escape(m.pool)
+    url = url_for('taskinstance.index_view', flt1_pool_equals=m.pool)
+    return Markup("<a href='{url}'>{title}</a>".format(**locals()))
 
 
 def pygment_html_render(s, lexer=lexers.TextLexer):
@@ -241,18 +243,14 @@ def data_profiling_required(f):
 
 
 def fused_slots(v, c, m, p):
-    url = (
-        '/admin/taskinstance/' +
-        '?flt1_pool_equals=' + m.pool +
-        '&flt2_state_equals=running')
+    url = url_for('taskinstance.index_view', flt1_pool_equals=m.pool,
+                  flt2_state_equals='running')
     return Markup("<a href='{0}'>{1}</a>".format(url, m.used_slots()))
 
 
 def fqueued_slots(v, c, m, p):
-    url = (
-        '/admin/taskinstance/' +
-        '?flt1_pool_equals=' + m.pool +
-        '&flt2_state_equals=queued&sort=10&desc=1')
+    url = url_for('taskinstance.index_view', flt1_pool_equals=m.pool,
+                  flt2_state_equals='queued', sort=10, desc=1)
     return Markup("<a href='{0}'>{1}</a>".format(url, m.queued_slots()))
 
 
