@@ -19,10 +19,20 @@ from googleapiclient.http import set_user_agent
 from oauth2client.client import GoogleCredentials
 from oauth2client.service_account import ServiceAccountCredentials
 
+import os
+import tempfile
+
 from airflow.exceptions import AirflowException
 from airflow.hooks.base_hook import BaseHook
 from airflow.utils.log.logging_mixin import LoggingMixin
 from airflow.version import version
+
+
+_DEFAULT_SCOPES = ('https://www.googleapis.com/auth/cloud-platform',)
+# The name of the environment variable that Google Authentication library uses
+# to get service account key location. Read more:
+# https://cloud.google.com/docs/authentication/getting-started#setting_the_environment_variable
+_G_APP_CRED_ENV_VAR = "GOOGLE_APPLICATION_CREDENTIALS"
 
 
 class GoogleCloudBaseHook(BaseHook, LoggingMixin):
@@ -139,3 +149,31 @@ class GoogleCloudBaseHook(BaseHook, LoggingMixin):
     @property
     def project_id(self):
         return self._get_field('project')
+
+    class _Decorators(object):
+        """A private inner class for keeping all decorator methods."""
+
+        @staticmethod
+        def provide_gcp_credential_file(func):
+            """
+            Function decorator that provides a GOOGLE_APPLICATION_CREDENTIALS
+            environment variable, pointing to file path of a JSON file of service
+            account key.
+            """
+            @functools.wraps(func)
+            def wrapper(self, *args, **kwargs):
+                with tempfile.NamedTemporaryFile(mode='w+t') as conf_file:
+                    key_path = self._get_field('key_path', False)
+                    keyfile_dict = self._get_field('keyfile_dict', False)
+                    if key_path:
+                        if key_path.endswith('.p12'):
+                            raise AirflowException(
+                                'Legacy P12 key file are not supported, '
+                                'use a JSON key file.')
+                        os.environ[_G_APP_CRED_ENV_VAR] = key_path
+                    elif keyfile_dict:
+                        conf_file.write(keyfile_dict)
+                        conf_file.flush()
+                        os.environ[_G_APP_CRED_ENV_VAR] = conf_file.name
+                    return func(self, *args, **kwargs)
+            return wrapper
