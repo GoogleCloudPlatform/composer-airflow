@@ -64,9 +64,9 @@ DEFAULT_LOGGING_CONFIG = {
     },
     'handlers': {
         'console': {
-            'class': 'airflow.utils.log.logging_mixin.RedirectStdHandler',
+            'class': 'logging.StreamHandler',
             'formatter': 'airflow',
-            'stream': 'sys.stdout'
+            'stream': 'ext://sys.stdout'
         },
         'task': {
             'class': 'airflow.utils.log.file_task_handler.FileTaskHandler',
@@ -85,12 +85,12 @@ DEFAULT_LOGGING_CONFIG = {
         'airflow.processor': {
             'handlers': ['processor'],
             'level': LOG_LEVEL,
-            'propagate': False,
+            'propagate': True,
         },
         'airflow.task': {
             'handlers': ['task'],
             'level': LOG_LEVEL,
-            'propagate': False,
+            'propagate': True,
         },
         'flask_appbuilder': {
             'handler': ['console'],
@@ -174,8 +174,8 @@ REMOTE_LOGGING = conf.get('core', 'remote_logging')
 
 if REMOTE_LOGGING and REMOTE_BASE_LOG_FOLDER.startswith('s3://'):
         DEFAULT_LOGGING_CONFIG['handlers'].update(REMOTE_HANDLERS['s3'])
-elif REMOTE_LOGGING and REMOTE_BASE_LOG_FOLDER.startswith('gs://'):
-        DEFAULT_LOGGING_CONFIG['handlers'].update(REMOTE_HANDLERS['gcs'])
+# elif REMOTE_LOGGING and REMOTE_BASE_LOG_FOLDER.startswith('gs://'):
+#         DEFAULT_LOGGING_CONFIG['handlers'].update(REMOTE_HANDLERS['gcs'])
 elif REMOTE_LOGGING and REMOTE_BASE_LOG_FOLDER.startswith('wasb'):
         DEFAULT_LOGGING_CONFIG['handlers'].update(REMOTE_HANDLERS['wasb'])
 elif REMOTE_LOGGING and ELASTICSEARCH_HOST:

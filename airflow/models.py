@@ -2490,7 +2490,7 @@ class BaseOperator(LoggingMixin):
         if dag:
             self.dag = dag
 
-        self._log = logging.getLogger("airflow.task.operators")
+        # self._log = logging.getLogger("airflow.task.operators")
 
         # lineage
         self.inlets = []
@@ -2736,26 +2736,26 @@ class BaseOperator(LoggingMixin):
 
         for k, v in list(self.__dict__.items()):
             if k not in ('user_defined_macros', 'user_defined_filters',
-                         'params', '_log'):
+                         'params'):
                 setattr(result, k, copy.deepcopy(v, memo))
         result.params = self.params
         if hasattr(self, 'user_defined_macros'):
             result.user_defined_macros = self.user_defined_macros
         if hasattr(self, 'user_defined_filters'):
             result.user_defined_filters = self.user_defined_filters
-        if hasattr(self, '_log'):
-            result._log = self._log
+        # if hasattr(self, '_log'):
+        #     result._log = self._log
         return result
 
-    def __getstate__(self):
-        state = dict(self.__dict__)
-        del state['_log']
+    # def __getstate__(self):
+    #     state = dict(self.__dict__)
+    #     # del state['_log']
 
-        return state
+    #     return state
 
-    def __setstate__(self, state):
-        self.__dict__ = state
-        self._log = logging.getLogger("airflow.task.operators")
+    # def __setstate__(self, state):
+    #     self.__dict__ = state
+        # self._log = logging.getLogger("airflow.task.operators")
 
     def render_template_from_field(self, attr, content, context, jinja_env):
         """

@@ -20,7 +20,7 @@
 import psutil
 
 from airflow.task.task_runner.base_task_runner import BaseTaskRunner
-from airflow.utils.helpers import reap_process_group
+from airflow.utils.helpers import kill_process_tree
 
 
 class BashTaskRunner(BaseTaskRunner):
@@ -38,7 +38,7 @@ class BashTaskRunner(BaseTaskRunner):
 
     def terminate(self):
         if self.process and psutil.pid_exists(self.process.pid):
-            reap_process_group(self.process.pid, self.log)
+            kill_process_tree(self.log, self.process.pid)
 
     def on_finish(self):
         super(BashTaskRunner, self).on_finish()
