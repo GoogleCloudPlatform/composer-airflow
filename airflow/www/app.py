@@ -27,7 +27,6 @@ csrf = CSRFProtect()
 import airflow
 airflow.configuration = six.moves.reload_module(airflow.configuration)
 from airflow import models, LoggingMixin
-airflow.models = six.moves.reload_module(airflow.models)
 from airflow.settings import Session
 
 from airflow.www.blueprints import routes
