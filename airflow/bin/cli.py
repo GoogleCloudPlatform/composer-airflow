@@ -970,7 +970,6 @@ def worker(args):
         'queues': args.queues,
         'concurrency': args.concurrency,
         'hostname': args.celery_hostname,
-        'loglevel': conf.get('core', 'LOGGING_LEVEL'),
     }
 
     if args.daemon:
