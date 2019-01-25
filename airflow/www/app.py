@@ -52,7 +52,6 @@ except:
                     'have not been applied.')
 configuration = six.moves.reload_module(configuration)
 airflow.configuration = six.moves.reload_module(airflow.configuration)
-airflow.models = six.moves.reload_module(airflow.models)
 airflow.plugins_manager = six.moves.reload_module(airflow.plugins_manager)
 airflow = six.moves.reload_module(airflow)
 
