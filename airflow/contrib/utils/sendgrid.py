@@ -93,7 +93,6 @@ def send_email(to, subject, html_content, files=None, dryrun=False, cc=None,
     # Add email attachment.
     for fname in files:
         basename = os.path.basename(fname)
-
         attachment = Attachment()
         with open(fname, "rb") as f:
             attachment.content = base64.b64encode(f.read()).decode('utf-8')
