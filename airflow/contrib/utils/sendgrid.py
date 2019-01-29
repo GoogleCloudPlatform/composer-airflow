@@ -93,9 +93,15 @@ def send_email(to, subject, html_content, files=None, dryrun=False, cc=None,
     # Add email attachment.
     for fname in files:
         basename = os.path.basename(fname)
+
         attachment = Attachment()
+        attachment.type = mimetypes.guess_type(basename)[0]
+        attachment.filename = basename
+        attachment.disposition = "attachment"
+        attachment.content_id = '<{0}>'.format(basename)
+
         with open(fname, "rb") as f:
-            attachment.content = base64.b64encode(f.read()).decode('utf-8')
+            attachment.content = str(base64.b64encode(f.read()), 'utf-8')
             attachment.type = mimetypes.guess_type(basename)[0]
             attachment.filename = basename
             attachment.disposition = "attachment"
