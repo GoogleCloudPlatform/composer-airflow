@@ -185,7 +185,8 @@ class DataFlowHook(GoogleCloudBaseHook):
         return build('dataflow', 'v1b3', http=http_authorized)
 
     @GoogleCloudBaseHook._Decorators.provide_gcp_credential_file
-    def _start_dataflow(self, variables, name, command_prefix, label_formatter):
+    def _start_dataflow(self, task_id, variables, name,
+                        command_prefix, label_formatter):
         variables = self._set_variables(variables)
         cmd = command_prefix + self._build_cmd(task_id, variables,
                                                label_formatter)
