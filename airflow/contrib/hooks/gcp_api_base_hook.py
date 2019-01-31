@@ -13,6 +13,7 @@
 # limitations under the License.
 #
 import json
+import functools
 
 import httplib2
 from googleapiclient.http import set_user_agent
