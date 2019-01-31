@@ -18,6 +18,7 @@
 # under the License.
 #
 import json
+import functools
 
 import httplib2
 import google.auth
