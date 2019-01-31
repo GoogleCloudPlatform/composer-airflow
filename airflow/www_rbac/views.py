@@ -38,7 +38,7 @@ from sqlalchemy import or_, desc, and_, union_all
 
 from flask import (
     g, redirect, request, Markup, Response, render_template,
-    make_response, flash, jsonify)
+    make_response, flash, jsonify, escape)
 from flask._compat import PY2
 
 from flask_appbuilder import BaseView, ModelView, expose, has_access
@@ -1766,6 +1766,7 @@ class PoolModelView(AirflowModelView):
         pool_id = attr.get('pool')
         if pool_id is not None:
             url = '/taskinstance/list/?_flt_3_pool=' + str(pool_id)
+            pool_id = escape(pool_id)
             return Markup("<a href='{url}'>{pool_id}</a>".format(**locals()))
         else:
             return Markup('<span class="label label-danger">Invalid</span>')

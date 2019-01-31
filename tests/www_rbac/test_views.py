@@ -240,6 +240,14 @@ class TestPoolModelView(TestBase):
                                 follow_redirects=True)
         self.check_content_in_response('This field is required.', resp)
 
+    def test_odd_name(self):
+        self.pool['pool'] = 'test-pool<script></script>'
+        self.session.add(models.Pool(**self.pool))
+        self.session.commit()
+        resp = self.client.get('/pool/list/')
+        self.check_content_in_response('test-pool&lt;script&gt;', resp)
+        self.check_content_not_in_response('test-pool<script>', resp)
+
 
 class TestMountPoint(unittest.TestCase):
     def setUp(self):
