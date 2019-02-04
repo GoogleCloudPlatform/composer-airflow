@@ -3206,14 +3206,13 @@ class DAG(BaseDag, LoggingMixin):
             user_defined_macros=None,
             user_defined_filters=None,
             default_args=None,
-            concurrency=configuration.conf.getint('core', 'dag_concurrency'),
-            max_active_runs=configuration.conf.getint(
-                'core', 'max_active_runs_per_dag'),
+            concurrency=None,
+            max_active_runs=None,
             dagrun_timeout=None,
             sla_miss_callback=None,
-            default_view=configuration.conf.get('webserver', 'dag_default_view').lower(),
-            orientation=configuration.conf.get('webserver', 'dag_orientation'),
-            catchup=configuration.conf.getboolean('scheduler', 'catchup_by_default'),
+            default_view=None,
+            orientation=None,
+            catchup=None,
             on_success_callback=None, on_failure_callback=None,
             params=None):
 
@@ -3232,7 +3231,7 @@ class DAG(BaseDag, LoggingMixin):
         # Properties from BaseDag
         self._dag_id = dag_id
         self._full_filepath = full_filepath if full_filepath else ''
-        self._concurrency = concurrency
+        self._concurrency = concurrency or configuration.conf.getint('core', 'dag_concurrency'),
         self._pickle_id = None
 
         self._description = description
@@ -3279,12 +3278,13 @@ class DAG(BaseDag, LoggingMixin):
         self.parent_dag = None  # Gets set when DAGs are loaded
         self.last_loaded = timezone.utcnow()
         self.safe_dag_id = dag_id.replace('.', '__dot__')
-        self.max_active_runs = max_active_runs
+        self.max_active_runs = max_active_runs or configuration.conf.getint(
+            'core', 'max_active_runs_per_dag')
         self.dagrun_timeout = dagrun_timeout
         self.sla_miss_callback = sla_miss_callback
-        self.default_view = default_view
-        self.orientation = orientation
-        self.catchup = catchup
+        self.default_view = default_view or configuration.conf.get('webserver', 'dag_default_view').lower()
+        self.orientation = orientation or configuration.conf.get('webserver', 'dag_orientation')
+        self.catchup = catchup or configuration.conf.getboolean('scheduler', 'catchup_by_default')
         self.is_subdag = False  # DagBag.bag_dag() will set this to True if appropriate
 
         self.partial = False
