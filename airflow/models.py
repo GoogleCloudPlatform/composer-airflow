@@ -3231,7 +3231,7 @@ class DAG(BaseDag, LoggingMixin):
         # Properties from BaseDag
         self._dag_id = dag_id
         self._full_filepath = full_filepath if full_filepath else ''
-        self._concurrency = concurrency or configuration.conf.getint('core', 'dag_concurrency'),
+        self._concurrency = concurrency or configuration.conf.getint('core', 'dag_concurrency')
         self._pickle_id = None
 
         self._description = description
