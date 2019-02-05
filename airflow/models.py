@@ -4406,7 +4406,7 @@ class DagRun(Base, LoggingMixin):
     def set_state(self, state):
         if self._state != state:
             self._state = state
-            self.end_date = timezone.utcnow() if self._state in State.finished() else None
+            self.end_date = func.now() if self._state in State.finished() else None
 
             if self.dag_id is not None:
                 # something really weird goes on here: if you try to close the session
