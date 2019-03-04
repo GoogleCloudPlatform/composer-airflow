@@ -2899,7 +2899,9 @@ class DAG(BaseDag, LoggingMixin):
         # Properties from BaseDag
         self._dag_id = dag_id
         self._full_filepath = full_filepath if full_filepath else ''
-        self._concurrency = concurrency or configuration.getint('core', 'dag_concurrency')
+        self._concurrency = (configuration.getint('core', 'dag_concurrency')
+                             if concurrency is None
+                             else concurrency)
         self._pickle_id = None
 
         self._description = description
@@ -2921,13 +2923,20 @@ class DAG(BaseDag, LoggingMixin):
         self.parent_dag = None  # Gets set when DAGs are loaded
         self.last_loaded = datetime.utcnow()
         self.safe_dag_id = dag_id.replace('.', '__dot__')
-        self.max_active_runs =  max_active_runs or configuration.getint(
-            'core', 'max_active_runs_per_dag')
+        self.max_active_runs =  (configuration.getint('core', 'max_active_runs_per_dag')
+                                 if max_active_runs is None
+                                 else max_active_runs)
         self.dagrun_timeout = dagrun_timeout
         self.sla_miss_callback = sla_miss_callback
-        self.default_view = default_view or configuration.get('webserver', 'dag_default_view').lower()
-        self.orientation = orientation or configuration.get('webserver', 'dag_orientation')
-        self.catchup = catchup or configuration.getboolean('scheduler', 'catchup_by_default')
+        self.default_view = (configuration.get('webserver', 'dag_default_view').lower()
+                             if default_view is None
+                             else default_view )
+        self.orientation = (configuration.get('webserver', 'dag_orientation')
+                            if orientation is None
+                            else orientation)
+        self.catchup = (configuration.getboolean('scheduler', 'catchup_by_default')
+                        if catchup is None
+                        else catchup)
         self.is_subdag = False  # DagBag.bag_dag() will set this to True if appropriate
 
         self.partial = False
