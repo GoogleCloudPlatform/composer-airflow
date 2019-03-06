@@ -2168,115 +2168,119 @@ class BackfillJob(BaseJob):
             # or leaf to root, as otherwise tasks might be
             # determined deadlocked while they are actually
             # waiting for their upstream to finish
+            @provide_session
+            def _per_task_process(task, key, ti, session=None):
+                if task.task_id != ti.task_id:
+                    return
+
+                ti.refresh_from_db()
+
+                task = self.dag.get_task(ti.task_id)
+                ti.task = task
+
+                ignore_depends_on_past = (
+                    self.ignore_first_depends_on_past and
+                    ti.execution_date == (start_date or ti.start_date))
+                self.log.debug("Task instance to run %s state %s", ti, ti.state)
+
+                # guard against externally modified tasks instances or
+                # in case max concurrency has been reached at task runtime
+                if ti.state == State.NONE:
+                    self.log.warning(
+                        "FIXME: task instance {} state was set to None externally. This should not happen"
+                    )
+                    ti.set_state(State.SCHEDULED, session=session)
+
+                # The task was already marked successful or skipped by a
+                # different Job. Don't rerun it.
+                if ti.state == State.SUCCESS:
+                    ti_status.succeeded.add(key)
+                    self.log.debug("Task instance %s succeeded. Don't rerun.", ti)
+                    ti_status.to_run.pop(key)
+                    if key in ti_status.started:
+                        ti_status.started.pop(key)
+                    return
+                elif ti.state == State.SKIPPED:
+                    ti_status.skipped.add(key)
+                    self.log.debug("Task instance %s skipped. Don't rerun.", ti)
+                    ti_status.to_run.pop(key)
+                    if key in ti_status.started:
+                        ti_status.started.pop(key)
+                    return
+                elif ti.state == State.FAILED:
+                    self.log.error("Task instance %s failed", ti)
+                    ti_status.failed.add(key)
+                    ti_status.to_run.pop(key)
+                    if key in ti_status.started:
+                        ti_status.started.pop(key)
+                    return
+                elif ti.state == State.UPSTREAM_FAILED:
+                    self.log.error("Task instance %s upstream failed", ti)
+                    ti_status.failed.add(key)
+                    ti_status.to_run.pop(key)
+                    if key in ti_status.started:
+                        ti_status.started.pop(key)
+                    return
+
+                backfill_context = DepContext(
+                    deps=RUN_DEPS,
+                    ignore_depends_on_past=ignore_depends_on_past,
+                    ignore_task_deps=self.ignore_task_deps,
+                    flag_upstream_failed=True)
+
+                # Is the task runnable? -- then run it
+                # the dependency checker can change states of tis
+                if ti.are_dependencies_met(
+                        dep_context=backfill_context,
+                        session=session,
+                        verbose=True):
+                    ti.refresh_from_db(lock_for_update=True, session=session)
+                    if ti.state == State.SCHEDULED or ti.state == State.UP_FOR_RETRY:
+                        if executor.has_task(ti):
+                            self.log.debug(
+                                "Task Instance %s already in executor waiting for queue to clear",
+                                ti
+                            )
+                        else:
+                            self.log.debug('Sending %s to executor', ti)
+                            # Skip scheduled state, we are executing immediately
+                            ti.state = State.QUEUED
+                            session.merge(ti)
+                            executor.queue_task_instance(
+                                ti,
+                                mark_success=self.mark_success,
+                                pickle_id=pickle_id,
+                                ignore_task_deps=self.ignore_task_deps,
+                                ignore_depends_on_past=ignore_depends_on_past,
+                                pool=self.pool)
+                            ti_status.started[key] = ti
+                            ti_status.to_run.pop(key)
+                    session.commit()
+                    return
+
+                if ti.state == State.UPSTREAM_FAILED:
+                    self.log.error("Task instance %s upstream failed", ti)
+                    ti_status.failed.add(key)
+                    ti_status.to_run.pop(key)
+                    if key in ti_status.started:
+                        ti_status.started.pop(key)
+                    return
+
+                # special case
+                if ti.state == State.UP_FOR_RETRY:
+                    self.log.debug("Task instance %s retry period not expired yet", ti)
+                    if key in ti_status.started:
+                        ti_status.started.pop(key)
+                    ti_status.to_run[key] = ti
+                    return
+
+                # all remaining tasks
+                self.log.debug('Adding %s to not_ready', ti)
+                ti_status.not_ready.add(key)
+
             for task in self.dag.topological_sort():
                 for key, ti in list(ti_status.to_run.items()):
-                    if task.task_id != ti.task_id:
-                        continue
-
-                    ti.refresh_from_db()
-
-                    task = self.dag.get_task(ti.task_id)
-                    ti.task = task
-
-                    ignore_depends_on_past = (
-                        self.ignore_first_depends_on_past and
-                        ti.execution_date == (start_date or ti.start_date))
-                    self.log.debug("Task instance to run %s state %s", ti, ti.state)
-
-                    # guard against externally modified tasks instances or
-                    # in case max concurrency has been reached at task runtime
-                    if ti.state == State.NONE:
-                        self.log.warning(
-                            "FIXME: task instance {} state was set to None externally. This should not happen"
-                        )
-                        ti.set_state(State.SCHEDULED, session=session)
-
-                    # The task was already marked successful or skipped by a
-                    # different Job. Don't rerun it.
-                    if ti.state == State.SUCCESS:
-                        ti_status.succeeded.add(key)
-                        self.log.debug("Task instance %s succeeded. Don't rerun.", ti)
-                        ti_status.to_run.pop(key)
-                        if key in ti_status.started:
-                            ti_status.started.pop(key)
-                        continue
-                    elif ti.state == State.SKIPPED:
-                        ti_status.skipped.add(key)
-                        self.log.debug("Task instance %s skipped. Don't rerun.", ti)
-                        ti_status.to_run.pop(key)
-                        if key in ti_status.started:
-                            ti_status.started.pop(key)
-                        continue
-                    elif ti.state == State.FAILED:
-                        self.log.error("Task instance %s failed", ti)
-                        ti_status.failed.add(key)
-                        ti_status.to_run.pop(key)
-                        if key in ti_status.started:
-                            ti_status.started.pop(key)
-                        continue
-                    elif ti.state == State.UPSTREAM_FAILED:
-                        self.log.error("Task instance %s upstream failed", ti)
-                        ti_status.failed.add(key)
-                        ti_status.to_run.pop(key)
-                        if key in ti_status.started:
-                            ti_status.started.pop(key)
-                        continue
-
-                    backfill_context = DepContext(
-                        deps=RUN_DEPS,
-                        ignore_depends_on_past=ignore_depends_on_past,
-                        ignore_task_deps=self.ignore_task_deps,
-                        flag_upstream_failed=True)
-
-                    # Is the task runnable? -- then run it
-                    # the dependency checker can change states of tis
-                    if ti.are_dependencies_met(
-                            dep_context=backfill_context,
-                            session=session,
-                            verbose=True):
-                        ti.refresh_from_db(lock_for_update=True, session=session)
-                        if ti.state == State.SCHEDULED or ti.state == State.UP_FOR_RETRY:
-                            if executor.has_task(ti):
-                                self.log.debug(
-                                    "Task Instance %s already in executor waiting for queue to clear",
-                                    ti
-                                )
-                            else:
-                                self.log.debug('Sending %s to executor', ti)
-                                # Skip scheduled state, we are executing immediately
-                                ti.state = State.QUEUED
-                                session.merge(ti)
-                                executor.queue_task_instance(
-                                    ti,
-                                    mark_success=self.mark_success,
-                                    pickle_id=pickle_id,
-                                    ignore_task_deps=self.ignore_task_deps,
-                                    ignore_depends_on_past=ignore_depends_on_past,
-                                    pool=self.pool)
-                                ti_status.started[key] = ti
-                                ti_status.to_run.pop(key)
-                        session.commit()
-                        continue
-
-                    if ti.state == State.UPSTREAM_FAILED:
-                        self.log.error("Task instance %s upstream failed", ti)
-                        ti_status.failed.add(key)
-                        ti_status.to_run.pop(key)
-                        if key in ti_status.started:
-                            ti_status.started.pop(key)
-                        continue
-
-                    # special case
-                    if ti.state == State.UP_FOR_RETRY:
-                        self.log.debug("Task instance %s retry period not expired yet", ti)
-                        if key in ti_status.started:
-                            ti_status.started.pop(key)
-                        ti_status.to_run[key] = ti
-                        continue
-
-                    # all remaining tasks
-                    self.log.debug('Adding %s to not_ready', ti)
-                    ti_status.not_ready.add(key)
+                    _per_task_process(task, key, ti)
 
             # execute the tasks in the queue
             self.heartbeat()
