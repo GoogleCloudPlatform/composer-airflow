@@ -21,6 +21,7 @@ import unittest
 from datetime import datetime
 import sys
 
+import airflow
 from airflow import models, configuration, settings
 from airflow.config_templates.airflow_local_settings import DEFAULT_LOGGING_CONFIG
 from airflow.models import DAG, TaskInstance
@@ -376,6 +377,65 @@ class TestLogView(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn('<pre id="attempt-1">*** Reading local log.\nLog for testing.\n</pre>',
                       response.data.decode('utf-8'))
+
+
+class HelpersTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.app = application.create_app(testing=True)
+
+        airflow.load_login()
+        # Delay this import until here
+        import airflow.www.views as views
+        cls.views = views
+
+    def test_state_token(self):
+        # It's shouldn't possible to set these odd values anymore, but lets
+        # ensure they are escaped!
+        html = str(self.views.state_token('<script>alert(1)</script>'))
+
+        self.assertIn(
+            '&lt;script&gt;alert(1)&lt;/script&gt;',
+            html,
+        )
+        self.assertNotIn(
+            '<script>alert(1)</script>',
+            html,
+        )
+
+    def test_task_instance_link(self):
+        mock_task = mock.Mock(dag_id='<a&1>', task_id='<b2>', execution_date=datetime(2017, 10, 12))
+        with self.app.test_request_context():
+            html = str(self.views.task_instance_link(
+                v=None, c=None, m=mock_task, p=None
+            ))
+
+        self.assertIn('%3Ca%261%3E', html)
+        self.assertIn('%3Cb2%3E', html)
+        self.assertNotIn('<a&1>', html)
+        self.assertNotIn('<b2>', html)
+
+    def test_dag_link(self):
+        mock_dag = mock.Mock(dag_id='<a&1>', execution_date=datetime(2017, 10, 12))
+        with self.app.test_request_context():
+            html = str(self.views.dag_link(
+                v=None, c=None, m=mock_dag, p=None
+            ))
+
+        self.assertIn('%3Ca%261%3E', html)
+        self.assertNotIn('<a&1>', html)
+
+    def test_dag_run_link(self):
+        mock_run = mock.Mock(dag_id='<a&1>', run_id='<b2>', execution_date=datetime(2017, 10, 12))
+        with self.app.test_request_context():
+            html = str(self.views.dag_run_link(
+                v=None, c=None, m=mock_run, p=None
+            ))
+
+        self.assertIn('%3Ca%261%3E', html)
+        self.assertIn('%3Cb2%3E', html)
+        self.assertNotIn('<a&1>', html)
+        self.assertNotIn('<b2>', html)
 
 
 if __name__ == '__main__':
