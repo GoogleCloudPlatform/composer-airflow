@@ -1780,6 +1780,16 @@ class TaskInstance(Base, LoggingMixin):
     def set_duration(self):
         if self.end_date and self.start_date:
             self.duration = (self.end_date - self.start_date).total_seconds()
+            # TODO(zhoufang): should check that the state is in State.finished().
+            # However, the issue here is sometimes state is set after set_duration.
+            # The solution is to change state, set duration via one method
+            # at every place, and add a prober there.
+            Stats.incr(
+                'workflow.task.run_count.{:s}.{:s}.{:s}.{:s}'.format(
+                    self.dag_id, self.task_id, self.operator, self.state), 1)
+            Stats.gauge(
+                'workflow.task.run_duration.{:s}.{:s}.{:s}.{:s}'.format(
+                    self.dag_id, self.task_id, self.operator, self.state), self.duration)
         else:
             self.duration = None
 
@@ -4415,7 +4425,16 @@ class DagRun(Base, LoggingMixin):
     def set_state(self, state):
         if self._state != state:
             self._state = state
-            self.end_date = func.now() if self._state in State.finished() else None
+
+            if state in State.finished():
+                self.end_date = func.now()
+                Stats.incr(
+                    'workflow.run_count.{:s}.{:s}'.format(self.dag_id, state), 1)
+                Stats.gauge(
+                    'workflow.run_duration.{:s}.{:s}'.format(self.dag_id, state),
+                        (self.end_date-self.start_date).total_seconds())
+            else:
+                self.end_date = None
 
             if self.dag_id is not None:
                 # something really weird goes on here: if you try to close the session
