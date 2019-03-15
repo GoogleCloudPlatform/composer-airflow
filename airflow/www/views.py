@@ -70,7 +70,6 @@ from airflow.ti_deps.dep_context import DepContext, QUEUE_DEPS, SCHEDULER_DEPS
 from airflow.models import BaseOperator
 from airflow.operators.subdag_operator import SubDagOperator
 
-from airflow.utils.json import json_ser
 from airflow.utils.state import State
 from airflow.utils.db import provide_session
 from airflow.utils.helpers import alchemy_to_dict
@@ -1243,7 +1242,6 @@ class Airflow(BaseView):
                 for d in dates],
         }
 
-        data = json.dumps(data, indent=4, default=json_ser)
         session.commit()
         session.close()
 
@@ -1368,10 +1366,10 @@ class Airflow(BaseView):
             ),
             blur=blur,
             root=root or '',
-            task_instances=json.dumps(task_instances, indent=2),
-            tasks=json.dumps(tasks, indent=2),
-            nodes=json.dumps(nodes, indent=2),
-            edges=json.dumps(edges, indent=2), )
+            task_instances=task_instances,
+            tasks=tasks,
+            nodes=nodes,
+            edges=edges)
 
     @expose('/duration')
     @login_required
@@ -1729,7 +1727,7 @@ class Airflow(BaseView):
             dag=dag,
             execution_date=dttm.isoformat(),
             form=form,
-            data=json.dumps(data, indent=2),
+            data=data,
             base_date='',
             demo_mode=demo_mode,
             root=root,
