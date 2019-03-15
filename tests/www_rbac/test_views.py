@@ -1053,6 +1053,7 @@ class ViewWithDateTimeAndNumRunsAndDagRunsFormTester:
             run = dag.create_dagrun(
                 run_id=rd[0],
                 execution_date=rd[1],
+                start_date=timezone.utcnow(),
                 state=State.SUCCESS,
                 external_trigger=True
             )

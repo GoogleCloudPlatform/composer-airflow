@@ -52,6 +52,7 @@ from airflow.models.renderedtifields import RenderedTaskInstanceFields as RTIF
 from airflow.models.serialized_dag import SerializedDagModel
 from airflow.operators.dummy_operator import DummyOperator
 from airflow.settings import Session
+from airflow.utils import timezone
 from airflow.utils.timezone import datetime
 from airflow.www import app as application
 
@@ -585,7 +586,7 @@ class TestMountPoint(unittest.TestCase):
 
     def test_mount(self):
         # Test an endpoint that doesn't need auth!
-        resp = self.client.get('/test/health')
+        resp = self.client.get('/test/_ah/health')
         self.assertEqual(resp.status_code, 200)
         self.assertIn(b"healthy", resp.data)
 
@@ -622,6 +623,7 @@ class ViewWithDateTimeAndNumRunsAndDagRunsFormTester:
             run = dag.create_dagrun(
                 run_id=rd[0],
                 execution_date=rd[1],
+                start_date=timezone.utcnow(),
                 state=State.SUCCESS,
                 external_trigger=True
             )
