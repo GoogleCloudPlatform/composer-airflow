@@ -48,6 +48,7 @@ class TestSkipMixin(unittest.TestCase):
             tasks = [DummyOperator(task_id='task')]
         dag_run = dag.create_dagrun(
             run_id='manual__' + now.isoformat(),
+            start_date=DEFAULT_DATE,
             state=State.FAILED,
         )
         SkipMixin().skip(
