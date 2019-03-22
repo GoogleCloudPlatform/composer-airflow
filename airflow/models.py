@@ -4427,7 +4427,7 @@ class DagRun(Base, LoggingMixin):
             self._state = state
 
             if state in State.finished():
-                self.end_date = func.now()
+                self.end_date = datetime.utcnow()
                 Stats.incr(
                     'workflow.run_count.{:s}.{:s}'.format(self.dag_id, state), 1)
                 Stats.gauge(
