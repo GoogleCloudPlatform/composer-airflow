@@ -1785,10 +1785,10 @@ class TaskInstance(Base, LoggingMixin):
             # The solution is to change state, set duration via one method
             # at every place, and add a prober there.
             Stats.incr(
-                'workflow.task.run_count.{:s}.{:s}.{:s}.{:s}'.format(
+                'task.count.{:s}@-@{:s}@-@{:s}@-@{:s}'.format(
                     self.dag_id, self.task_id, self.operator, self.state), 1)
             Stats.gauge(
-                'workflow.task.run_duration.{:s}.{:s}.{:s}.{:s}'.format(
+                'task.duration.{:s}@-@{:s}@-@{:s}@-@{:s}'.format(
                     self.dag_id, self.task_id, self.operator, self.state), self.duration)
         else:
             self.duration = None
@@ -4429,9 +4429,9 @@ class DagRun(Base, LoggingMixin):
             if state in State.finished():
                 self.end_date = datetime.utcnow()
                 Stats.incr(
-                    'workflow.run_count.{:s}.{:s}'.format(self.dag_id, state), 1)
+                    'workflow.count.{:s}@-@{:s}'.format(self.dag_id, state), 1)
                 Stats.gauge(
-                    'workflow.run_duration.{:s}.{:s}'.format(self.dag_id, state),
+                    'workflow.duration.{:s}@-@{:s}'.format(self.dag_id, state),
                         (self.end_date-self.start_date).total_seconds())
             else:
                 self.end_date = None
