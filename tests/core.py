@@ -1766,43 +1766,60 @@ class WebUiTests(unittest.TestCase):
         response = self.app.get(
             '/admin/airflow/task_stats')
         self.assertIn("example_bash_operator", response.data.decode('utf-8'))
-        url = (
-            "/admin/airflow/success?task_id=run_this_last&"
-            "dag_id=test_example_bash_operator&upstream=false&downstream=false&"
-            "future=false&past=false&execution_date={}&"
-            "origin=/admin".format(DEFAULT_DATE_DS))
-        response = self.app.get(url)
+
+        response = self.app.post("/admin/airflow/success", data=dict(
+            task_id="run_this_last",
+            dag_id="example_bash_operator",
+            upstream="false",
+            downstream="false",
+            future="false",
+            past="false",
+            execution_date=DEFAULT_DATE_DS,
+            origin="/admin"))
         self.assertIn("Wait a minute", response.data.decode('utf-8'))
-        response = self.app.get(url + "&confirmed=true")
-        response = self.app.get(
-            '/admin/airflow/clear?task_id=run_this_last&'
-            'dag_id=test_example_bash_operator&future=true&past=false&'
-            'upstream=true&downstream=false&'
-            'execution_date={}&'
-            'origin=/admin'.format(DEFAULT_DATE_DS))
+
+        response = self.app.post('/admin/airflow/clear', data=dict(
+            task_id="run_this_last",
+            dag_id="example_bash_operator",
+            future="true",
+            past="false",
+            upstream="true",
+            downstream="false",
+            execution_date=DEFAULT_DATE_DS,
+            origin="/admin"))
         self.assertIn("Wait a minute", response.data.decode('utf-8'))
-        url = (
-            "/admin/airflow/success?task_id=section-1&"
-            "dag_id=example_subdag_operator&upstream=true&downstream=true&"
-            "future=false&past=false&execution_date={}&"
-            "origin=/admin".format(DEFAULT_DATE_DS))
-        response = self.app.get(url)
+
+        form = dict(
+            task_id="section-1",
+            dag_id="example_subdag_operator",
+            upstream="true",
+            downstream="true",
+            future="false",
+            past="false",
+            execution_date=DEFAULT_DATE_DS,
+            origin="/admin")
+        response = self.app.post("/admin/airflow/success", data=form)
         self.assertIn("Wait a minute", response.data.decode('utf-8'))
         self.assertIn("section-1-task-1", response.data.decode('utf-8'))
         self.assertIn("section-1-task-2", response.data.decode('utf-8'))
         self.assertIn("section-1-task-3", response.data.decode('utf-8'))
         self.assertIn("section-1-task-4", response.data.decode('utf-8'))
         self.assertIn("section-1-task-5", response.data.decode('utf-8'))
-        response = self.app.get(url + "&confirmed=true")
-        url = (
-            "/admin/airflow/clear?task_id=runme_1&"
-            "dag_id=test_example_bash_operator&future=false&past=false&"
-            "upstream=false&downstream=true&"
-            "execution_date={}&"
-            "origin=/admin".format(DEFAULT_DATE_DS))
-        response = self.app.get(url)
+        form["confirmed"] = "true"
+        response = self.app.post("/admin/airflow/success", data=form)
+        self.assertEqual(response.status_code, 302)
+
+        form = dict(
+            task_id="runme_1",
+            dag_id="test_example_bash_operator",
+            future="false",
+            past="false",
+            upstream="false",
+            downstream="true",
+            execution_date=DEFAULT_DATE_DS,
+            origin="/admin")
+        response = self.app.post("/admin/airflow/clear", data=form)
         self.assertIn("Wait a minute", response.data.decode('utf-8'))
-        response = self.app.get(url + "&confirmed=true")
         url = (
             "/admin/airflow/run?task_id=runme_0&"
             "dag_id=example_bash_operator&ignore_all_deps=false&ignore_ti_state=true&"

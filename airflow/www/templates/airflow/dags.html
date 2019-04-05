@@ -140,7 +140,7 @@
 
                 <!-- Trigger Dag -->
                 <a href="{{ url_for('airflow.trigger', dag_id=dag.dag_id) }}"
-                   onclick="return confirmTriggerDag('{{ dag.safe_dag_id }}')">
+                   onclick="return confirmTriggerDag(this, '{{ dag.safe_dag_id }}')">
                     <span class="glyphicon glyphicon-play-circle" aria-hidden="true" data-original-title="Trigger Dag"></span>
                 </a>
 
@@ -186,10 +186,9 @@
                 {% endif %}
 
                 <!-- Refresh -->
-                <a href="{{ url_for("airflow.refresh", dag_id=dag_id) }}">
+                <a href="{{ url_for("airflow.refresh", dag_id=dag.dag_id) }}" onclick="postAsForm(this.href); return false">
                   <span class="glyphicon glyphicon-refresh" aria-hidden="true" data-original-title="Refresh"></span>
                 </a>
-
                 </td>
             </tr>
         {% endfor %}
@@ -241,8 +240,12 @@
         window.location = DAGS_INDEX + "?page_size=" + p_size;
       });
 
-      function confirmTriggerDag(dag_id){
-          return confirm("Are you sure you want to run '"+dag_id+"' now?");
+      function confirmTriggerDag(link, dag_id){
+        if (confirm("Are you sure you want to run '"+dag_id+"' now?")) {
+          postAsForm(link.href, {});
+        }
+        // Never follow the link
+        return false;
       }
       all_dags = $("[id^=toggle]");
       $.each(all_dags, function(i,v) {
@@ -253,7 +256,7 @@
           } else {
             is_paused = 'false'
           }
-          url = 'airflow/paused?is_paused=' + is_paused + '&dag_id=' + dag_id;
+          url = {{ url_for('airflow.paused') | tojson }} + '?is_paused=' + is_paused + '&dag_id=' + encodeURIComponent(dag_id);
           $.post(url);
         });
       });
