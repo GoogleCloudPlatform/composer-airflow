@@ -977,22 +977,23 @@ class Airflow(BaseView):
             form=form,
             dag=dag, title=title)
 
-    @expose('/run')
+    @expose('/run', methods=['POST'])
     @login_required
     @wwwutils.action_logging
     @wwwutils.notify_owner
     def run(self):
-        dag_id = request.args.get('dag_id')
-        task_id = request.args.get('task_id')
-        origin = request.args.get('origin')
+        dag_id = request.form.get('dag_id')
+        task_id = request.form.get('task_id')
+        origin = request.form.get('origin')
+
         dag = dagbag.get_dag(dag_id)
         task = dag.get_task(task_id)
 
-        execution_date = request.args.get('execution_date')
+        execution_date = request.form.get('execution_date')
         execution_date = pendulum.parse(execution_date)
-        ignore_all_deps = request.args.get('ignore_all_deps') == "true"
-        ignore_task_deps = request.args.get('ignore_task_deps') == "true"
-        ignore_ti_state = request.args.get('ignore_ti_state') == "true"
+        ignore_all_deps = request.form.get('ignore_all_deps') == "true"
+        ignore_task_deps = request.form.get('ignore_task_deps') == "true"
+        ignore_ti_state = request.form.get('ignore_ti_state') == "true"
 
         try:
             from airflow.executors import GetDefaultExecutor
@@ -1037,7 +1038,7 @@ class Airflow(BaseView):
             "it should start any moment now.".format(ti))
         return redirect(origin)
 
-    @expose('/delete')
+    @expose('/delete', methods=['POST'])
     @login_required
     @wwwutils.action_logging
     @wwwutils.notify_owner
@@ -1045,8 +1046,8 @@ class Airflow(BaseView):
         from airflow.api.common.experimental import delete_dag
         from airflow.exceptions import DagNotFound, DagFileExists
 
-        dag_id = request.args.get('dag_id')
-        origin = request.args.get('origin') or "/admin/"
+        dag_id = request.values.get('dag_id')
+        origin = request.values.get('origin') or "/admin/"
 
         try:
             delete_dag.delete_dag(dag_id)
@@ -1063,13 +1064,13 @@ class Airflow(BaseView):
         # Upon successful delete return to origin
         return redirect(origin)
 
-    @expose('/trigger')
+    @expose('/trigger', methods=['POST'])
     @login_required
     @wwwutils.action_logging
     @wwwutils.notify_owner
     def trigger(self):
-        dag_id = request.args.get('dag_id')
-        origin = request.args.get('origin') or "/admin/"
+        dag_id = request.values.get('dag_id')
+        origin = request.values.get('origin') or "/admin/"
         dag = dagbag.get_dag(dag_id)
 
         if not dag:
@@ -1133,24 +1134,24 @@ class Airflow(BaseView):
 
         return response
 
-    @expose('/clear')
+    @expose('/clear', methods=['POST'])
     @login_required
     @wwwutils.action_logging
     @wwwutils.notify_owner
     def clear(self):
-        dag_id = request.args.get('dag_id')
-        task_id = request.args.get('task_id')
-        origin = request.args.get('origin')
+        dag_id = request.form.get('dag_id')
+        task_id = request.form.get('task_id')
+        origin = request.form.get('origin')
         dag = dagbag.get_dag(dag_id)
 
-        execution_date = request.args.get('execution_date')
+        execution_date = request.form.get('execution_date')
         execution_date = pendulum.parse(execution_date)
-        confirmed = request.args.get('confirmed') == "true"
-        upstream = request.args.get('upstream') == "true"
-        downstream = request.args.get('downstream') == "true"
-        future = request.args.get('future') == "true"
-        past = request.args.get('past') == "true"
-        recursive = request.args.get('recursive') == "true"
+        confirmed = request.form.get('confirmed') == "true"
+        upstream = request.form.get('upstream') == "true"
+        downstream = request.form.get('downstream') == "true"
+        future = request.form.get('future') == "true"
+        past = request.form.get('past') == "true"
+        recursive = request.form.get('recursive') == "true"
 
         dag = dag.sub_dag(
             task_regex=r"^{0}$".format(task_id),
@@ -1163,16 +1164,16 @@ class Airflow(BaseView):
         return self._clear_dag_tis(dag, start_date, end_date, origin,
                                    recursive=recursive, confirmed=confirmed)
 
-    @expose('/dagrun_clear')
+    @expose('/dagrun_clear', methods=['POST'])
     @login_required
     @wwwutils.action_logging
     @wwwutils.notify_owner
     def dagrun_clear(self):
-        dag_id = request.args.get('dag_id')
-        task_id = request.args.get('task_id')
-        origin = request.args.get('origin')
-        execution_date = request.args.get('execution_date')
-        confirmed = request.args.get('confirmed') == "true"
+        dag_id = request.form.get('dag_id')
+        task_id = request.form.get('task_id')
+        origin = request.form.get('origin')
+        execution_date = request.form.get('execution_date')
+        confirmed = request.form.get('confirmed') == "true"
 
         dag = dagbag.get_dag(dag_id)
         execution_date = pendulum.parse(execution_date)
@@ -1205,15 +1206,15 @@ class Airflow(BaseView):
             })
         return wwwutils.json_response(payload)
 
-    @expose('/dagrun_success')
+    @expose('/dagrun_success', methods=['POST'])
     @login_required
     @wwwutils.action_logging
     @wwwutils.notify_owner
     def dagrun_success(self):
-        dag_id = request.args.get('dag_id')
-        execution_date = request.args.get('execution_date')
-        confirmed = request.args.get('confirmed') == 'true'
-        origin = request.args.get('origin')
+        dag_id = request.form.get('dag_id')
+        execution_date = request.form.get('execution_date')
+        confirmed = request.form.get('confirmed') == 'true'
+        origin = request.form.get('origin')
 
         if not execution_date:
             flash('Invalid execution date', 'error')
@@ -1243,25 +1244,25 @@ class Airflow(BaseView):
 
             return response
 
-    @expose('/success')
+    @expose('/success', methods=['POST'])
     @login_required
     @wwwutils.action_logging
     @wwwutils.notify_owner
     def success(self):
-        dag_id = request.args.get('dag_id')
-        task_id = request.args.get('task_id')
-        origin = request.args.get('origin')
+        dag_id = request.form.get('dag_id')
+        task_id = request.form.get('task_id')
+        origin = request.form.get('origin')
         dag = dagbag.get_dag(dag_id)
         task = dag.get_task(task_id)
         task.dag = dag
 
-        execution_date = request.args.get('execution_date')
+        execution_date = request.form.get('execution_date')
         execution_date = pendulum.parse(execution_date)
-        confirmed = request.args.get('confirmed') == "true"
-        upstream = request.args.get('upstream') == "true"
-        downstream = request.args.get('downstream') == "true"
-        future = request.args.get('future') == "true"
-        past = request.args.get('past') == "true"
+        confirmed = request.form.get('confirmed') == "true"
+        upstream = request.form.get('upstream') == "true"
+        downstream = request.form.get('downstream') == "true"
+        future = request.form.get('future') == "true"
+        past = request.form.get('past') == "true"
 
         if not dag:
             flash("Cannot find DAG: {}".format(dag_id))
@@ -1777,10 +1778,10 @@ class Airflow(BaseView):
     @provide_session
     def paused(self, session=None):
         DagModel = models.DagModel
-        dag_id = request.args.get('dag_id')
+        dag_id = request.values.get('dag_id')
         orm_dag = session.query(
             DagModel).filter(DagModel.dag_id == dag_id).first()
-        if request.args.get('is_paused') == 'false':
+        if request.values.get('is_paused') == 'false':
             orm_dag.is_paused = True
         else:
             orm_dag.is_paused = False
@@ -1790,13 +1791,13 @@ class Airflow(BaseView):
         dagbag.get_dag(dag_id)
         return "OK"
 
-    @expose('/refresh')
+    @expose('/refresh', methods=['POST'])
     @login_required
     @wwwutils.action_logging
     @provide_session
     def refresh(self, session=None):
         DagModel = models.DagModel
-        dag_id = request.args.get('dag_id')
+        dag_id = request.values.get('dag_id')
         orm_dag = session.query(
             DagModel).filter(DagModel.dag_id == dag_id).first()
 
@@ -1809,7 +1810,7 @@ class Airflow(BaseView):
         flash("DAG [{}] is now fresh as a daisy".format(dag_id))
         return redirect(request.referrer)
 
-    @expose('/refresh_all')
+    @expose('/refresh_all', methods=['POST'])
     @login_required
     @wwwutils.action_logging
     def refresh_all(self):
@@ -1921,7 +1922,7 @@ class Airflow(BaseView):
             return ("Error: form airflow/variables/{}.html "
                     "not found.").format(form), 404
 
-    @expose('/varimport', methods=["GET", "POST"])
+    @expose('/varimport', methods=['POST'])
     @login_required
     @wwwutils.action_logging
     def varimport(self):
@@ -2124,7 +2125,7 @@ class QueryView(wwwutils.DataProfilingMixin, BaseView):
         results = None
         has_data = False
         error = False
-        if conn_id_str:
+        if conn_id_str and request.method == 'POST':
             db = [db for db in dbs if db.conn_id == conn_id_str][0]
             hook = db.get_hook()
             try:
