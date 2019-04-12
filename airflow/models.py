@@ -1714,6 +1714,7 @@ class TaskInstance(Base, LoggingMixin):
             session.add(Log(self.state, self))
             session.merge(self)
         session.commit()
+        self.write_metrics()
 
     @provide_session
     def run(
@@ -1808,6 +1809,7 @@ class TaskInstance(Base, LoggingMixin):
         if not test_mode:
             session.merge(self)
         session.commit()
+        self.write_metrics()
 
     def is_eligible_to_retry(self):
         """Is task instance is eligible for retry"""
@@ -1974,16 +1976,6 @@ class TaskInstance(Base, LoggingMixin):
     def set_duration(self):
         if self.end_date and self.start_date:
             self.duration = (self.end_date - self.start_date).total_seconds()
-            # TODO(zhoufang): should check that the state is in State.finished().
-            # However, the issue here is sometimes state is set after set_duration.
-            # The solution is to change state, set duration via one method
-            # at every place, and add a prober there.
-            Stats.incr(
-                'task.count.{:s}@-@{:s}@-@{:s}@-@{:s}'.format(
-                    self.dag_id, self.task_id, self.operator, self.state), 1)
-            Stats.gauge(
-                'task.duration.{:s}@-@{:s}@-@{:s}@-@{:s}'.format(
-                    self.dag_id, self.task_id, self.operator, self.state), self.duration)
         else:
             self.duration = None
 
@@ -2085,6 +2077,23 @@ class TaskInstance(Base, LoggingMixin):
         """
         self.raw = raw
         self._set_context(self)
+
+    def write_metrics(self):
+        """
+        Write Statsd metrics of task instances for monitoring.
+
+        TODO(zhoufang): sometimes state is set after set_duration, sometimes
+        before. So we have to place this prober at multiple places.
+        It is better to change state, set duration using one method anywhere,
+        and add a prober in that method.
+        """
+        if self.duration is not None and self.state in State.finished():
+            Stats.incr(
+                'task.count.{:s}@-@{:s}@-@{:s}@-@{:s}'.format(
+                    self.dag_id, self.task_id, self.operator, self.state), 1)
+            Stats.gauge(
+                'task.duration.{:s}@-@{:s}@-@{:s}@-@{:s}'.format(
+                    self.dag_id, self.task_id, self.operator, self.state), self.duration)
 
 
 class TaskFail(Base):
