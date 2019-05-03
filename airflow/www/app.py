@@ -41,6 +41,7 @@ from airflow import jobs
 from airflow import settings
 from airflow import configuration
 from airflow.utils.net import get_hostname
+from airflow.utils.json import AirflowJsonEncoder
 
 csrf = CSRFProtect()
 
@@ -62,6 +63,9 @@ def create_app(config=None, testing=False):
     app.secret_key = configuration.conf.get('webserver', 'SECRET_KEY')
     app.config['LOGIN_DISABLED'] = not configuration.conf.getboolean(
         'webserver', 'AUTHENTICATE')
+
+    # Configure the JSON encoder used by `|tojson` filter from Flask
+    app.json_encoder = AirflowJsonEncoder
 
     csrf.init_app(app)
 
