@@ -44,6 +44,7 @@ from airflow import jobs
 from airflow import settings
 from airflow import configuration
 from airflow.utils.net import get_hostname
+from airflow.utils.json import AirflowJsonEncoder
 
 csrf = CSRFProtect()
 
@@ -72,6 +73,9 @@ def create_app(config=None, testing=False):
 
     if config:
         app.config.from_mapping(config)
+
+    # Configure the JSON encoder used by `|tojson` filter from Flask
+    app.json_encoder = AirflowJsonEncoder
 
     csrf.init_app(app)
 
