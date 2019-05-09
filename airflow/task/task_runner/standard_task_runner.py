@@ -105,7 +105,6 @@ class StandardTaskRunner(BaseTaskRunner):
             self._rc = rcs.get(self.process.pid)
 
         self.process = None
-
         if self._rc is None:
             # Something else reaped it before we had a chance, so let's just "guess" at an error code.
             self._rc = -9
