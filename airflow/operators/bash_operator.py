@@ -19,6 +19,7 @@
 
 
 import os
+import psutil
 import signal
 from subprocess import Popen, STDOUT, PIPE
 from tempfile import gettempdir, NamedTemporaryFile
@@ -135,4 +136,5 @@ class BashOperator(BaseOperator):
 
     def on_kill(self):
         self.log.info('Sending SIGTERM signal to bash process group')
-        os.killpg(os.getpgid(self.sp.pid), signal.SIGTERM)
+        if self.sp and psutil.pid_exists(self.sp.pid):
+            os.killpg(os.getpgid(self.sp.pid), signal.SIGTERM)

@@ -120,7 +120,10 @@ class BaseTaskRunner(LoggingMixin):
             full_cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
-            universal_newlines=True
+            universal_newlines=True,
+            close_fds=True,
+            env=os.environ.copy(),
+            preexec_fn=os.setsid
         )
 
         # Start daemon thread to read subprocess logging output
@@ -157,4 +160,4 @@ class BaseTaskRunner(LoggingMixin):
         A callback that should be called when this is done running.
         """
         if self._cfg_path and os.path.isfile(self._cfg_path):
-            subprocess.call(['sudo', 'rm', self._cfg_path])
+            subprocess.call(['sudo', 'rm', self._cfg_path], close_fds=True)
