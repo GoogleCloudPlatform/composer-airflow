@@ -59,17 +59,19 @@ def upgrade():
         sa.Column('task_id', sa.String(length=250), nullable=False),
         sa.Column('dag_id', sa.String(length=250), nullable=False),
         # use explicit server_default=None otherwise mysql implies defaults for first timestamp column
-        sa.Column('execution_date', timestamp(), nullable=False, server_default=None),
+        sa.Column('execution_date', timestamp(), nullable=False, server_default=sa.text('CURRENT_TIMESTAMP(6)')),
         sa.Column('try_number', sa.Integer(), nullable=False),
-        sa.Column('start_date', timestamp(), nullable=False),
-        sa.Column('end_date', timestamp(), nullable=False),
+        sa.Column('start_date', timestamp(), nullable=False, server_default=sa.text('CURRENT_TIMESTAMP(6)')),
+        sa.Column('end_date', timestamp(), nullable=False, server_default=sa.text('CURRENT_TIMESTAMP(6)')),
         sa.Column('duration', sa.Integer(), nullable=False),
-        sa.Column('reschedule_date', timestamp(), nullable=False),
+        sa.Column('reschedule_date', timestamp(), nullable=False, server_default=sa.text('CURRENT_TIMESTAMP(6)')),
         sa.PrimaryKeyConstraint('id'),
         sa.ForeignKeyConstraint(['task_id', 'dag_id', 'execution_date'],
                                 ['task_instance.task_id', 'task_instance.dag_id','task_instance.execution_date'],
                                 name='task_reschedule_dag_task_date_fkey')
     )
+    for c in ('execution_date', 'start_date', 'end_date', 'reschedule_date'):
+      conn.execute("alter table {} alter column {} drop default".format(TABLE_NAME, c))
     op.create_index(
         INDEX_NAME,
         TABLE_NAME,
