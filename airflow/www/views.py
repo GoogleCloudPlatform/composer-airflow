@@ -269,6 +269,7 @@ def data_profiling_required(f):
 
 def fused_slots(v, c, m, p):
     url = url_for(
+        'taskinstance.index_view',
         flt1_pool_equals=m.pool,
         flt2_state_equals='running',
     )
