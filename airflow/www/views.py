@@ -84,6 +84,7 @@ from airflow.utils.net import get_hostname
 from airflow.utils.state import State
 from airflow.utils.timezone import datetime
 from airflow._vendor import nvd3
+from airflow.www import dagbag_loader
 from airflow.www import utils as wwwutils
 from airflow.www.forms import (DateTimeForm, DateTimeWithNumRunsForm,
                                DateTimeWithNumRunsWithDagRunsForm)
@@ -94,7 +95,14 @@ CHART_LIMIT = 200000
 
 UTF8_READER = codecs.getreader('utf-8')
 
-dagbag = models.DagBag(settings.DAGS_FOLDER, store_serialized_dags=STORE_SERIALIZED_DAGS)
+try:
+    async_dagbag_loader = conf.getboolean('webserver', 'async_dagbag_loader')
+except Exception:
+    async_dagbag_loader = False
+
+dagbag = dagbag_loader.create_async_dagbag(
+    settings.DAGS_FOLDER) if async_dagbag_loader else models.DagBag(
+    settings.DAGS_FOLDER, store_serialized_dags=STORE_SERIALIZED_DAGS)
 
 login_required = airflow.login.login_required
 current_user = airflow.login.current_user

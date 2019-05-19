@@ -36,6 +36,7 @@ from flask_admin.model import filters
 import flask_admin.contrib.sqla.filters as sqlafilters
 from flask_login import current_user
 from six.moves.urllib.parse import urlencode
+from six import string_types
 
 from airflow import models, settings
 from airflow.configuration import conf
@@ -395,7 +396,7 @@ def get_python_source(x, return_none_if_x_none=False):
     """
     Helper function to get Python source (or not), preventing exceptions
     """
-    if isinstance(x, str):
+    if isinstance(x, string_types):
         return x
 
     if x is None and return_none_if_x_none:
