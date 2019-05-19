@@ -40,6 +40,7 @@ from flask import after_this_request, request, Response
 from flask_admin.model import filters
 import flask_admin.contrib.sqla.filters as sqlafilters
 from flask_login import current_user
+from six import string_types
 
 from airflow import configuration, models, settings
 from airflow.utils.db import create_session
@@ -405,6 +406,9 @@ def get_python_source(x):
     """
     Helper function to get Python source (or not), preventing exceptions
     """
+    if isinstance(x, string_types):
+        return x
+
     source_code = None
 
     if isinstance(x, functools.partial):
