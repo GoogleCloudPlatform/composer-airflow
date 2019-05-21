@@ -19,8 +19,11 @@
 #
 import copy
 import dill
+import logging
 import threading
 import time
+from collections import defaultdict
+from multiprocessing import Event
 from multiprocessing import Process
 from multiprocessing import Queue
 
@@ -93,30 +96,58 @@ def _create_dagbag(dag_folder, queue):
             for k, v in task.__dict__.items():
                 if not (k in _fields_to_keep or type(v) in (int, bool, float, str)):
                     task.__dict__[k] = _stringify(v)
+        return dag
 
-    def _send_dagbag(dagbag, queue):
+    def _send_dagbag(dagbag, queue, event_collect_done, event_next_collect):
         """A thread that sends dags."""
+        dagbag = {
+            'dags': dagbag.dags,
+            'file_last_changed': dagbag.file_last_changed,
+            'import_errors': dagbag.import_errors
+        }
+        previous_keys = defaultdict(set)
         while True:
-            dags = copy.deepcopy(dagbag.dags)
-            [_stringify_dag(dag) for dag in dags.values()]
-            queue.put(
-                {
-                    'dags': dags,
-                    'file_last_changed': dagbag.file_last_changed,
-                    'import_errors': dagbag.import_errors
-                }
-            )
-            time.sleep(DAGBAG_SYNC_INTERVAL)
+            try:
+                collect_done = event_collect_done.is_set()
+
+                dagbag_update = {}
+                for k, v in dagbag.items():
+                    current_keys = set(copy.deepcopy(v.keys()))
+                    new_keys = current_keys - previous_keys[k]
+                    previous_keys[k] = set() if collect_done else current_keys
+                    if new_keys:
+                        dagbag_update[k] = {
+                            x: _stringify_dag(
+                                copy.deepcopy(v[x])) for x in new_keys} if k == 'dags' else {
+                            x: v[x] for x in new_keys}
+
+                if dagbag_update or collect_done:
+                    queue.put((collect_done, dagbag_update))
+                if collect_done:
+                    event_next_collect.set()
+                time.sleep(DAGBAG_SYNC_INTERVAL)
+            except Exception:
+                logging.warning('Dagbag loader sender errors.', exc_info=True)
 
     dagbag = _DagBag(dag_folder)
-    thread = threading.Thread(target=_send_dagbag, args=(dagbag, queue))
+    event_collect_done = Event()
+    event_next_collect = Event()
+    thread = threading.Thread(target=_send_dagbag, args=(dagbag, queue, event_collect_done,
+                                                         event_next_collect))
     thread.daemon = True
     thread.start()
     while True:
-        start_time = time.time()
-        dagbag.collect_dags(dag_folder,
-                            include_examples=conf.getboolean('core', 'LOAD_EXAMPLES'))
-        time.sleep(max(0, COLLECT_DAGS_INTERVAL - (time.time() - start_time)))
+        try:
+            event_collect_done.clear()
+            event_next_collect.clear()
+            start_time = time.time()
+            dagbag.collect_dags(dag_folder,
+                                include_examples=conf.getboolean('core', 'LOAD_EXAMPLES'))
+            event_collect_done.set()
+            event_next_collect.wait()
+            time.sleep(max(0, COLLECT_DAGS_INTERVAL - (time.time() - start_time)))
+        except Exception:
+            logging.warning('Dagbag loader dags collector errors.', exc_info=True)
 
 
 def create_async_dagbag(dag_folder):
@@ -128,9 +159,20 @@ def create_async_dagbag(dag_folder):
     """
     def _receive_dagbag(dagbag, queue):
         """A thread that receives updated dagbag."""
+        previous_keys = defaultdict(list)
         while True:
-            for k, v in copy.deepcopy(queue.get()).items():
-                dagbag.__dict__[k] = v
+            try:
+                collect_done, dagbag_update = copy.deepcopy(queue.get())
+                for k, v in dagbag_update.items():
+                    previous_keys[k].extend(v.keys())
+                    dict_to_update = dagbag.__dict__[k]
+                    dict_to_update.update(v)
+                    if collect_done:
+                        for key_to_delete in set(dict_to_update.keys()) - set(previous_keys[k]):
+                            del dict_to_update[key_to_delete]
+                        previous_keys[k] = []
+            except Exception:
+                logging.warning('Dagbag loader receiver errors.', exc_info=True)
 
     dagbag = _DagBag(dag_folder)
     queue = Queue(maxsize=1)
