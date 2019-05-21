@@ -75,19 +75,24 @@ def _create_dagbag(dag_folder, queue):
         'executor_config', 'inlets', 'outlets', '_upstream_task_ids', '_downstream_task_ids',
         '_inlets', '_outlets', '_comps', '_dag'))
 
+    def _stringify(x):
+        return (dill.source.getsource(x) if callable(x) else str(x)) if x else x
+
     def _stringify_dag(dag):
-        """stringifies fields that may be not picklable."""
-        # Assumes that Web UI never uses these fields.
-        dag.user_defined_macros = str(dag.user_defined_macros)
-        dag.user_defined_filters = str(dag.user_defined_filters)
-        dag.sla_miss_callback = str(dag.sla_miss_callback)
-        dag.on_success_callback = str(dag.on_success_callback)
-        dag.on_failure_callback = str(dag.on_failure_callback)
+        """
+        Stringifies fields that may be not picklable and assumes that Web UI never uses these
+        fields.
+        """
+        if dag.user_defined_filters:
+            dag.user_defined_filters = {
+                k: _stringify(v) for k, v in dag.user_defined_filters.items()}
+        dag.sla_miss_callback = _stringify(dag.sla_miss_callback)
+        dag.on_success_callback = _stringify(dag.on_success_callback)
+        dag.on_failure_callback = _stringify(dag.on_failure_callback)
         for task in dag.task_dict.values():
             for k, v in task.__dict__.items():
                 if not (k in _fields_to_keep or type(v) in (int, bool, float, str)):
-                    # Makes anything else a string to be displayed in web UI.
-                    task.__dict__[k] = dill.source.getsource(v) if callable(v) else str(v)
+                    task.__dict__[k] = _stringify(v)
 
     def _send_dagbag(dagbag, queue):
         """A thread that sends dags."""
