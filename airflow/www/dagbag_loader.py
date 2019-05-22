@@ -124,6 +124,7 @@ def _create_dagbag(dag_folder, queue):
                 if dagbag_update or collect_done:
                     queue.put((collect_done, dagbag_update))
                 if collect_done:
+                    event_collect_done.clear()
                     event_next_collect.set()
                 time.sleep(DAGBAG_SYNC_INTERVAL)
             except Exception:
