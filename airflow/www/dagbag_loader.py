@@ -19,7 +19,10 @@
 #
 import copy
 import dill
+import json
 import logging
+import os
+import six
 import threading
 import time
 from collections import defaultdict
@@ -27,22 +30,22 @@ from multiprocessing import Event
 from multiprocessing import Process
 from multiprocessing import Queue
 
-from airflow import configuration as conf
+from airflow import configuration
 from airflow import models
 from airflow import settings
 from airflow.utils.timeout import timeout
 
 
-def read_config(field, default):
+def _read_config(field, default):
     try:
-        return conf.getint('webserver', field)
+        return configuration.getint('webserver', field)
     except Exception:
         return default
 
 
 # Interval to send dagbag back to main process.
-DAGBAG_SYNC_INTERVAL = read_config('dagbag_sync_interval', 10)
-COLLECT_DAGS_INTERVAL = read_config('collect_dags_interval', 30)
+DAGBAG_SYNC_INTERVAL = _read_config('dagbag_sync_interval', 10)
+COLLECT_DAGS_INTERVAL = _read_config('collect_dags_interval', 30)
 
 
 class _DagBag(models.DagBag):
@@ -112,7 +115,7 @@ def _create_dagbag(dag_folder, queue):
 
                 dagbag_update = {}
                 for k, v in dagbag.items():
-                    current_keys = set(copy.deepcopy(v.keys()))
+                    current_keys = set(copy.deepcopy(list(v.keys())))
                     new_keys = current_keys - previous_keys[k]
                     previous_keys[k] = set() if collect_done else current_keys
                     if new_keys:
@@ -130,6 +133,20 @@ def _create_dagbag(dag_folder, queue):
             except Exception:
                 logging.warning('Dagbag loader sender errors.', exc_info=True)
 
+    import airflow
+    from airflow import configuration
+    try:
+        with open('/home/airflow/gcs/env_var.json', 'r') as env_var_json:
+            os.environ.update(json.load(env_var_json))
+    except:
+        logging.warning('Using default Composer Environment Variables. Overrides '
+                        'have not been applied.')
+    configuration = six.moves.reload_module(configuration)
+    airflow.configuration = six.moves.reload_module(airflow.configuration)
+    airflow.plugins_manager = six.moves.reload_module(airflow.plugins_manager)
+    airflow = six.moves.reload_module(airflow)
+
+    logging.info('Using Asynchronous Dagbag Loader.')
     dagbag = _DagBag(dag_folder)
     event_collect_done = Event()
     event_next_collect = Event()
@@ -143,7 +160,7 @@ def _create_dagbag(dag_folder, queue):
             event_next_collect.clear()
             start_time = time.time()
             dagbag.collect_dags(dag_folder,
-                                include_examples=conf.getboolean('core', 'LOAD_EXAMPLES'))
+                                include_examples=configuration.getboolean('core', 'LOAD_EXAMPLES'))
             event_collect_done.set()
             event_next_collect.wait()
             time.sleep(max(0, COLLECT_DAGS_INTERVAL - (time.time() - start_time)))
