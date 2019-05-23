@@ -126,9 +126,14 @@ def _create_dagbag(dag_folder, queue):
 
                 if dagbag_update or collect_done:
                     queue.put((collect_done, dagbag_update))
+
                 if collect_done:
+                    for v in dagbag.values():
+                        v.clear()
+
                     event_collect_done.clear()
                     event_next_collect.set()
+
                 time.sleep(DAGBAG_SYNC_INTERVAL)
             except Exception:
                 logging.warning('Dagbag loader sender errors.', exc_info=True)
@@ -156,16 +161,15 @@ def _create_dagbag(dag_folder, queue):
     thread.start()
     while True:
         try:
-            dagbag.dags.clear()
-            dagbag.file_last_changed.clear()
-            dagbag.import_errors.clear()
             event_collect_done.clear()
             event_next_collect.clear()
+
             start_time = time.time()
             dagbag.collect_dags(dag_folder,
                                 include_examples=configuration.getboolean('core', 'LOAD_EXAMPLES'))
             event_collect_done.set()
             event_next_collect.wait()
+
             time.sleep(max(0, COLLECT_DAGS_INTERVAL - (time.time() - start_time)))
         except Exception:
             logging.warning('Dagbag loader dags collector errors.', exc_info=True)
