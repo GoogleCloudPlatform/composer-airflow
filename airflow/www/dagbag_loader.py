@@ -156,6 +156,9 @@ def _create_dagbag(dag_folder, queue):
     thread.start()
     while True:
         try:
+            dagbag.dags.clear()
+            dagbag.file_last_changed.clear()
+            dagbag.import_errors.clear()
             event_collect_done.clear()
             event_next_collect.clear()
             start_time = time.time()
@@ -183,11 +186,12 @@ def create_async_dagbag(dag_folder):
                 collect_done, dagbag_update = copy.deepcopy(queue.get())
                 for k, v in dagbag_update.items():
                     previous_keys[k].extend(v.keys())
-                    dict_to_update = dagbag.__dict__[k]
-                    dict_to_update.update(v)
-                    if collect_done:
-                        for key_to_delete in set(dict_to_update.keys()) - set(previous_keys[k]):
-                            del dict_to_update[key_to_delete]
+                    dagbag.__dict__[k].update(v)
+                if collect_done:
+                    for k in ['dags', 'file_last_changed', 'import_errors']:
+                        v = dagbag.__dict__[k]
+                        for key_to_delete in set(v.keys()) - set(previous_keys[k]):
+                            del v[key_to_delete]
                         previous_keys[k] = []
             except Exception:
                 logging.warning('Dagbag loader receiver errors.', exc_info=True)
