@@ -22,7 +22,9 @@ import dill
 import json
 import logging
 import os
+import signal
 import six
+import sys
 import threading
 import time
 from collections import defaultdict
@@ -33,7 +35,6 @@ from multiprocessing import Queue
 from airflow import configuration
 from airflow import models
 from airflow import settings
-from airflow.utils.timeout import timeout
 
 
 def _read_config(field, default):
@@ -64,6 +65,11 @@ class _DagBag(models.DagBag):
         self.executor = None
         self.import_errors = {}
         self.has_logged = False
+
+
+def _kill_proc(dummy_signum, dummy_frame):
+    logging.info('Asynchronous Dagbag Loader exiting.')
+    sys.exit(0)
 
 
 def _create_dagbag(dag_folder, queue):
@@ -150,6 +156,9 @@ def _create_dagbag(dag_folder, queue):
     airflow.configuration = six.moves.reload_module(airflow.configuration)
     airflow.plugins_manager = six.moves.reload_module(airflow.plugins_manager)
     airflow = six.moves.reload_module(airflow)
+
+    signal.signal(signal.SIGTERM, _kill_proc)
+    signal.signal(signal.SIGINT, _kill_proc)
 
     logging.info('Using Asynchronous Dagbag Loader.')
     dagbag = _DagBag(dag_folder)
