@@ -18,7 +18,6 @@
 # under the License.
 #
 import copy
-import dill
 import json
 import logging
 import os
@@ -35,12 +34,13 @@ from multiprocessing import Queue
 from airflow import configuration
 from airflow import models
 from airflow import settings
+from airflow.www.utils import get_python_source
 
 
 def _read_config(field, default):
     try:
         return configuration.getint('webserver', field)
-    except Exception:
+    except:
         return default
 
 
@@ -75,36 +75,48 @@ def _kill_proc(dummy_signum, dummy_frame):
 def _create_dagbag(dag_folder, queue):
     """A process that creates, updates, and sync dagbag in background."""
 
+    _dag_fields_to_stringify = ['user_defined_macros', 'user_defined_filters', 'default_args',
+                                'params', 'sla_miss_callback', 'on_success_callback',
+                                'on_failure_callback']
+
     # Some customized fields of an operator, e.g., functions, may not be picklable.
     # So we stringify all fields of each task except for the attributes of BaseOperator
     # (airflow/airflow/models.py), and assume that Web UI only use these fields.
-    _fields_to_keep = set((
+    _task_fields_to_keep = set((
         'task_id', 'owner', 'email', 'email_on_retry', 'email_on_failure', 'retries',
         'retry_delay', 'retry_exponential_backoff', 'max_retry_delay', 'start_date', 'end_date',
-        'schedule_interval', 'depends_on_past', 'wait_for_downstream', 'dag', 'params',
-        'default_args', 'adhoc', 'priority_weight', 'weight_rule', 'queue', 'pool', 'sla',
-        'execution_timeout', 'trigger_rule', 'resources', 'run_as_user', 'task_concurrency',
-        'executor_config', 'inlets', 'outlets', '_upstream_task_ids', '_downstream_task_ids',
-        '_inlets', '_outlets', '_comps', '_dag'))
+        'schedule_interval', 'depends_on_past', 'wait_for_downstream', 'dag', 'adhoc',
+        'priority_weight', 'weight_rule', 'queue', 'pool', 'sla', 'execution_timeout',
+        'trigger_rule', 'resources', 'run_as_user', 'task_concurrency', 'executor_config',
+        'inlets', 'outlets', '_upstream_task_ids', '_downstream_task_ids', '_inlets', '_outlets',
+        '_comps', '_dag'))
 
     def _stringify(x):
-        return (dill.source.getsource(x) if callable(x) else str(x)) if x else x
+        try:
+            if x is None:
+                return None
+            elif isinstance(x, dict):
+                return {k: _stringify(v) for k, v in x.items()}
+            else:
+                return get_python_source(x) if callable(x) else str(x)
+        except:
+            logging.info('Gracefully handle stringifying errors by using str().', exc_info=True)
+            return str(x)
 
     def _stringify_dag(dag):
         """
         Stringifies fields that may be not picklable and assumes that Web UI never uses these
         fields.
         """
-        if dag.user_defined_filters:
-            dag.user_defined_filters = {
-                k: _stringify(v) for k, v in dag.user_defined_filters.items()}
-        dag.sla_miss_callback = _stringify(dag.sla_miss_callback)
-        dag.on_success_callback = _stringify(dag.on_success_callback)
-        dag.on_failure_callback = _stringify(dag.on_failure_callback)
+        for k in _dag_fields_to_stringify:
+            if k in dag.__dict__:
+                dag.__dict__[k] = _stringify(dag.__dict__[k])
+
         for task in dag.task_dict.values():
             for k, v in task.__dict__.items():
-                if not (k in _fields_to_keep or type(v) in (int, bool, float, str)):
+                if not (k in _task_fields_to_keep or type(v) in (int, bool, float, str)):
                     task.__dict__[k] = _stringify(v)
+
         return dag
 
     def _send_dagbag(dagbag, queue, event_collect_done, event_next_collect):
@@ -141,7 +153,7 @@ def _create_dagbag(dag_folder, queue):
                     event_next_collect.set()
 
                 time.sleep(DAGBAG_SYNC_INTERVAL)
-            except Exception:
+            except:
                 logging.warning('Dagbag loader sender errors.', exc_info=True)
 
     import airflow
@@ -180,7 +192,9 @@ def _create_dagbag(dag_folder, queue):
             event_next_collect.wait()
 
             time.sleep(max(0, COLLECT_DAGS_INTERVAL - (time.time() - start_time)))
-        except Exception:
+        except SystemExit:
+            sys.exit(0)
+        except:
             logging.warning('Dagbag loader dags collector errors.', exc_info=True)
 
 
@@ -206,7 +220,7 @@ def create_async_dagbag(dag_folder):
                         for key_to_delete in set(v.keys()) - set(previous_keys[k]):
                             del v[key_to_delete]
                         previous_keys[k] = []
-            except Exception:
+            except:
                 logging.warning('Dagbag loader receiver errors.', exc_info=True)
 
     dagbag = _DagBag(dag_folder)
