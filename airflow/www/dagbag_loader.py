@@ -21,6 +21,7 @@ import copy
 import json
 import logging
 import os
+import pickle
 import signal
 import six
 import sys
@@ -75,48 +76,56 @@ def _kill_proc(dummy_signum, dummy_frame):
 def _create_dagbag(dag_folder, queue):
     """A process that creates, updates, and sync dagbag in background."""
 
-    _dag_fields_to_stringify = ['user_defined_macros', 'user_defined_filters', 'default_args',
-                                'params', 'sla_miss_callback', 'on_success_callback',
-                                'on_failure_callback']
+    _primitive_types = set([int, bool, float, str, bytes, six.string_types])
 
-    # Some customized fields of an operator, e.g., functions, may not be picklable.
-    # So we stringify all fields of each task except for the attributes of BaseOperator
-    # (airflow/airflow/models.py), and assume that Web UI only use these fields.
-    _task_fields_to_keep = set((
-        'task_id', 'owner', 'email', 'email_on_retry', 'email_on_failure', 'retries',
-        'retry_delay', 'retry_exponential_backoff', 'max_retry_delay', 'start_date', 'end_date',
-        'schedule_interval', 'depends_on_past', 'wait_for_downstream', 'dag', 'adhoc',
-        'priority_weight', 'weight_rule', 'queue', 'pool', 'sla', 'execution_timeout',
-        'trigger_rule', 'resources', 'run_as_user', 'task_concurrency', 'executor_config',
-        'inlets', 'outlets', '_upstream_task_ids', '_downstream_task_ids', '_inlets', '_outlets',
-        '_comps', '_dag'))
+    # Stringify all fields of DAGs and tasks except for time related fields.
+    # 'parent_dag' and '_dag' are not stringified because they link to a DAG already stringified,
+    # stringifying them leads to a deadlock loop.
+    _dag_fields_to_keep = set(['schedule_interval', 'start_date', 'end_date', 'dagrun_timeout',
+                               'task_dict', 'timezone', 'last_loaded', '_schedule_interval',
+                               'parent_dag'])
+
+    _task_fields_to_keep = set([
+        'retry_delay', 'max_retry_delay', 'start_date', 'end_date', 'schedule_interval', 'sla',
+        'execution_timeout', 'dag', '_dag'])
 
     def _stringify(x):
+        """Stringify anything, the order is roughly based on their occuring frequency."""
         try:
-            if x is None:
-                return None
+            if x is None or type(x) in _primitive_types:
+                return x
             elif isinstance(x, dict):
                 return {k: _stringify(v) for k, v in x.items()}
+            elif isinstance(x, models.DAG):
+                return _stringify_dag(x)
+            elif callable(x):
+                return get_python_source(x)
+            elif isinstance(x, list):
+                return [_stringify(v) for v in x]
+            elif isinstance(x, set):
+                return set([_stringify(v) for v in x])
+            elif isinstance(x, tuple):
+                return tuple([_stringify(v) for v in x])
+            elif isinstance(x, models.BaseOperator):
+                return _stringify_object(x, _task_fields_to_keep)
             else:
-                return get_python_source(x) if callable(x) else str(x)
+                return str(x)
         except:
             logging.info('Gracefully handle stringifying errors by using str().', exc_info=True)
             return str(x)
 
+    def _stringify_object(x, fields_to_keep):
+        """Stringify a DAG or a task inplace."""
+        for k, v in x.__dict__.items():
+            if k not in fields_to_keep:
+                x.__dict__[k] = _stringify(v)
+        return x
+
     def _stringify_dag(dag):
-        """
-        Stringifies fields that may be not picklable and assumes that Web UI never uses these
-        fields.
-        """
-        for k in _dag_fields_to_stringify:
-            if k in dag.__dict__:
-                dag.__dict__[k] = _stringify(dag.__dict__[k])
-
+        """Stringify a DAG and its tasks inplace."""
+        _stringify_object(dag, _dag_fields_to_keep)
         for task in dag.task_dict.values():
-            for k, v in task.__dict__.items():
-                if not (k in _task_fields_to_keep or type(v) in (int, bool, float, str)):
-                    task.__dict__[k] = _stringify(v)
-
+            _stringify_object(task, _task_fields_to_keep)
         return dag
 
     def _send_dagbag(dagbag, queue, event_collect_done, event_next_collect):
@@ -137,10 +146,19 @@ def _create_dagbag(dag_folder, queue):
                     new_keys = current_keys - previous_keys[k]
                     previous_keys[k] = set() if collect_done else current_keys
                     if new_keys:
-                        dagbag_update[k] = {
-                            x: _stringify_dag(
-                                copy.deepcopy(v[x])) for x in new_keys} if k == 'dags' else {
-                            x: v[x] for x in new_keys}
+                        if k == 'dags':
+                            tmp_dags = {}
+                            for x in new_keys:
+                                tmp_dag = _stringify_dag(copy.deepcopy(v[x]))
+                                try:
+                                    _ = pickle.dumps(tmp_dag, protocol=pickle.HIGHEST_PROTOCOL)
+                                    tmp_dags[x] = tmp_dag
+                                except:
+                                    logging.warning('DAG {} can not be pickled.'.format(x),
+                                                    exc_info=True)
+                            dagbag_update[k] = tmp_dags
+                        else:
+                            dagbag_update[k] = {x: v[x] for x in new_keys}
 
                 if dagbag_update or collect_done:
                     queue.put((collect_done, dagbag_update))
