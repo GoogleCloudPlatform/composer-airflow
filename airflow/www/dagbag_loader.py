@@ -82,8 +82,7 @@ def _create_dagbag(dag_folder, queue):
     # 'parent_dag' and '_dag' are not stringified because they link to a DAG already stringified,
     # stringifying them leads to a deadlock loop.
     _dag_fields_to_keep = set(['schedule_interval', 'start_date', 'end_date', 'dagrun_timeout',
-                               'task_dict', 'timezone', 'last_loaded', '_schedule_interval',
-                               'parent_dag'])
+                               'timezone', 'last_loaded', '_schedule_interval', 'parent_dag'])
 
     _task_fields_to_keep = set([
         'retry_delay', 'max_retry_delay', 'start_date', 'end_date', 'schedule_interval', 'sla',
@@ -97,7 +96,9 @@ def _create_dagbag(dag_folder, queue):
             elif isinstance(x, dict):
                 return {k: _stringify(v) for k, v in x.items()}
             elif isinstance(x, models.DAG):
-                return _stringify_dag(x)
+                return _stringify_object(x, _dag_fields_to_keep)
+            elif isinstance(x, models.BaseOperator):
+                return _stringify_object(x, _task_fields_to_keep)
             elif callable(x):
                 return get_python_source(x)
             elif isinstance(x, list):
@@ -106,8 +107,6 @@ def _create_dagbag(dag_folder, queue):
                 return set([_stringify(v) for v in x])
             elif isinstance(x, tuple):
                 return tuple([_stringify(v) for v in x])
-            elif isinstance(x, models.BaseOperator):
-                return _stringify_object(x, _task_fields_to_keep)
             else:
                 return str(x)
         except:
@@ -120,13 +119,6 @@ def _create_dagbag(dag_folder, queue):
             if k not in fields_to_keep:
                 x.__dict__[k] = _stringify(v)
         return x
-
-    def _stringify_dag(dag):
-        """Stringify a DAG and its tasks inplace."""
-        _stringify_object(dag, _dag_fields_to_keep)
-        for task in dag.task_dict.values():
-            _stringify_object(task, _task_fields_to_keep)
-        return dag
 
     def _send_dagbag(dagbag, queue, event_collect_done, event_next_collect):
         """A thread that sends dags."""
@@ -149,8 +141,8 @@ def _create_dagbag(dag_folder, queue):
                         if k == 'dags':
                             tmp_dags = {}
                             for x in new_keys:
-                                tmp_dag = _stringify_dag(copy.deepcopy(v[x]))
                                 try:
+                                    tmp_dag = copy.deepcopy(_stringify(v[x]))
                                     _ = pickle.dumps(tmp_dag, protocol=pickle.HIGHEST_PROTOCOL)
                                     tmp_dags[x] = tmp_dag
                                 except:
@@ -228,7 +220,7 @@ def create_async_dagbag(dag_folder):
         previous_keys = defaultdict(list)
         while True:
             try:
-                collect_done, dagbag_update = copy.deepcopy(queue.get())
+                collect_done, dagbag_update = queue.get()
                 for k, v in dagbag_update.items():
                     previous_keys[k].extend(v.keys())
                     dagbag.__dict__[k].update(v)
