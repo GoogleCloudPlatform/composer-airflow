@@ -91,7 +91,7 @@ def _create_dagbag(dag_folder, queue):
     def _stringify(x):
         """Stringify anything, the order is roughly based on their occuring frequency."""
         try:
-            if x is None or type(x) in _primitive_types:
+            if x is None or type(x) in _primitive_types or (six.PY2 and type(x) is unicode):
                 return x
             elif isinstance(x, dict):
                 return {k: _stringify(v) for k, v in x.items()}
@@ -110,8 +110,8 @@ def _create_dagbag(dag_folder, queue):
             else:
                 return str(x)
         except:
-            logging.info('Gracefully handle stringifying errors by using str().', exc_info=True)
-            return str(x)
+            logging.warning('Failed to stringify.', exc_info=True)
+            return 'failed_to_stringify'
 
     def _stringify_object(x, fields_to_keep):
         """Stringify a DAG or a task inplace."""
