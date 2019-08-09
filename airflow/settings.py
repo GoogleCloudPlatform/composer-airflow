@@ -34,7 +34,8 @@ from sqlalchemy import create_engine, exc
 from sqlalchemy.orm import scoped_session, sessionmaker
 from sqlalchemy.pool import NullPool
 
-from airflow.configuration import conf, AIRFLOW_HOME, WEBSERVER_CONFIG  # NOQA F401
+from airflow.configuration import AIRFLOW_HOME, WEBSERVER_CONFIG  # NOQA F401
+from airflow import configuration as conf
 from airflow.logging_config import configure_logging
 from airflow.utils.sqlalchemy import setup_event_handlers
 
