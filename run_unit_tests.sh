@@ -19,6 +19,7 @@
 # under the License.
 
 set -x
+set -e
 
 # environment
 export AIRFLOW_HOME=${AIRFLOW_HOME:=~}

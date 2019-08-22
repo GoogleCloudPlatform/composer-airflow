@@ -3124,7 +3124,7 @@ class DAG(BaseDag, LoggingMixin):
                                 else max_active_runs)
         self.dagrun_timeout = dagrun_timeout
         self.sla_miss_callback = sla_miss_callback
-        self.default_view = (configuration.conf.get('webserver', 'dag_default_view').lower()
+        self._default_view = (configuration.conf.get('webserver', 'dag_default_view').lower()
                              if default_view is None
                              else default_view)
         self.orientation = (configuration.conf.get('webserver', 'dag_orientation')

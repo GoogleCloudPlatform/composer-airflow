@@ -33,7 +33,6 @@ from werkzeug.wsgi import DispatcherMiddleware
 from werkzeug.contrib.fixers import ProxyFix
 
 import airflow
-from airflow import configuration as conf
 from airflow import models, LoggingMixin
 from airflow.models.connection import Connection
 from airflow.settings import Session
@@ -54,10 +53,10 @@ try:
 except:
     logging.warning('Using default Composer Environment Variables. Overrides '
                     'have not been applied.')
-configuration = six.moves.reload_module(configuration)
-airflow.configuration = six.moves.reload_module(airflow.configuration)
-airflow.plugins_manager = six.moves.reload_module(airflow.plugins_manager)
-airflow = six.moves.reload_module(airflow)
+if not configuration.getboolean('core', 'unit_test_mode'):
+    airflow.plugins_manager = six.moves.reload_module(airflow.plugins_manager)
+    airflow.configuration = six.moves.reload_module(airflow.configuration)
+    airflow = six.moves.reload_module(airflow)
 
 def create_app(config=None, testing=False):
     app = Flask(__name__)
@@ -68,8 +67,8 @@ def create_app(config=None, testing=False):
         'webserver', 'AUTHENTICATE')
 
     app.config['SESSION_COOKIE_HTTPONLY'] = True
-    app.config['SESSION_COOKIE_SECURE'] = conf.getboolean('webserver', 'COOKIE_SECURE')
-    app.config['SESSION_COOKIE_SAMESITE'] = conf.get('webserver', 'COOKIE_SAMESITE')
+    app.config['SESSION_COOKIE_SECURE'] = configuration.conf.getboolean('webserver', 'COOKIE_SECURE')
+    app.config['SESSION_COOKIE_SAMESITE'] = configuration.conf.get('webserver', 'COOKIE_SAMESITE')
 
     if config:
         app.config.from_mapping(config)
@@ -112,7 +111,7 @@ def create_app(config=None, testing=False):
         vs = views
         av(vs.Airflow(name='DAGs', category='DAGs'))
 
-        if not conf.getboolean('core', 'secure_mode'):
+        if not configuration.conf.getboolean('core', 'secure_mode'):
             av(vs.QueryView(name='Ad Hoc Query', category="Data Profiling"))
             av(vs.ChartModelView(
                 models.Chart, Session, name="Charts", category="Data Profiling"))
