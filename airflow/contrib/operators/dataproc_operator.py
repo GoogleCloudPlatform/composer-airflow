@@ -179,6 +179,7 @@ class DataprocClusterCreateOperator(BaseOperator):
                  idle_delete_ttl=None,
                  auto_delete_time=None,
                  auto_delete_ttl=None,
+                 customer_managed_key=None,
                  *args,
                  **kwargs):
 
@@ -215,6 +216,7 @@ class DataprocClusterCreateOperator(BaseOperator):
         self.idle_delete_ttl = idle_delete_ttl
         self.auto_delete_time = auto_delete_time
         self.auto_delete_ttl = auto_delete_ttl
+        self.customer_managed_key = customer_managed_key
         self.single_node = num_workers == 0
 
         assert not (self.custom_image and self.image_version), \
