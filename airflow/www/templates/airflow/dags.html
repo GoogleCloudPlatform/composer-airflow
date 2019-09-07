@@ -192,8 +192,8 @@
 
                 <!-- Delete -->
                 <!-- Use dag_id instead of dag.dag_id, because the DAG might not exist in the webserver's DagBag -->
-                <a href="{{ url_for('airflow.delete', dag_id=dag.dag_id) }}"
-                  onclick="return confirmDeleteDag(this, '{{ dag.dag_id }}')">
+                <a href="{{ url_for('airflow.delete', dag_id=dag_id) }}"
+                  onclick="return confirmDeleteDag(this, '{{ dag_id }}')">
                    <span class="glyphicon glyphicon-remove-circle" style="color:red" aria-hidden="true" data-original-title="Delete Dag"></span>
                 </a>
                 </td>
