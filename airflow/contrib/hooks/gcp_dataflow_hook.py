@@ -230,7 +230,7 @@ class DataFlowHook(GoogleCloudBaseHook):
             name, variables, parameters, dataflow_template)
 
     def start_python_dataflow(self, task_id, variables, dataflow, py_options,
-                              append_job_name=True):
+                              append_job_name=True, py_interpreter="python"):
         name = self._build_dataflow_job_name(task_id, append_job_name)
         variables['job_name'] = name
 
@@ -238,7 +238,7 @@ class DataFlowHook(GoogleCloudBaseHook):
             return ['--labels={}={}'.format(key, value)
                     for key, value in labels_dict.items()]
         self._start_dataflow(task_id, variables, name,
-                             ["python2"] + py_options + [dataflow],
+                             [py_interpreter] + py_options + [dataflow],
                              label_formatter)
 
     @staticmethod

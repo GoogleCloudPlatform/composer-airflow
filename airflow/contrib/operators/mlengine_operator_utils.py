@@ -220,6 +220,7 @@ def create_evaluate_ops(task_prefix,
             "metric_fn_encoded": metric_fn_encoded,
             "metric_keys": ','.join(metric_keys)
         },
+        py_interpreter="python2",
         dag=dag)
     evaluate_summary.set_upstream(evaluate_prediction)
 
