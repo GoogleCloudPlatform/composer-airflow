@@ -271,8 +271,6 @@ class DataFlowPythonOperator(BaseOperator):
     :type dataflow_default_options: dict
     :param options: Map of job specific options.
     :type options: dict
-    :param py_interpreter: Python version of the beam pipeline.
-        If None, this defaults to the python.
     :param gcp_conn_id: The connection ID to use connecting to Google Cloud
         Platform.
     :type gcp_conn_id: string
@@ -294,7 +292,6 @@ class DataFlowPythonOperator(BaseOperator):
             py_options=None,
             dataflow_default_options=None,
             options=None,
-            py_interpreter="python",
             gcp_conn_id='google_cloud_default',
             delegate_to=None,
             poll_sleep=10,
@@ -307,7 +304,6 @@ class DataFlowPythonOperator(BaseOperator):
         self.py_options = py_options or []
         self.dataflow_default_options = dataflow_default_options or {}
         self.options = options or {}
-        self.py_interpreter = py_interpreter
         self.options.setdefault('labels', {}).update(
             {'airflow-version': 'v' + version.replace('.', '-').replace('+', '-')})
         self.gcp_conn_id = gcp_conn_id
@@ -331,7 +327,7 @@ class DataFlowPythonOperator(BaseOperator):
                              for key in dataflow_options}
         hook.start_python_dataflow(
             self.task_id, formatted_options,
-            self.py_file, self.py_options, py_interpreter=self.py_interpreter)
+            self.py_file, self.py_options)
 
 
 class GoogleCloudBucketHelper(object):
