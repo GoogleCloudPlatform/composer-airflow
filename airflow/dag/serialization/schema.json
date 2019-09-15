@@ -216,7 +216,6 @@
         "additionalProperties": false
       }
     },
-  
     "type": "object",
     "allOf": [
       { "$ref": "#/definitions/dag" },
