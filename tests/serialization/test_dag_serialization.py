@@ -32,61 +32,59 @@ from airflow.dag.serialization.enums import Encoding
 from airflow.hooks.base_hook import BaseHook
 from airflow.models import BaseOperator, Connection, DAG, DagBag
 from airflow.operators.bash_operator import BashOperator
+from airflow.operators.subdag_operator import SubDagOperator
 
-
-# FIXME: to remove useless fields.
-serialized_simple_dag_ground_truth = (
-    '{"__type": "dag", "__var": {'
-    '"schedule_interval": {"__var": 86400.0, "__type": "timedelta"}, '
-    '"default_view": "tree", '
-    '"max_active_runs": 16, '
-    '"partial": false, '
-    '"orientation": "LR", '
-    '"_description": "", '
-    '"is_subdag": false, '
-    '"safe_dag_id": "simple_dag", '
-    '"fileloc": null, '
-    '"_concurrency": 16, '
-    '"catchup": true, '
-    '"last_loaded": null, '
-    '"params": {"__var": {}, "__type": "dict"}, '
-    '"_schedule_interval": {"__var": 86400.0, "__type": "timedelta"}, '
-    '"timezone": {"__var": "UTC", "__type": "timezone"}, '
-    '"default_args": {"__var": {}, "__type": "dict"}, '
-    '"_dag_id": "simple_dag", '
-    '"_full_filepath": "", '
-    '"task_dict": {"__var": {"simple_task": {"__var": {'
-    '"_downstream_task_ids": {"__var": [], "__type": "set"}, '
-    '"trigger_rule": "all_success", '
-    '"ui_color": "#fff", '
-    '"inlets": [], '
-    '"retry_exponential_backoff": false, '
-    '"owner": "airflow", '
-    '"email_on_retry": true, '
-    '"weight_rule": "downstream", '
-    '"adhoc": false, '
-    '"params": {"__var": {}, "__type": "dict"}, '
-    '"_task_type": "BaseOperator", '
-    '"ui_fgcolor": "#000", '
-    '"priority_weight": 1, '
-    '"start_date": {"__var": "2019-08-01T00:00:00+00:00", "__type": "datetime"}, '
-    '"resources": null, '
-    '"wait_for_downstream": false, '
-    '"_inlets": {"__var": {"task_ids": [], "auto": false, "datasets": []}, "__type": "dict"}, '
-    '"outlets": [], '
-    '"template_fields": [], '
-    '"email_on_failure": true, '
-    '"retry_delay": {"__var": 300.0, "__type": "timedelta"}, '
-    '"executor_config": {"__var": {}, "__type": "dict"}, '
-    '"retries": 0, '
-    '"_outlets": {"__var": {"datasets": []}, "__type": "dict"}, '
-    '"task_id": "simple_task", '
-    '"_upstream_task_ids": {"__var": [], "__type": "set"}, '
-    '"queue": "default", '
-    '"depends_on_past": false, '
-    '"_dag": {"__type": "dag", "__var": "simple_dag"}'
-    '}, "__type": "operator"}}, '
-    '"__type": "dict"}}}')
+serialized_simple_dag_ground_truth = {
+    u"__type": u"dag",
+    u"__var": {
+        u"default_args": {u"__var": {}, u"__type": u"dict"},
+        u"params": {u"__var": {}, u"__type": u"dict"},
+        u"_dag_id": u"simple_dag",
+        u"_concurrency": 16,
+        u"_description": u"",
+        u"fileloc": None,
+        u"task_dict": {
+            u"__var": {
+                u"simple_task": {
+                    u"__var": {
+                        u"task_id": u"simple_task",
+                        u"owner": u"airflow",
+                        u"email_on_retry": True,
+                        u"email_on_failure": True,
+                        u"start_date": {u"__var": 1564617600.0,
+                                        u"__type": u"datetime"},
+                        u"trigger_rule": u"all_success",
+                        u"depends_on_past": False,
+                        u"wait_for_downstream": False,
+                        u"retries": 0,
+                        u"queue": u"default",
+                        u"retry_delay": {u"__var": 300.0, u"__type": u"timedelta"},
+                        u"retry_exponential_backoff": False,
+                        u"params": {u"__var": {}, u"__type": u"dict"},
+                        u"priority_weight": 1,
+                        u"weight_rule": u"downstream",
+                        u"adhoc": False,
+                        u"executor_config": {u"__var": {}, u"__type": u"dict"},
+                        u"_upstream_task_ids": {u"__var": [], u"__type": u"set"},
+                        u"_downstream_task_ids": {u"__var": [], u"__type": u"set"},
+                        u"_inlets": {
+                            u"__var": {u"auto": False, u"task_ids": [], u"datasets": []},
+                            u"__type": u"dict"},
+                        u"_outlets": {u"__var": {u"datasets": []}, u"__type": u"dict"},
+                        u"ui_color": u"#fff",
+                        u"ui_fgcolor": u"#000",
+                        u"template_fields": [],
+                        u"_task_type": u"BaseOperator",
+                        u"resources": None},
+                    u"__type": u"operator"}},
+            u"__type": u"dict"},
+        u"timezone": {u"__var": u"UTC", u"__type": u"timezone"},
+        u"schedule_interval": {u"__var": 86400.0, u"__type": u"timedelta"},
+        u"max_active_runs": 16,
+        u"orientation": u"LR",
+        u"catchup": True,
+        u"is_subdag": False,
+    }}
 
 
 def make_example_dags(module):
@@ -98,17 +96,21 @@ def make_example_dags(module):
 def make_simple_dag():
     """Make very simple DAG to verify serialization result."""
     dag = DAG(dag_id='simple_dag')
-    _ = BaseOperator(task_id='simple_task', dag=dag, start_date=datetime(2019, 8, 1))
+    _ = BaseOperator(task_id='simple_task', dag=dag,
+                     start_date=datetime(2019, 8, 1), owner="airflow")
     return {'simple_dag': dag}
 
 
 def make_user_defined_macro_filter_dag():
     """ Make DAGs with user defined macros and filters using locally defined methods.
 
+    For Webserver, we do not include ``user_defined_macros`` & ``user_defined_filters``.
+
     The examples here test:
         (1) functions can be successfully displayed on UI;
         (2) templates with function macros have been rendered before serialization.
     """
+
     def compute_next_execution_date(dag, execution_date):
         return dag.following_schedule(execution_date)
 
@@ -169,7 +171,7 @@ class TestStringifiedDAGs(unittest.TestCase):
                        '}')))
 
     def test_serialization(self):
-        """Serailzation and deserialization should work for every DAG and Operator."""
+        """Serialization and deserialization should work for every DAG and Operator."""
         dags = collect_dags()
         serialized_dags = {}
         for _, v in dags.items():
@@ -178,14 +180,7 @@ class TestStringifiedDAGs(unittest.TestCase):
 
         # Verify JSON schema of serialized DAGs.
         for json_str in serialized_dags.values():
-            json_object = json.loads(json_str)
-            task_dict = json_object['__var']['task_dict']['__var']
-
-            # Verify JSON schema of serialized operators.
-            for task in task_dict.values():
-                SerializedBaseOperator.validate_json(json.dumps(task, ensure_ascii=True))
-
-            SerializedDAG.validate_json(json_str)
+            SerializedDAG.validate_schema(json_str)
 
         # Compares with the ground truth of JSON string.
         self.validate_serialized_dag(
@@ -195,14 +190,12 @@ class TestStringifiedDAGs(unittest.TestCase):
     def validate_serialized_dag(self, json_dag, ground_truth_dag):
         """Verify serialized DAGs match the ground truth."""
         json_dag = json.loads(json_dag)
-        self.assertTrue(
-            json_dag[Encoding.VAR]['last_loaded'][Encoding.TYPE] == 'datetime')
-        json_dag[Encoding.VAR]['last_loaded'] = None
+
         self.assertTrue(
             json_dag[Encoding.VAR]['fileloc'].split('/')[-1] == 'test_dag_serialization.py')
         json_dag[Encoding.VAR]['fileloc'] = None
         json_dag[Encoding.VAR]['task_dict'][Encoding.VAR]['simple_task'][Encoding.VAR]['resources'] = None
-        self.assertTrue(json.dumps(json_dag) == ground_truth_dag)
+        self.assertDictEqual(json_dag, ground_truth_dag)
 
     def test_deserialization(self):
         """A serialized DAG can be deserialized in another process."""
@@ -230,6 +223,20 @@ class TestStringifiedDAGs(unittest.TestCase):
         self.validate_deserialized_task(
             skip_operator_1_task, 'DummySkipOperator', '#e8b7e4', '#000')
 
+        # Verify that the DAG object has 'full_filepath' attribute
+        # and is equal to fileloc
+        self.assertTrue(hasattr(example_skip_dag, 'full_filepath'))
+        self.assertEqual(example_skip_dag.full_filepath, example_skip_dag.fileloc)
+
+        example_subdag_operator = stringified_dags['example_subdag_operator']
+        section_1_task = example_subdag_operator.task_dict['section-1']
+        self.validate_deserialized_task(
+            section_1_task,
+            SubDagOperator.__name__,
+            SubDagOperator.ui_color,
+            SubDagOperator.ui_fgcolor
+        )
+
     def validate_deserialized_task(self, task, task_type, ui_color, ui_fgcolor):
         """Verify non-airflow operators are casted to BaseOperator."""
         self.assertTrue(isinstance(task, SerializedBaseOperator))
@@ -237,6 +244,14 @@ class TestStringifiedDAGs(unittest.TestCase):
         self.assertTrue(task.task_type == task_type)
         self.assertTrue(task.ui_color == ui_color)
         self.assertTrue(task.ui_fgcolor == ui_fgcolor)
+
+        # Check that for Deserialised task, task.subdag is None for all other Operators
+        # except for the SubDagOperator where task.subdag is an instance of DAG object
+        if task.task_type == "SubDagOperator":
+            self.assertIsNotNone(task.subdag)
+            self.assertTrue(isinstance(task.subdag, DAG))
+        else:
+            self.assertIsNone(task.subdag)
 
 
 if __name__ == '__main__':

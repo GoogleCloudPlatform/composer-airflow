@@ -19,8 +19,10 @@
 
 """DAG serialization with JSON."""
 
+import json
+
 from airflow.dag.serialization.enums import DagAttributeTypes as DAT, Encoding
-from airflow.dag.serialization.json_schema import make_dag_schema
+from airflow.dag.serialization.json_schema import load_dag_schema
 from airflow.dag.serialization.serialization import Serialization, safe_str
 from airflow.models import DAG
 
@@ -31,34 +33,53 @@ class SerializedDAG(DAG, Serialization):
     A stringified DAG can only be used in the scope of scheduler and webserver, because fields
     that are not serializable, such as functions and customer defined classes, are casted to
     strings.
+
     Compared with SimpleDAG: SerializedDAG contains all information for webserver.
     Compared with DagPickle: DagPickle contains all information for worker, but some DAGs are
     not pickable. SerializedDAG works for all DAGs.
     """
     # Stringified DAGs and operators contain exactly these fields.
     # FIXME: to customize included fields and keep only necessary fields.
-    _included_fields = list(set(vars(DAG(dag_id='test')).keys()) - set(['_comps']))
+    _included_fields = list(set(vars(DAG(dag_id='test')).keys()) - {
+        '_comps', 'parent_dag', '_old_context_manager_dags', 'safe_dag_id', 'last_loaded',
+        '_full_filepath', 'user_defined_filters', 'user_defined_macros', '_schedule_interval',
+        'partial', 'default_view'})
 
-    _json_schema = make_dag_schema()
-
-    @classmethod
-    def serialize_dag(cls, dag, visited_dags):
-        """Serializes a DAG into a JSON object.
-        """
-        if dag.dag_id in visited_dags:
-            return {Encoding.TYPE: DAT.DAG, Encoding.VAR: safe_str(dag.dag_id)}
-
-        new_dag = {Encoding.TYPE: DAT.DAG}
-        visited_dags[dag.dag_id] = new_dag
-        new_dag[Encoding.VAR] = cls._serialize_object(
-            dag, visited_dags, included_fields=cls._included_fields)
-        return new_dag
+    _json_schema = load_dag_schema()
 
     @classmethod
-    def deserialize_dag(cls, encoded_dag, visited_dags):
-        """Deserializes a DAG from a JSON object.
-        """
+    def serialize_dag(cls, dag):
+        """Serializes a DAG into a JSON object."""
+        return cls._serialize_object(dag)
+
+    @classmethod
+    def deserialize_dag(cls, encoded_dag):
+        """Deserializes a DAG from a JSON object."""
         dag = SerializedDAG(dag_id=encoded_dag['_dag_id'])
-        visited_dags[dag.dag_id] = dag
-        cls._deserialize_object(encoded_dag, dag, cls._included_fields, visited_dags)
+        cls._deserialize_object(encoded_dag, dag)
+        setattr(dag, 'full_filepath', dag.fileloc)
+
+        for task in dag.task_dict.values():
+            task.dag = dag
+            if task.subdag is not None:
+                setattr(task.subdag, 'parent_dag', dag)
         return dag
+
+    @classmethod
+    def to_json(cls, var):
+        """Stringifies DAGs and operators contained by var and returns a JSON string of var."""
+        json_str = json.dumps(cls._serialize(var), ensure_ascii=True)
+
+        # ToDo: Verify if adding Schema Validation is the best approach or not
+        # Validate Serialized DAG with Json Schema. Raises Error if it mismatches
+        cls.validate_schema(json_str)
+        return json_str
+
+    @classmethod
+    def to_dict(cls, var):
+        """Stringifies DAGs and operators contained by var and returns a dict of var."""
+        json_dict = cls._serialize(var)
+
+        # Validate Serialized DAG with Json Schema. Raises Error if it mismatches
+        cls.validate_schema(json_dict)
+        return json_dict
