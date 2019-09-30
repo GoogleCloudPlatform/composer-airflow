@@ -212,6 +212,7 @@ class CoreTest(unittest.TestCase):
         scheduler = jobs.SchedulerJob(**self.default_scheduler_args)
         dag.create_dagrun(run_id=models.DagRun.id_for_date(DEFAULT_DATE),
                           execution_date=DEFAULT_DATE,
+                          start_date=DEFAULT_DATE,
                           state=State.SUCCESS,
                           external_trigger=True)
         dag_run = scheduler.create_dag_run(dag)
@@ -1870,7 +1871,7 @@ class WebUiTests(unittest.TestCase):
                        latest_heartbeat=last_scheduler_heartbeat_for_testing_1))
         session.commit()
 
-        response_json = json.loads(self.app.get('/health').data.decode('utf-8'))
+        response_json = json.loads(self.app.get('/_ah/health').data.decode('utf-8'))
 
         self.assertEqual('healthy', response_json['metadatabase']['status'])
         self.assertEqual('healthy', response_json['scheduler']['status'])
@@ -1894,7 +1895,7 @@ class WebUiTests(unittest.TestCase):
                        latest_heartbeat=last_scheduler_heartbeat_for_testing_2))
         session.commit()
 
-        response_json = json.loads(self.app.get('/health').data.decode('utf-8'))
+        response_json = json.loads(self.app.get('/_ah/health').data.decode('utf-8'))
 
         self.assertEqual('healthy', response_json['metadatabase']['status'])
         self.assertEqual('unhealthy', response_json['scheduler']['status'])
@@ -1915,7 +1916,7 @@ class WebUiTests(unittest.TestCase):
             delete()
         session.commit()
 
-        response_json = json.loads(self.app.get('/health').data.decode('utf-8'))
+        response_json = json.loads(self.app.get('/_ah/health').data.decode('utf-8'))
 
         self.assertEqual('healthy', response_json['metadatabase']['status'])
         self.assertEqual('unhealthy', response_json['scheduler']['status'])

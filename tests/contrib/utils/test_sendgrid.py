@@ -35,6 +35,7 @@ class SendEmailSendGridTest(unittest.TestCase):
         self.bcc = ['foo-bcc@foo.com', 'bar-bcc@bar.com']
         self.expected_mail_data = {
             'content': [{'type': u'text/html', 'value': '<b>Foo</b> bar'}],
+            'mail_settings': {},
             'personalizations': [
                 {'cc': [{'email': 'foo-cc@foo.com'}, {'email': 'bar-cc@bar.com'}],
                  'to': [{'email': 'foo@foo.com'}, {'email': 'bar@bar.com'}],

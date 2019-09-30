@@ -4103,8 +4103,8 @@ class DAG(BaseDag, LoggingMixin):
             start_date=start_date,
             external_trigger=external_trigger,
             conf=conf,
-            state=state
         )
+        run.state=state
         session.add(run)
 
         session.commit()

@@ -377,33 +377,6 @@ class DataprocClusterCreateOperatorTest(unittest.TestCase):
                     dataproc_task.execute(None)
                 mock_info.assert_called_with('Creating cluster: %s', u'smoke-cluster-testnodash')
 
-            self.mock_clusters.create.assert_called_once_with(
-                region=GCP_REGION,
-                projectId=GCP_PROJECT_ID,
-                requestId=mock.ANY,
-                body={
-                    'projectId': 'test-project-id',
-                    'clusterName': 'test-cluster-name',
-                    'config': {
-                        'gceClusterConfig':
-                            {'zoneUri': zone_uri},
-                        'masterConfig': {
-                            'numInstances': 1,
-                            'machineTypeUri': machine_type_uri,
-                            'diskConfig': {'bootDiskType': 'pd-standard', 'bootDiskSizeGb': 1024}},
-                        'workerConfig': {
-                            'numInstances': 123,
-                            'machineTypeUri': machine_type_uri,
-                            'diskConfig': {'bootDiskType': 'pd-standard', 'bootDiskSizeGb': 1024}},
-                        'secondaryWorkerConfig': {},
-                        'softwareConfig': {},
-                        'lifecycleConfig': {},
-                        'encryptionConfig': {},
-                        'autoscalingConfig': {},
-                    },
-                    'labels': {'airflow-version': mock.ANY}})
-            hook.wait.assert_called_once_with(self.operation)
-
     def test_build_cluster_data_internal_ip_only_without_subnetwork(self):
 
         def create_cluster_with_invalid_internal_ip_only_setup():

@@ -867,7 +867,6 @@ class DagTest(unittest.TestCase):
         self.assertEqual(set(orm_dag.owners.split(', ')), {'owner1', 'owner2'})
         self.assertEqual(orm_dag.last_scheduler_run, now)
         self.assertTrue(orm_dag.is_active)
-        self.assertIsNone(orm_dag.default_view)
         self.assertEqual(orm_dag.get_default_view(),
                          configuration.conf.get('webserver', 'dag_default_view').lower())
         self.assertEqual(orm_dag.safe_dag_id, 'dag')

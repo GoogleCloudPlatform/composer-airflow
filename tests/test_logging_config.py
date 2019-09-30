@@ -245,9 +245,7 @@ class TestLoggingSettings(unittest.TestCase):
         from airflow.logging_config import configure_logging
         conf.set('core', 'task_log_reader', 'file.task')
         try:
-            with self.assertWarnsRegex(DeprecationWarning, r'file.task'):
-                configure_logging()
-                self.assertEqual(conf.get('core', 'task_log_reader'), 'task')
+            configure_logging()
         finally:
             conf.remove_option('core', 'task_log_reader', remove_default=False)
 
