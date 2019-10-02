@@ -65,7 +65,9 @@ class Serialization:
     _primitive_types = (int, bool, float, six.string_types)
 
     # Time types.
-    _datetime_types = (datetime.datetime, datetime.date, datetime.time)
+    # Airflow requires timestamps to be datetime.datetime.
+    # datetime.date and datetime.time are dumped to strings.
+    _datetime_types = (datetime.datetime,)
 
     # Exactly these fields will be contained in the serialized Json
     _included_fields = []
