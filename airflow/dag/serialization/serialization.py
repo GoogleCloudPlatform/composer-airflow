@@ -20,6 +20,7 @@
 """Utils for DAG serialization with JSON."""
 
 import datetime
+import enum
 import json
 import logging
 import time
@@ -144,7 +145,8 @@ class Serialization:
     @classmethod
     def _is_primitive(cls, var):
         """Primitive types."""
-        return var is None or isinstance(var, cls._primitive_types)
+        return var is None or (isinstance(var, cls._primitive_types) and
+                               not isinstance(var, enum.Enum))
 
     @classmethod
     def _is_excluded(cls, var, attrname, instance):
