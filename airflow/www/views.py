@@ -1881,12 +1881,18 @@ class Airflow(BaseView):
     @login_required
     @wwwutils.action_logging
     @provide_session
-    def paused(self):
+    def paused(self, session=None):
+        DagModel = models.DagModel
         dag_id = request.values.get('dag_id')
-        is_paused = True if request.values.get('is_paused') == 'false' else False
-        models.DagModel.get_dagmodel(dag_id).set_is_paused(
-            is_paused=is_paused,
-            store_serialized_dags=STORE_SERIALIZED_DAGS)
+        orm_dag = session.query(
+            DagModel).filter(DagModel.dag_id == dag_id).first()
+        if request.values.get('is_paused') == 'false':
+            orm_dag.is_paused = True
+        else:
+            orm_dag.is_paused = False
+        session.merge(orm_dag)
+        session.commit()
+        dagbag.get_dag(dag_id)
         return "OK"
 
     @expose('/refresh', methods=['POST'])
