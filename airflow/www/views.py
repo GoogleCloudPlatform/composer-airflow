@@ -94,8 +94,17 @@ try:
 except Exception:
     async_dagbag_loader = False
 
-dagbag = dagbag_loader.create_async_dagbag(
-    settings.DAGS_FOLDER) if async_dagbag_loader else models.DagBag(settings.DAGS_FOLDER)
+# If store_serialized_dags is True, scheduler writes serialized DAGs to DB, and webserver
+# reads DAGs from DB instead of importing from files.
+try:
+    STORE_SERIALIZED_DAGS = conf.getboolean('core', 'store_serialized_dags')
+except Exception:
+    STORE_SERIALIZED_DAGS = False
+
+if not async_dagbag_loader:
+    dagbag = models.DagBag(settings.DAGS_FOLDER, store_serialized_dags=STORE_SERIALIZED_DAGS)
+else:
+    dagbag = dagbag_loader.create_async_dagbag(settings.DAGS_FOLDER)
 
 login_required = airflow.login.login_required
 current_user = airflow.login.current_user
@@ -669,6 +678,10 @@ class Airflow(BaseView):
             html_code = highlight(
                 code, lexers.PythonLexer(), HtmlFormatter(linenos=True))
         except IOError as e:
+            flash(
+                ("Please note that source code are not available "
+                 "when store_serialized_dags is true"),
+                "warning")
             html_code = str(e)
 
         return self.render(
@@ -753,17 +766,31 @@ class Airflow(BaseView):
         dttm = pendulum.parse(execution_date)
         form = DateTimeForm(data={'execution_date': dttm})
         root = request.args.get('root', '')
+
+        # Loads dag from file.
+        # Stored serialized DAGs do not work in template rendering.
+        logging.info("Processing DAG file to render template.")
+        # FIXME: note that renderrin templates using functions does not work
+        # when serialized DAGs are displayed.
         dag = dagbag.get_dag(dag_id)
+
         task = copy.copy(dag.get_task(task_id))
         ti = models.TaskInstance(task=task, execution_date=dttm)
         try:
             ti.render_templates()
         except Exception as e:
+            if STORE_SERIALIZED_DAGS:
+                flash(
+                    ("Please note that templates rendered by functions do not work "
+                     "when store_serialized_dags is true"),
+                    "warning")
             flash("Error rendering template: " + str(e), "error")
         title = "Rendered Template"
         html_dict = {}
-        for template_field in task.__class__.template_fields:
-            content = getattr(task, template_field)
+        for template_field in task.template_fields:
+            content = getattr(task, template_field, None)
+            if content is None:
+                continue
             if template_field in attr_renderer:
                 html_dict[template_field] = attr_renderer[template_field](content)
             else:
@@ -1430,7 +1457,7 @@ class Airflow(BaseView):
         blur = conf.getboolean('webserver', 'demo_mode')
         dag = dagbag.get_dag(dag_id)
         if dag_id not in dagbag.dags:
-            flash('DAG "{0}" seems to be missing.'.format(dag_id), "error")
+            flash('DAG "{0}" seems to be missing from DagBag.'.format(dag_id), "error")
             return redirect('/admin/')
 
         root = request.args.get('root')
@@ -1537,10 +1564,7 @@ class Airflow(BaseView):
                                              'num_runs': num_runs})
         return self.render(
             'airflow/tree.html',
-            operators=sorted(
-                list(set([op.__class__ for op in dag.tasks])),
-                key=lambda x: x.__name__
-            ),
+            operators=sorted({op.task_type: op for op in dag.tasks}.values(), key=lambda x: x.task_type),
             root=root,
             form=form,
             dag=dag, data=data, blur=blur, num_runs=num_runs)
@@ -1631,10 +1655,7 @@ class Airflow(BaseView):
             state_token=state_token(dt_nr_dr_data['dr_state']),
             doc_md=doc_md,
             arrange=arrange,
-            operators=sorted(
-                list(set([op.__class__ for op in dag.tasks])),
-                key=lambda x: x.__name__
-            ),
+            operators=sorted({op.task_type: op for op in dag.tasks}.values(), key=lambda x: x.task_type),
             blur=blur,
             root=root or '',
             task_instances=task_instances,
@@ -1899,7 +1920,6 @@ class Airflow(BaseView):
     @expose('/paused', methods=['POST'])
     @login_required
     @wwwutils.action_logging
-    @provide_session
     def paused(self, session=None):
         DagModel = models.DagModel
         dag_id = request.values.get('dag_id')
@@ -1911,7 +1931,6 @@ class Airflow(BaseView):
             orm_dag.is_paused = False
         session.merge(orm_dag)
         session.commit()
-
         dagbag.get_dag(dag_id)
         return "OK"
 

@@ -494,7 +494,7 @@ class Airflow(AirflowBaseView):
             flash("Error rendering template: " + str(e), "error")
         title = "Rendered Template"
         html_dict = {}
-        for template_field in task.__class__.template_fields:
+        for template_field in task.template_fields:
             content = getattr(task, template_field)
             if template_field in wwwutils.get_attr_renderer():
                 html_dict[template_field] = \

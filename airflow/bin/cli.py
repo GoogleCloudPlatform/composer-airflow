@@ -675,7 +675,7 @@ def render(args):
     task = dag.get_task(task_id=args.task_id)
     ti = TaskInstance(task, args.execution_date)
     ti.render_templates()
-    for attr in task.__class__.template_fields:
+    for attr in task.template_fields:
         print(textwrap.dedent("""\
         # ----------------------------------------------------------
         # property: {}

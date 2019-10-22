@@ -401,6 +401,9 @@ def get_python_source(x):
     """
     Helper function to get Python source (or not), preventing exceptions
     """
+    if x is None:
+        return None
+
     if isinstance(x, string_types):
         return x
 

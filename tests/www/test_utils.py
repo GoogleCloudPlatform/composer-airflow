@@ -289,7 +289,7 @@ class UtilsTest(unittest.TestCase):
 
     def test_get_python_source_from_none(self):
         result = utils.get_python_source(None)
-        self.assertIn('No source code available', result)
+        self.assertIsNone(result)
 
 
 if __name__ == '__main__':
