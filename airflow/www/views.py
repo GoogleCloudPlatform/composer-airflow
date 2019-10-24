@@ -1920,6 +1920,7 @@ class Airflow(BaseView):
     @expose('/paused', methods=['POST'])
     @login_required
     @wwwutils.action_logging
+    @provide_session
     def paused(self, session=None):
         DagModel = models.DagModel
         dag_id = request.values.get('dag_id')
