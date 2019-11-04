@@ -126,7 +126,9 @@ def dag_link(v, c, m, p):
     url = url_for(
         'airflow.graph',
         dag_id=m.dag_id,
-        execution_date=m.execution_date)
+        )
+        # execution_date=m.execution_date) TODO(alejar) removed to fix b/143847513, 
+        # needs verifying if nothing else breaks
     return Markup(
         '<a href="{}">{}</a>').format(url, m.dag_id)
 
