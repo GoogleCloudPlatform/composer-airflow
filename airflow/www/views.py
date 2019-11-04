@@ -126,8 +126,7 @@ def dag_link(v, c, m, p):
     url = url_for(
         'airflow.graph',
         dag_id=m.dag_id,
-        )
-#        execution_date=m.execution_date)
+        execution_date=m.execution_date)
     return Markup(
         '<a href="{}">{}</a>').format(url, m.dag_id)
 
