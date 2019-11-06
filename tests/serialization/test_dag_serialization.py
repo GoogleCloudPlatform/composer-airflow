@@ -239,6 +239,16 @@ class TestStringifiedDAGs(unittest.TestCase):
             SubDagOperator.ui_fgcolor
         )
 
+    def test_deserialization_restores_operators_start_date(self):
+        dag = DAG(dag_id='simple_dag', start_date=datetime(2019, 8, 1))
+        _ = BaseOperator(task_id='simple_task', dag=dag, owner="airflow")
+
+        serialized_dag = Serialization.to_json(dag)
+        restored_dag = Serialization.from_json(serialized_dag)
+
+        self.assertIsNotNone(restored_dag.task_dict['simple_task'].start_date)
+        self.assertEquals(restored_dag.task_dict['simple_task'].start_date, dag.start_date)
+
     def validate_deserialized_task(self, task, task_type, ui_color, ui_fgcolor):
         """Verify non-airflow operators are casted to BaseOperator."""
         self.assertTrue(isinstance(task, SerializedBaseOperator))

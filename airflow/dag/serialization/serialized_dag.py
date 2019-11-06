@@ -64,6 +64,8 @@ class SerializedDAG(DAG, Serialization):
             task.dag = dag
             if task.subdag is not None:
                 setattr(task.subdag, 'parent_dag', dag)
+            if task.start_date is None:
+                task.start_date = dag.start_date
         return dag
 
     @classmethod
