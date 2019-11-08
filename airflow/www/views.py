@@ -101,6 +101,10 @@ try:
 except Exception:
     STORE_SERIALIZED_DAGS = False
 
+# File serialized_dags_env contains an env var representing Airflow config store_serialized_dags.
+# FIXME: currently existence of this file indicates store_serialized_dags is True.
+wwwutils.make_serialized_dags_env_var_file(STORE_SERIALIZED_DAGS, '/home/airflow/serialized_dags_env')
+
 if not async_dagbag_loader:
     dagbag = models.DagBag(settings.DAGS_FOLDER, store_serialized_dags=STORE_SERIALIZED_DAGS)
 else:
