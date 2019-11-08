@@ -100,9 +100,21 @@ try:
 except Exception:
     async_dagbag_loader = False
 
-dagbag = dagbag_loader.create_async_dagbag(
-    settings.DAGS_FOLDER) if async_dagbag_loader else models.DagBag(
-    settings.DAGS_FOLDER, store_serialized_dags=STORE_SERIALIZED_DAGS)
+# If store_serialized_dags is True, scheduler writes serialized DAGs to DB, and webserver
+# reads DAGs from DB instead of importing from files.
+try:
+    STORE_SERIALIZED_DAGS = conf.getboolean('core', 'store_serialized_dags')
+except Exception:
+    STORE_SERIALIZED_DAGS = False
+
+# File serialized_dags_env contains an env var representing Airflow config store_serialized_dags.
+# FIXME: currently existence of this file indicates store_serialized_dags is True.
+wwwutils.make_serialized_dags_env_var_file(STORE_SERIALIZED_DAGS, '/home/airflow/serialized_dags_env')
+
+if not async_dagbag_loader:
+    dagbag = models.DagBag(settings.DAGS_FOLDER, store_serialized_dags=STORE_SERIALIZED_DAGS)
+else:
+    dagbag = dagbag_loader.create_async_dagbag(settings.DAGS_FOLDER)
 
 login_required = airflow.login.login_required
 current_user = airflow.login.current_user
