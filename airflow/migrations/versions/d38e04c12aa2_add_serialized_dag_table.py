@@ -19,7 +19,7 @@
 """add serialized_dag table
 
 Revision ID: d38e04c12aa2
-Revises: c8ffec048a3b
+Revises: 41f5f12752f8
 Create Date: 2019-08-01 14:39:35.616417
 
 """
@@ -31,7 +31,7 @@ import sqlalchemy as sa
 revision = 'd38e04c12aa2'
 # FIXME: this revision is from backporting PR https://github.com/apache/airflow/pull/5743,
 # check revision when upgrade to a future Airflow version included the PR.
-down_revision = 'c8ffec048a3b'
+down_revision = '41f5f12752f8'
 branch_labels = None
 depends_on = None
 
