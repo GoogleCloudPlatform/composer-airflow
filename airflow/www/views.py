@@ -1176,7 +1176,8 @@ class Airflow(BaseView):
             execution_date=execution_date,
             state=State.RUNNING,
             conf=run_conf,
-            external_trigger=True
+            external_trigger=True,
+            store_serialized_dags=STORE_SERIALIZED_DAGS
         )
 
         flash(

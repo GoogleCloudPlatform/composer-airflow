@@ -2984,6 +2984,7 @@ class DagModel(Base):
                       start_date=None,
                       external_trigger=False,
                       conf=None,
+                      store_serialized_dags=False,
                       session=None):
         """
         Creates a dag run from this dag including the tasks associated with this dag.
@@ -3001,13 +3002,16 @@ class DagModel(Base):
         :param session: database session
         :type session: sqlalchemy.orm.session.Session
         """
-        return self.get_dag().create_dagrun(run_id=run_id,
-                                            state=state,
-                                            execution_date=execution_date,
-                                            start_date=start_date,
-                                            external_trigger=external_trigger,
-                                            conf=conf,
-                                            session=session)
+        return self.get_dag(store_serialized_dags=store_serialized_dags).create_dagrun(
+            run_id=run_id,
+            state=state,
+            execution_date=execution_date,
+            start_date=start_date,
+            external_trigger=external_trigger,
+            conf=conf,
+            session=session,
+        )
+
 
     @provide_session
     def set_is_paused(self,
