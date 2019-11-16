@@ -46,15 +46,16 @@ from airflow.exceptions import AirflowException, AirflowDagCycleException, DagNo
 from airflow.executors import LocalExecutor, get_default_executor
 from airflow.models.base import Base, ID_LEN
 from airflow.models.dagbag import DagBag
+from airflow.models.dagcode import DagCode
 from airflow.models.dagpickle import DagPickle
 from airflow.models.dagrun import DagRun
 from airflow.models.taskinstance import TaskInstance, clear_task_instances
 from airflow.models.serialized_dag import SerializedDagModel
 from airflow.settings import STORE_SERIALIZED_DAGS, MIN_SERIALIZED_DAG_UPDATE_INTERVAL
 from airflow.utils import timezone
-from airflow.utils.dag_processing import correct_maybe_zipped
 from airflow.utils.dates import cron_presets, date_range as utils_date_range
 from airflow.utils.db import provide_session
+from airflow.utils.file import correct_maybe_zipped, open_maybe_zipped
 from airflow.utils.helpers import validate_key
 from airflow.utils.log.logging_mixin import LoggingMixin
 from airflow.utils.sqlalchemy import UtcDateTime, Interval
@@ -597,6 +598,28 @@ class DAG(BaseDag, LoggingMixin):
         :rtype: str
         """
         return ", ".join({t.owner for t in self.tasks})
+
+    def code(self):
+        if conf.getboolean('core', 'store_dag_code', fallback=False):
+            return self._get_code_from_db()
+        else:
+            return self._get_code_from_file()
+
+    def _get_code_from_file(self):
+        with open_maybe_zipped(self.fileloc, 'r') as f:
+            code = f.read()
+        return code
+
+    @provide_session
+    def _get_code_from_db(self, session=None):
+        fileloc_hash = DagCode.dag_fileloc_hash(self.fileloc)
+        code = None
+        dag_code = session.query(DagCode) \
+            .filter(DagCode.fileloc_hash == fileloc_hash) \
+            .first()
+        if dag_code:
+            code = dag_code.source_code
+        return code
 
     @provide_session
     def _get_concurrency_reached(self, session=None):
@@ -1410,6 +1433,8 @@ class DAG(BaseDag, LoggingMixin):
                 min_update_interval=MIN_SERIALIZED_DAG_UPDATE_INTERVAL,
                 session=session
             )
+        if conf.getboolean('core', 'store_dag_code', fallback=False):
+            DagCode(self.fileloc).sync_to_db(session=session)
 
     @staticmethod
     @provide_session

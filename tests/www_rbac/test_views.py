@@ -578,6 +578,21 @@ class TestAirflowBaseViews(TestBase):
             resp = self.client.get(url, follow_redirects=True)
             self.check_content_in_response('Failed to load file', resp)
 
+    def test_code_from_db(self):
+        with conf_vars(
+            {
+                ("core", "store_serialized_dags"): "True",
+                ("core", "store_dag_code"): "True"
+            }
+        ):
+            from airflow.models.dagcode import DagCode
+            dagbag = models.DagBag(include_examples=True)
+            for dag in dagbag.dags.values():
+                DagCode(dag.fileloc).sync_to_db()
+            url = 'code?dag_id=example_bash_operator'
+            resp = self.client.get(url, follow_redirects=True)
+            self.check_content_in_response('example_bash_operator', resp)
+
     def test_paused(self):
         url = 'paused?dag_id=example_bash_operator&is_paused=false'
         resp = self.client.post(url, follow_redirects=True)

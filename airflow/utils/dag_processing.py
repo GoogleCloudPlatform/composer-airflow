@@ -283,20 +283,6 @@ class SimpleDagBag(BaseDagBag):
         return self.dag_id_to_simple_dag[dag_id]
 
 
-def correct_maybe_zipped(fileloc):
-    """
-    If the path contains a folder with a .zip suffix, then
-    the folder is treated as a zip archive and path to zip is returned.
-    """
-
-    _, archive, filename = re.search(
-        r'((.*\.zip){})?(.*)'.format(re.escape(os.sep)), fileloc).groups()
-    if archive and zipfile.is_zipfile(archive):
-        return archive
-    else:
-        return fileloc
-
-
 COMMENT_PATTERN = re.compile(r"\s*#.*")
 
 
@@ -925,6 +911,10 @@ class DagFileProcessorManager(LoggingMixin):
                 from airflow.models.dag import DagModel
                 SerializedDagModel.remove_deleted_dags(self._file_paths)
                 DagModel.deactivate_deleted_dags(self._file_paths)
+
+            if conf.getboolean('core', 'store_dag_code', fallback=False):
+                from airflow.models.dagcode import DagCode
+                DagCode.remove_deleted_code(self._file_paths)
 
     def _print_stat(self):
         """

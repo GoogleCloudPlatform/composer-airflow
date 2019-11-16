@@ -22,6 +22,7 @@ import ast
 import codecs
 import copy
 import datetime as dt
+import html
 import itertools
 import json
 import logging
@@ -34,6 +35,7 @@ from datetime import timedelta
 from functools import wraps
 from textwrap import dedent
 
+from airflow.models import DagModel
 from six.moves.urllib.parse import quote
 
 import markdown
@@ -696,21 +698,26 @@ class Airflow(AirflowViewMixin, BaseView):
     @login_required
     @provide_session
     def code(self, session=None):
-        dag_id = request.args.get('dag_id')
-        dm = models.DagModel
-        dag = session.query(dm).filter(dm.dag_id == dag_id).first()
         try:
-            with wwwutils.open_maybe_zipped(dag.fileloc, 'r') as f:
-                code = f.read()
+            dag_id = request.args.get('dag_id')
+            dag_orm = DagModel.get_dagmodel(dag_id, session=session)
+            dag = dag_orm.get_dag(STORE_SERIALIZED_DAGS)
+            code = dag.code()
             html_code = highlight(
                 code, lexers.PythonLexer(), HtmlFormatter(linenos=True))
-        except IOError as e:
+
+        except OSError as e:
             flash(
                 ("Please note that source code is not available "
                  "when store_serialized_dags is true"),
                 "warning")
+            message = (
+                "Exception encountered during " +
+                "dag_id retrieval/dag retrieval fallback/code highlighting:\n\n{}\n"
+                .format(e)
+            )
             html_code = '<p>Failed to load file.</p><p>Details: {}</p>'.format(
-                escape(str(e)))
+                html.escape(message))
 
         return self.render(
             'airflow/dag_code.html', html_code=html_code, dag=dag, title=dag_id,
