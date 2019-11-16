@@ -22,6 +22,7 @@ import sys
 import tempfile
 import unittest
 from datetime import timedelta
+from unittest import mock
 
 from mock import MagicMock
 
@@ -34,6 +35,8 @@ from airflow.utils import timezone
 from airflow.utils.dag_processing import (DagFileProcessorAgent, DagFileProcessorManager,
                                           SimpleTaskInstance)
 from airflow.utils.db import create_session
+from airflow.utils.file import correct_maybe_zipped, open_maybe_zipped
+from airflow.utils.session import create_session
 from airflow.utils.state import State
 
 TEST_DAG_FOLDER = os.path.join(
@@ -326,3 +329,66 @@ class TestDagFileProcessorAgent(unittest.TestCase):
         manager_process.join()
 
         self.assertTrue(os.path.isfile(log_file_loc))
+
+
+class TestCorrectMaybeZipped(unittest.TestCase):
+    @mock.patch("zipfile.is_zipfile")
+    def test_correct_maybe_zipped_normal_file(self, mocked_is_zipfile):
+        path = '/path/to/some/file.txt'
+        mocked_is_zipfile.return_value = False
+
+        dag_folder = correct_maybe_zipped(path)
+
+        self.assertEqual(dag_folder, path)
+
+    @mock.patch("zipfile.is_zipfile")
+    def test_correct_maybe_zipped_normal_file_with_zip_in_name(self, mocked_is_zipfile):
+        path = '/path/to/fakearchive.zip.other/file.txt'
+        mocked_is_zipfile.return_value = False
+
+        dag_folder = correct_maybe_zipped(path)
+
+        self.assertEqual(dag_folder, path)
+
+    @mock.patch("zipfile.is_zipfile")
+    def test_correct_maybe_zipped_archive(self, mocked_is_zipfile):
+        path = '/path/to/archive.zip/deep/path/to/file.txt'
+        mocked_is_zipfile.return_value = True
+
+        dag_folder = correct_maybe_zipped(path)
+
+        assert mocked_is_zipfile.call_count == 1
+        (args, kwargs) = mocked_is_zipfile.call_args_list[0]
+        self.assertEqual('/path/to/archive.zip', args[0])
+
+        self.assertEqual(dag_folder, '/path/to/archive.zip')
+
+
+class TestOpenMaybeZipped(unittest.TestCase):
+    def test_open_maybe_zipped_normal_file(self):
+        with mock.patch(
+            'io.open', mock.mock_open(read_data="data")
+        ) as mock_file:
+            open_maybe_zipped('/path/to/some/file.txt')
+            mock_file.assert_called_once_with('/path/to/some/file.txt', mode='r')
+
+    def test_open_maybe_zipped_normal_file_with_zip_in_name(self):
+        path = '/path/to/fakearchive.zip.other/file.txt'
+        with mock.patch(
+            'io.open', mock.mock_open(read_data="data")
+        ) as mock_file:
+            open_maybe_zipped(path)
+            mock_file.assert_called_once_with(path, mode='r')
+
+    @mock.patch("zipfile.is_zipfile")
+    @mock.patch("zipfile.ZipFile")
+    def test_open_maybe_zipped_archive(self, mocked_zip_file, mocked_is_zipfile):
+        mocked_is_zipfile.return_value = True
+        instance = mocked_zip_file.return_value
+        instance.open.return_value = mock.mock_open(read_data="data")
+
+        open_maybe_zipped('/path/to/archive.zip/deep/path/to/file.txt')
+
+        mocked_is_zipfile.assert_called_once_with('/path/to/archive.zip')
+        mocked_zip_file.assert_called_once_with('/path/to/archive.zip', mode='r')
+        instance.open.assert_called_once_with('deep/path/to/file.txt')

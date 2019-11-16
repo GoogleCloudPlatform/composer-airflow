@@ -160,6 +160,10 @@ class AirflowConfigParser(ConfigParser):
 
         self.is_validated = False
 
+    @staticmethod
+    def _env_var_name(section, key):
+        return 'AIRFLOW__{S}__{K}'.format(S=section.upper(), K=key.upper())
+
     def _validate(self):
         if (
                 self.get("core", "executor") != 'SequentialExecutor' and

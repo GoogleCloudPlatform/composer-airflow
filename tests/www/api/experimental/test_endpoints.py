@@ -22,12 +22,13 @@ from datetime import timedelta
 from unittest import mock
 from urllib.parse import quote_plus
 
+from airflow.models import DagModel
 from parameterized import parameterized_class
 
 from airflow import settings
 from airflow.api.common.experimental.trigger_dag import trigger_dag
 from airflow.models import DagBag, DagRun, Pool, TaskInstance
-from airflow.models.serialized_dag import SerializedDagModel
+from airflow.models import SerializedDagModel
 from airflow.settings import Session
 from airflow.utils.timezone import datetime, parse as parse_datetime, utcnow
 from airflow.version import version
@@ -53,11 +54,11 @@ class TestBase(unittest.TestCase):
 
 
 @parameterized_class([
-    {"dag_serialzation": "False"},
-    {"dag_serialzation": "True"},
+    {"dag_serialization": "False"},
+    {"dag_serialization": "True"},
 ])
 class TestApiExperimental(TestBase):
-    dag_serialzation = "False"
+    dag_serialization = "False"
 
     @classmethod
     def setUpClass(cls):
@@ -91,7 +92,7 @@ class TestApiExperimental(TestBase):
 
     def test_task_info(self):
         with conf_vars(
-            {("core", "store_serialized_dags"): self.dag_serialzation}
+            {("core", "store_serialized_dags"): self.dag_serialization}
         ):
             url_template = '/api/experimental/dags/{}/tasks/{}'
 
@@ -116,7 +117,7 @@ class TestApiExperimental(TestBase):
 
     def test_get_dag_code(self):
         with conf_vars(
-            {("core", "store_serialized_dags"): self.dag_serialzation}
+            {("core", "store_serialized_dags"): self.dag_serialization}
         ):
             url_template = '/api/experimental/dags/{}/code'
 
@@ -133,7 +134,7 @@ class TestApiExperimental(TestBase):
 
     def test_task_paused(self):
         with conf_vars(
-            {("core", "store_serialized_dags"): self.dag_serialzation}
+            {("core", "store_serialized_dags"): self.dag_serialization}
         ):
             url_template = '/api/experimental/dags/{}/paused/{}'
 
@@ -153,7 +154,7 @@ class TestApiExperimental(TestBase):
 
     def test_trigger_dag(self):
         with conf_vars(
-            {("core", "store_serialized_dags"): self.dag_serialzation}
+            {("core", "store_serialized_dags"): self.dag_serialization}
         ):
             url_template = '/api/experimental/dags/{}/dag_runs'
             run_id = 'my_run' + utcnow().isoformat()
@@ -183,23 +184,49 @@ class TestApiExperimental(TestBase):
             )
             self.assertEqual(404, response.status_code)
 
+    def test_delete_dag(self):
+        with conf_vars(
+            {("core", "store_serialized_dags"): self.dag_serialization}
+        ):
+            url_template = '/api/experimental/dags/{}'
+
+            from airflow import settings
+            session = settings.Session()
+            key = "my_dag_id_to_delete_2"
+            session.add(DagModel(dag_id=key))
+            session.commit()
+            response = self.client.delete(
+                url_template.format(key),
+                content_type="application/json"
+            )
+            self.assertEqual(200, response.status_code)
+
+            response = self.client.delete(
+                url_template.format('does_not_exist_dag'),
+                content_type="application/json"
+            )
+            self.assertEqual(404, response.status_code)
+
     def test_trigger_dag_for_date(self):
         with conf_vars(
-            {("core", "store_serialized_dags"): self.dag_serialzation}
+            {("core", "store_serialized_dags"): self.dag_serialization}
         ):
             url_template = '/api/experimental/dags/{}/dag_runs'
             dag_id = 'example_bash_operator'
-            execution_date = utcnow() + timedelta(hours=1)
+            hour_from_now = utcnow() + timedelta(hours=1)
+            execution_date = datetime(hour_from_now.year,
+                                      hour_from_now.month,
+                                      hour_from_now.day,
+                                      hour_from_now.hour)
             datetime_string = execution_date.isoformat()
 
-            # Test correct execution with execution date
+            # Test Correct execution
             response = self.client.post(
                 url_template.format(dag_id),
                 data=json.dumps({'execution_date': datetime_string}),
                 content_type="application/json"
             )
             self.assertEqual(200, response.status_code)
-            self.assertEqual(datetime_string, json.loads(response.data.decode('utf-8'))['execution_date'])
 
             dagbag = DagBag()
             dag = dagbag.get_dag(dag_id)
@@ -208,28 +235,10 @@ class TestApiExperimental(TestBase):
                             'Dag Run not found for execution date {}'
                             .format(execution_date))
 
-            # Test correct execution with execution date and microseconds replaced
-            response = self.client.post(
-                url_template.format(dag_id),
-                data=json.dumps({'execution_date': datetime_string, 'replace_microseconds': 'true'}),
-                content_type="application/json"
-            )
-            self.assertEqual(200, response.status_code)
-            response_execution_date = parse_datetime(
-                json.loads(response.data.decode('utf-8'))['execution_date'])
-            self.assertEqual(0, response_execution_date.microsecond)
-
-            dagbag = DagBag()
-            dag = dagbag.get_dag(dag_id)
-            dag_run = dag.get_dagrun(response_execution_date)
-            self.assertTrue(dag_run,
-                            'Dag Run not found for execution date {}'
-                            .format(execution_date))
-
             # Test error for nonexistent dag
             response = self.client.post(
                 url_template.format('does_not_exist_dag'),
-                data=json.dumps({'execution_date': datetime_string}),
+                data=json.dumps({'execution_date': execution_date.isoformat()}),
                 content_type="application/json"
             )
             self.assertEqual(404, response.status_code)
@@ -244,7 +253,7 @@ class TestApiExperimental(TestBase):
 
     def test_task_instance_info(self):
         with conf_vars(
-            {("core", "store_serialized_dags"): self.dag_serialzation}
+            {("core", "store_serialized_dags"): self.dag_serialization}
         ):
             url_template = '/api/experimental/dags/{}/dag_runs/{}/tasks/{}'
             dag_id = 'example_bash_operator'
@@ -299,7 +308,7 @@ class TestApiExperimental(TestBase):
 
     def test_dagrun_status(self):
         with conf_vars(
-            {("core", "store_serialized_dags"): self.dag_serialzation}
+            {("core", "store_serialized_dags"): self.dag_serialization}
         ):
             url_template = '/api/experimental/dags/{}/dag_runs/{}'
             dag_id = 'example_bash_operator'

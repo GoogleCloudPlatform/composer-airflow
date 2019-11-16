@@ -28,6 +28,7 @@ import socket
 import traceback
 from collections import defaultdict
 from datetime import timedelta
+from html import escape
 
 
 import markdown
@@ -54,7 +55,8 @@ from airflow import models, jobs
 from airflow import settings
 from airflow.api.common.experimental.mark_tasks import (set_dag_run_state_to_success,
                                                         set_dag_run_state_to_failed)
-from airflow.models import XCom, DagRun
+from airflow.models import XCom, DagRun, DagModel
+from airflow.settings import STORE_SERIALIZED_DAGS
 from airflow.ti_deps.dep_context import DepContext, QUEUE_DEPS, SCHEDULER_DEPS
 from airflow.utils import timezone
 from airflow.utils.dates import infer_time_unit, scale_time_units
@@ -422,17 +424,29 @@ class Airflow(AirflowBaseView):
     @expose('/code')
     @has_dag_access(can_dag_read=True)
     @has_access
-    def code(self):
-        dag_id = request.args.get('dag_id')
-        dag = dagbag.get_dag(dag_id)
-        title = dag_id
+    @provide_session
+    def code(self, session=None):
         try:
-            with wwwutils.open_maybe_zipped(dag.fileloc, 'r') as f:
-                code = f.read()
+            dag_id = request.args.get('dag_id')
+            title = dag_id
+            dag_orm = DagModel.get_dagmodel(dag_id, session=session)
+            dag = dag_orm.get_dag(STORE_SERIALIZED_DAGS)
+            code = dag.code()
             html_code = highlight(
                 code, lexers.PythonLexer(), HtmlFormatter(linenos=True))
-        except IOError as e:
-            html_code = str(e)
+
+        except OSError as e:
+            flash(
+                ("Please note that source code is not available "
+                 "when store_serialized_dags is true"),
+                "warning")
+            message = (
+                "Exception encountered during " +
+                "dag_id retrieval/dag retrieval fallback/code highlighting:\n\n{}\n"
+                .format(e)
+            )
+            html_code = '<p>Failed to load file.</p><p>Details: {}</p>'.format(
+                escape(message))
 
         return self.render(
             'airflow/dag_code.html', html_code=html_code, dag=dag, title=title,
