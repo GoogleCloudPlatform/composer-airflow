@@ -49,7 +49,7 @@ from airflow.dag.base_dag import BaseDag, BaseDagBag
 from airflow.exceptions import AirflowException
 from airflow.models import errors
 from airflow.settings import Stats
-from airflow.settings import STORE_SERIALIZED_DAGS, LOGGING_CLASS_PATH
+from airflow.settings import STORE_SERIALIZED_DAGS
 from airflow.utils import timezone
 from airflow.utils.db import provide_session
 from airflow.utils.log.logging_mixin import LoggingMixin
@@ -278,21 +278,7 @@ class SimpleDagBag(BaseDagBag):
         return self.dag_id_to_simple_dag[dag_id]
 
 
-def correct_maybe_zipped(fileloc):
-    """
-    If the path contains a folder with a .zip suffix, then
-    the folder is treated as a zip archive and path to zip is returned.
-    """
-
-    _, archive, filename = re.search(
-        r'((.*\.zip){})?(.*)'.format(re.escape(os.sep)), fileloc).groups()
-    if archive and zipfile.is_zipfile(archive):
-        return archive
-    else:
-        return fileloc
-
-
-def list_py_file_paths(directory, safe_mode=True,
+def list_py_file_paths(directory, safe_mode=conf.getboolean('core', 'DAG_DISCOVERY_SAFE_MODE', fallback=True),
                        include_examples=None):
     """
     Traverse a directory and look for Python files.
@@ -926,6 +912,10 @@ class DagFileProcessorManager(LoggingMixin):
             if STORE_SERIALIZED_DAGS:
                 from airflow.models import SerializedDagModel
                 SerializedDagModel.remove_deleted_dags(self._file_paths)
+
+            if conf.getboolean('core', 'store_dag_code', fallback=False):
+                from airflow.models.dagcode import DagCode
+                DagCode.remove_deleted_code(self._file_paths)
 
     def _print_stat(self):
         """

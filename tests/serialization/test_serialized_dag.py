@@ -24,6 +24,7 @@ import unittest
 from airflow import example_dags as example_dags_module
 from airflow.dag.serialization.serialized_dag import SerializedDAG
 from airflow.models import DagBag
+from airflow.models.dagcode import DagCode
 from airflow.models import SerializedDagModel as SDM
 from airflow.utils import db
 
@@ -53,8 +54,8 @@ class SerializedDagModelTest(unittest.TestCase):
 
     def test_dag_fileloc_hash(self):
         """Verifies the correctness of hashing file path."""
-        self.assertTrue(
-            SDM.dag_fileloc_hash('/airflow/dags/test_dag.py') == '51b71b4d99638fb535958c66782ccc0a2660ed77')
+        self.assertEqual(DagCode.dag_fileloc_hash('/airflow/dags/test_dag.py'),
+                         12609242940894583)
 
     def _write_example_dags(self):
         example_dags = make_example_dags(example_dags_module)

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 #
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
@@ -16,21 +15,28 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-"""Get code APIs."""
-from airflow.api.common.experimental import check_and_get_dag
-from airflow.exceptions import AirflowException
+
+"""alembic merge
+
+Revision ID: d3d64fa99562
+Revises: 939bb1e647c8, d38e04c12aa2, a56c9515abdc
+Create Date: 2020-03-02 13:09:19.426468
+
+"""
+
+# revision identifiers, used by Alembic.
+revision = 'd3d64fa99562'
+down_revision = ('939bb1e647c8', 'd38e04c12aa2', 'a56c9515abdc')
+branch_labels = None
+depends_on = None
+
+from alembic import op
+import sqlalchemy as sa
 
 
-def get_code(dag_id: str) -> str:
-    """Return python code of a given dag_id.
+def upgrade():
+    pass
 
-    :param dag_id: DAG id
-    :return: code of the DAG
-    """
-    dag = check_and_get_dag(dag_id=dag_id)
 
-    try:
-        return dag.code()
-    except OSError as exception:
-        error_message = "Error {} while reading Dag id {} Code".format(str(exception), dag_id)
-        raise AirflowException(error_message)
+def downgrade():
+    pass

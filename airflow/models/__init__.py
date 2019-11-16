@@ -22,14 +22,12 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+from future.standard_library import install_aliases
+
 from builtins import ImportError as BuiltinImportError, bytes, object, str
 from collections import defaultdict, namedtuple, OrderedDict
 import copy
 from typing import Iterable
-
-from future.standard_library import install_aliases
-
-from airflow.models.base import Base, ID_LEN
 
 try:
     # Fix Python > 3.7 deprecation
@@ -39,7 +37,6 @@ except BuiltinImportError:
     from collections import Hashable
 from datetime import timedelta
 
-import codecs
 import dill
 import functools
 import getpass
@@ -65,9 +62,9 @@ from datetime import datetime
 from urllib.parse import quote
 
 from sqlalchemy import (
-    Boolean, Column, DateTime, Float, ForeignKey, ForeignKeyConstraint, Index,
+    Boolean, Column, DateTime, Float, ForeignKey, Index,
     Integer, JSON, LargeBinary, PickleType, String, Text, UniqueConstraint,
-    and_, asc, func, or_, true as sqltrue
+    and_, func, or_
 )
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.orm import reconstructor, relationship, synonym
@@ -79,14 +76,16 @@ from croniter import (
 import six
 
 from airflow import settings, utils
-from airflow.executors import GetDefaultExecutor, LocalExecutor
 from airflow import configuration
+from airflow.executors import GetDefaultExecutor, LocalExecutor
 from airflow.exceptions import (
     AirflowDagCycleException, AirflowException, AirflowSkipException, AirflowTaskTimeout,
     AirflowRescheduleException, DagNotFound
 )
 from airflow.dag.base_dag import BaseDag, BaseDagBag
 from airflow.lineage import apply_lineage, prepare_lineage
+from airflow.models.base import Base, ID_LEN
+from airflow.models.dagcode import DagCode
 from airflow.models.dagpickle import DagPickle
 from airflow.models.errors import ImportError  # noqa: F401
 from airflow.models.slamiss import SlaMiss  # noqa: F401
@@ -101,11 +100,13 @@ from airflow.ti_deps.deps.trigger_rule_dep import TriggerRuleDep
 
 from airflow.ti_deps.dep_context import DepContext, QUEUE_DEPS, RUN_DEPS
 from airflow.utils import timezone
-from airflow.utils.dag_processing import list_py_file_paths, correct_maybe_zipped
+from airflow.utils.dag_processing import list_py_file_paths
 from airflow.utils.dates import cron_presets, date_range as utils_date_range
 from airflow.utils.db import provide_session
 from airflow.utils.decorators import apply_defaults
 from airflow.utils.email import send_email
+from airflow.utils.file import correct_maybe_zipped
+from airflow.utils.file import open_maybe_zipped
 from airflow.utils.helpers import (
     as_tuple, is_container, validate_key, pprinttable)
 from airflow.utils.operator_resources import Resources
@@ -3501,6 +3502,28 @@ class DAG(BaseDag, LoggingMixin):
     def owner(self):
         return ", ".join(list(set([t.owner for t in self.tasks])))
 
+    def code(self):
+        if configuration.conf.getboolean('core', 'store_dag_code', fallback=False):
+            return self._get_code_from_db()
+        else:
+            return self._get_code_from_file()
+
+    def _get_code_from_file(self):
+        with open_maybe_zipped(self.fileloc, 'r') as f:
+            code = f.read()
+        return code
+
+    @provide_session
+    def _get_code_from_db(self, session=None):
+        fileloc_hash = DagCode.dag_fileloc_hash(self.fileloc)
+        code = None
+        dag_code = session.query(DagCode) \
+            .filter(DagCode.fileloc_hash == fileloc_hash) \
+            .first()
+        if dag_code:
+            code = dag_code.source_code
+        return code
+
     @provide_session
     def _get_concurrency_reached(self, session=None):
         TI = TaskInstance
@@ -4256,6 +4279,8 @@ class DAG(BaseDag, LoggingMixin):
                 min_update_interval=MIN_SERIALIZED_DAG_UPDATE_INTERVAL,
                 session=session
             )
+        if configuration.getboolean('core', 'store_dag_code'):
+            DagCode(self.fileloc).sync_to_db(session=session)
 
     @staticmethod
     @provide_session
@@ -5205,22 +5230,9 @@ class SerializedDagModel(Base, LoggingMixin):
 
         self.dag_id = dag.dag_id
         self.fileloc = dag.full_filepath
-        self.fileloc_hash = self.dag_fileloc_hash(self.fileloc)
+        self.fileloc_hash = DagCode.dag_fileloc_hash(self.fileloc)
         self.data = SerializedDAG.to_dict(dag)
         self.last_updated = timezone.utcnow()
-
-    @staticmethod
-    def dag_fileloc_hash(full_filepath):
-        """"Hashing file location for indexing.
-
-        It is used by remove_deleted_dags to compute hash of DAG file path to query DAGs belong to a file.
-
-        :param full_filepath: full filepath of DAG file
-        :return: hashed full_filepath
-        """
-        # FIXME: hashing is needed because the length of fileloc is 2000 as an Airflow convention,
-        # which is over the limit of indexing.
-        return hashlib.sha1(full_filepath.encode('utf-8')).hexdigest()
 
     @classmethod
     @provide_session
@@ -5293,7 +5305,7 @@ class SerializedDagModel(Base, LoggingMixin):
         :param session: ORM Session
         """
         alive_fileloc_hashes = [
-            cls.dag_fileloc_hash(fileloc) for fileloc in alive_dag_filelocs]
+            DagCode.dag_fileloc_hash(fileloc) for fileloc in alive_dag_filelocs]
 
         session.execute(
             cls.__table__.delete().where(

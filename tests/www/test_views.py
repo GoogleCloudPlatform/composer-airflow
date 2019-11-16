@@ -43,6 +43,7 @@ from airflow.utils import timezone
 from airflow.utils.timezone import datetime
 from airflow.www import app as application
 from airflow import configuration as conf
+from tests.test_utils.config import conf_vars
 
 
 class TestChartModelView(unittest.TestCase):
@@ -799,6 +800,53 @@ class TestGanttView(unittest.TestCase):
 
     def test_dt_nr_dr_form_with_base_date_and_num_runs_and_execution_date_within(self):
         self.tester.test_with_base_date_and_num_runs_and_execution_date_within()
+
+
+class TestCodeView(unittest.TestCase):
+
+    def setUp(self):
+        super(TestCodeView, self).setUp()
+        configuration.load_test_config()
+        app = application.create_app(testing=True)
+        app.config['WTF_CSRF_METHODS'] = []
+        self.app = app.test_client()
+
+    def test_code(self):
+        url = '/admin/airflow/code?dag_id=example_bash_operator'
+        resp = self.app.get(url, follow_redirects=True)
+        self.check_content_in_response('example_bash_operator', resp)
+
+    def test_code_no_file(self):
+        url = '/admin/airflow/code?dag_id=example_bash_operator'
+        mock_open_patch = mock.mock_open(read_data='')
+        mock_open_patch.side_effect = FileNotFoundError
+        with mock.patch('io.open', mock_open_patch):
+            resp = self.app.get(url, follow_redirects=True)
+            self.check_content_in_response('Failed to load file', resp)
+
+    def test_code_from_db(self):
+        with conf_vars(
+            {
+                ("core", "store_serialized_dags"): "True",
+                ("core", "store_dag_code"): "True"
+            }
+        ):
+            from airflow.models.dagcode import DagCode
+            dagbag = models.DagBag(include_examples=True)
+            for dag in dagbag.dags.values():
+                DagCode(dag.fileloc).sync_to_db()
+            url = '/admin/airflow/code?dag_id=example_bash_operator'
+            resp = self.app.get(url, follow_redirects=True)
+            self.check_content_in_response('example_bash_operator', resp)
+
+    def check_content_in_response(self, text, resp, resp_code=200):
+        resp_html = resp.data.decode('utf-8')
+        self.assertEqual(resp_code, resp.status_code)
+        if isinstance(text, list):
+            for kw in text:
+                self.assertIn(kw, resp_html)
+        else:
+            self.assertIn(text, resp_html)
 
 
 class TestTaskInstanceView(unittest.TestCase):
