@@ -103,7 +103,9 @@ except Exception:
 
 # File serialized_dags_env contains an env var representing Airflow config store_serialized_dags.
 # FIXME: currently existence of this file indicates store_serialized_dags is True.
-wwwutils.make_serialized_dags_env_var_file(STORE_SERIALIZED_DAGS, '/home/airflow/serialized_dags_env')
+wwwutils.make_serialized_dags_env_var_file(STORE_SERIALIZED_DAGS,
+                                           os.getenv('AIRFLOW_SERIALIZED_DAGS_ENV_FILE',
+                                                     '/home/airflow/serialized_dags_env'))
 
 if not async_dagbag_loader:
     dagbag = models.DagBag(settings.DAGS_FOLDER, store_serialized_dags=STORE_SERIALIZED_DAGS)
@@ -131,7 +133,7 @@ def dag_link(v, c, m, p):
         'airflow.graph',
         dag_id=m.dag_id,
         )
-        # execution_date=m.execution_date) TODO(alejar) removed to fix b/143847513, 
+        # execution_date=m.execution_date) TODO(alejar) removed to fix b/143847513,
         # needs verifying if nothing else breaks
     return Markup(
         '<a href="{}">{}</a>').format(url, m.dag_id)
