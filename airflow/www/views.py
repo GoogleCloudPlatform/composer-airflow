@@ -72,6 +72,7 @@ from airflow.api.common.experimental.mark_tasks import (set_dag_run_state_to_run
                                                         set_dag_run_state_to_failed)
 from airflow.exceptions import AirflowException
 from airflow.models import BaseOperator, Connection, DagRun, errors, XCom
+from airflow.settings import STORE_SERIALIZED_DAGS
 from airflow.operators.subdag_operator import SubDagOperator
 from airflow.ti_deps.dep_context import DepContext, SCHEDULER_QUEUED_DEPS
 from airflow.utils import timezone
@@ -787,7 +788,9 @@ class Airflow(AirflowViewMixin, BaseView):
         dttm = pendulum.parse(execution_date)
         form = DateTimeForm(data={'execution_date': dttm})
         root = request.args.get('root', '')
-        dag = dagbag.get_dag(dag_id)
+        # Loads dag from file
+        logging.info("Processing DAG file to render template.")
+        dag = dagbag.get_dag(dag_id, from_file_only=True)
         task = copy.copy(dag.get_task(task_id))
         ti = models.TaskInstance(task=task, execution_date=dttm)
         try:
@@ -1320,8 +1323,11 @@ class Airflow(AirflowViewMixin, BaseView):
         payload = []
         for dag_id, active_dag_runs in dags:
             max_active_runs = 0
-            if dag_id in dagbag.dags:
-                max_active_runs = dagbag.dags[dag_id].max_active_runs
+            dag = dagbag.get_dag(dag_id)
+            max_active_runs = dagbag.dags[dag_id].max_active_runs
+            if dag:
+                # TODO: Make max_active_runs a column so we can query for it directly
+                max_active_runs = dag.max_active_runs
             payload.append({
                 'dag_id': dag_id,
                 'active_dag_run': active_dag_runs,
@@ -1502,7 +1508,7 @@ class Airflow(AirflowViewMixin, BaseView):
         dag_id = request.args.get('dag_id')
         blur = conf.getboolean('webserver', 'demo_mode')
         dag = dagbag.get_dag(dag_id)
-        if dag_id not in dagbag.dags:
+        if not dag:
             flash('DAG "{0}" seems to be missing.'.format(dag_id), "error")
             return redirect('/admin/')
 
@@ -1611,7 +1617,8 @@ class Airflow(AirflowViewMixin, BaseView):
         external_logs = conf.get('elasticsearch', 'frontend')
         return self.render(
             'airflow/tree.html',
-            operators=sorted({op.__class__ for op in dag.tasks}, key=lambda x: x.__name__),
+            operators=sorted({op.task_type: op for op in dag.tasks}.values(),
+                             key=lambda x: x.task_type),
             root=root,
             form=form,
             dag=dag, data=data, blur=blur, num_runs=num_runs,
@@ -1626,7 +1633,7 @@ class Airflow(AirflowViewMixin, BaseView):
         dag_id = request.args.get('dag_id')
         blur = conf.getboolean('webserver', 'demo_mode')
         dag = dagbag.get_dag(dag_id)
-        if dag_id not in dagbag.dags:
+        if not dag:
             flash('DAG "{0}" seems to be missing.'.format(dag_id), "error")
             return redirect('/admin/')
 
@@ -1704,7 +1711,8 @@ class Airflow(AirflowViewMixin, BaseView):
             state_token=state_token(dt_nr_dr_data['dr_state']),
             doc_md=doc_md,
             arrange=arrange,
-            operators=sorted({op.__class__ for op in dag.tasks}, key=lambda x: x.__name__),
+            operators=sorted({op.task_type: op for op in dag.tasks}.values(),
+                             key=lambda x: x.task_type),
             blur=blur,
             root=root or '',
             task_instances=task_instances,
@@ -1977,7 +1985,9 @@ class Airflow(AirflowViewMixin, BaseView):
     def paused(self, session=None):
         dag_id = request.values.get('dag_id')
         is_paused = True if request.args.get('is_paused') == 'false' else False
-        models.DagModel.get_dagmodel(dag_id).set_is_paused(is_paused=is_paused)
+        models.DagModel.get_dagmodel(dag_id).set_is_paused(
+            is_paused=is_paused,
+            store_serialized_dags=STORE_SERIALIZED_DAGS)
         return "OK"
 
     @expose('/refresh', methods=['POST'])
@@ -1997,14 +2007,6 @@ class Airflow(AirflowViewMixin, BaseView):
 
         flash("DAG [{}] is now fresh as a daisy".format(dag_id))
         return redirect(request.referrer)
-
-    @expose('/refresh_all', methods=['POST'])
-    @login_required
-    @wwwutils.action_logging
-    def refresh_all(self):
-        # TODO: Is this method still needed after AIRFLOW-3561?
-        flash("All DAGs are now up to date")
-        return redirect('/')
 
     @expose('/gantt')
     @login_required
