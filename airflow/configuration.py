@@ -617,9 +617,36 @@ if not os.path.isfile(AIRFLOW_CONFIG):
 
 log.info("Reading the config from %s", AIRFLOW_CONFIG)
 
-conf = AirflowConfigParser(default_config=parameterized_config(DEFAULT_CONFIG))
 
-conf.read(AIRFLOW_CONFIG)
+class AutoReloadableProxy(object):
+    def __init__(self, make_delegate):
+        self.__make_delegate = make_delegate
+        self.__delegate = make_delegate()
+
+    def __getattr__(self, attribute):
+        attr = getattr(self.__delegate, attribute)
+        if callable(attr):
+            def call_attr_and_maybe_reload(*args, **kwargs):
+                try:
+                    return attr(*args, **kwargs)
+                except TypeError:
+                    # We suspect that configuration module got reloaded. Let's
+                    # retry after recreating the delgate object.
+                    self.__delegate = self.__make_delegate()
+                    return getattr(self.__delegate, attribute)(*args, **kwargs)
+
+            return call_attr_and_maybe_reload
+        return attr
+
+
+def make_airflow_config_parser():
+    parser = AirflowConfigParser(
+        default_config=parameterized_config(DEFAULT_CONFIG))
+    parser.read(AIRFLOW_CONFIG)
+    return parser
+
+
+conf = AutoReloadableProxy(make_airflow_config_parser)
 
 if conf.has_option('core', 'AIRFLOW_HOME'):
     msg = (
