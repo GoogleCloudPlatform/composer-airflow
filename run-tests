@@ -215,6 +215,8 @@ if [[ "${VERBOSE}" == "true" ]]; then
     NOSE_ARGS+=("--rednose" "--with-timer" "-v" "--logging-level=DEBUG")
 fi
 
+cp -f "${MY_DIR}/airflow_ci.cfg" "${AIRFLOW_HOME}/unittests.cfg"
+
 echo
 echo "Starting the tests with arguments: ${NOSE_ARGS[*]}"
 echo
