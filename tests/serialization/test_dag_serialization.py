@@ -19,77 +19,76 @@
 
 """Unit tests for stringified DAGs."""
 
+from datetime import datetime, timedelta
 import multiprocessing
 import unittest
-from tests.compat import mock
-from datetime import datetime, timedelta
-
-from parameterized import parameterized
-from dateutil.relativedelta import relativedelta, FR
 
 from airflow import example_dags
 from airflow.contrib import example_dags as contrib_example_dags
-from airflow.serialization import SerializedBaseOperator, SerializedDAG
 from airflow.hooks.base_hook import BaseHook
 from airflow.models import BaseOperator, Connection, DAG, DagBag
 from airflow.operators.bash_operator import BashOperator
 from airflow.operators.subdag_operator import SubDagOperator
+from airflow.serialization import SerializedBaseOperator, SerializedDAG
+from airflow.serialization.enums import Encoding, DagAttributeTypes
 from airflow.utils.tests import CustomBaseOperator, GoogleLink
-
+from dateutil.relativedelta import relativedelta, FR
+from parameterized import parameterized
+from tests.compat import mock
 
 serialized_simple_dag_ground_truth = {
     "__version": 1,
     "dag": {
+        "_concurrency": 16,
+        "params": {},
+        "start_date": 1564617600.0,
+        "_dag_id": "simple_dag",
+        "catchup": True,
         "default_args": {
-            "__type": "dict",
-            "__var": {
-                "depends_on_past": False,
+            Encoding.VAR: {
                 "retries": 1,
                 "retry_delay": {
-                    "__type": "timedelta",
-                    "__var": 300.0
-                }
-            }
+                    Encoding.VAR: 300.0,
+                    Encoding.TYPE: DagAttributeTypes.TIMEDELTA
+                },
+                "depends_on_past": False
+            },
+            Encoding.TYPE: DagAttributeTypes.DICT
         },
-        "start_date": 1564617600.0,
-        "params": {},
-        "_dag_id": "simple_dag",
         "fileloc": None,
-        "tasks": [
+        "timezone": "UTC",
+        "_default_view": "tree",
+        "orientation": "LR",
+        "max_active_runs": 16, "tasks": [
             {
+                "ui_color": "#fff",
                 "task_id": "simple_task",
                 "owner": "airflow",
+                "_outlets": {"datasets": []},
+                "_inlets": {"auto": False, "task_ids": [], "datasets": []},
+                "template_fields": [],
                 "retries": 1,
                 "retry_delay": 300.0,
-                "_downstream_task_ids": [],
-                "_inlets": {
-                    "auto": False, "task_ids": [], "datasets": []
-                },
-                "_outlets": {"datasets": []},
-                "ui_color": "#fff",
                 "ui_fgcolor": "#000",
-                "template_fields": [],
+                "_downstream_task_ids": [],
                 "_task_type": "BaseOperator",
-                "_task_module": "airflow.models.baseoperator",
+                "_task_module": "airflow.models.baseoperator"
             },
             {
+                "ui_color": "#fff",
                 "task_id": "custom_task",
+                "_outlets": {"datasets": []},
+                "_inlets": {"auto": False, "task_ids": [], "datasets": []},
+                "template_fields": [],
                 "retries": 1,
                 "retry_delay": 300.0,
-                "_downstream_task_ids": [],
-                "_inlets": {
-                    "auto": False, "task_ids": [], "datasets": []
-                },
-                "_outlets": {"datasets": []},
-                "ui_color": "#fff",
                 "ui_fgcolor": "#000",
-                "template_fields": [],
+                "_downstream_task_ids": [],
                 "_task_type": "CustomBaseOperator",
-                "_task_module": "airflow.utils.tests",
-            },
-        ],
-        "timezone": "UTC",
-    },
+                "_task_module": "airflow.utils.tests"
+            }
+        ]
+    }
 }
 
 
@@ -255,10 +254,6 @@ class TestStringifiedDAGs(unittest.TestCase):
             SubDagOperator.ui_color,
             SubDagOperator.ui_fgcolor
         )
-
-        simple_dag = stringified_dags['simple_dag']
-        custom_task = simple_dag.task_dict['custom_task']
-        self.validate_operator_extra_links(custom_task)
 
     def validate_deserialized_task(self, task, task_type, ui_color, ui_fgcolor):
         """Verify non-airflow operators are casted to BaseOperator."""
