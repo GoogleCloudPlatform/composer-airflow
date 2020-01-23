@@ -704,12 +704,3 @@ has_option = conf.has_option
 remove_option = conf.remove_option
 as_dict = conf.as_dict
 set = conf.set # noqa
-
-for func in [load_test_config, get, getboolean, getfloat, getint, has_option,
-             remove_option, as_dict, set]:
-    deprecated(
-        func.__name__,
-        "Accessing configuration method '{f.__name__}' directly from "
-        "the configuration module is deprecated. Please access the "
-        "configuration from the 'configuration.conf' object via "
-        "'conf.{f.__name__}'".format(f=func))
