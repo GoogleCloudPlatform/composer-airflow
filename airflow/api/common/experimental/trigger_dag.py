@@ -19,6 +19,7 @@
 
 import json
 
+from airflow import settings
 from airflow.exceptions import DagRunAlreadyExists, DagNotFound
 from airflow.models import DagRun, DagBag
 from airflow.utils import timezone
@@ -89,7 +90,13 @@ def trigger_dag(
         execution_date=None,
         replace_microseconds=True,
 ):
-    dagbag = DagBag()
+    try:
+        store_serialized_dags = conf.getboolean('core', 'store_serialized_dags')
+    except Exception:
+        store_serialized_dags = False
+
+    dagbag = DagBag(
+        settings.DAGS_FOLDER, store_serialized_dags=store_serialized_dags)
     dag_run = DagRun()
     triggers = _trigger_dag(
         dag_id=dag_id,
