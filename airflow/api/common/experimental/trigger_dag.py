@@ -114,7 +114,15 @@ def trigger_dag(
     dag_model = DagModel.get_current(dag_id)
     if dag_model is None:
         raise DagNotFound("Dag id {} not found in DagModel".format(dag_id))
-    dagbag = DagBag(dag_folder=dag_model.fileloc)
+    try:
+        store_serialized_dags = conf.getboolean('core', 'store_serialized_dags')
+    except Exception:
+        store_serialized_dags = False
+
+    dagbag = DagBag(
+        dag_folder=dag_model.fileloc,
+        store_serialized_dags=store_serialized_dags
+    )
     dag_run = DagRun()
     triggers = _trigger_dag(
         dag_id=dag_id,
