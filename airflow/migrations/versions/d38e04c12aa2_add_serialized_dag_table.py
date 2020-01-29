@@ -18,7 +18,7 @@
 
 """add serialized_dag table
 Revision ID: d38e04c12aa2
-Revises: 6e96a59344a4
+Revises: 41f5f12752f8
 Create Date: 2019-08-01 14:39:35.616417
 """
 from alembic import op
@@ -27,7 +27,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = 'd38e04c12aa2'
-down_revision = '6e96a59344a4'
+down_revision = '41f5f12752f8'
 branch_labels = None
 depends_on = None
 

@@ -81,7 +81,15 @@ class DagRun(Base, LoggingMixin):
     def set_state(self, state):
         if self._state != state:
             self._state = state
-            self.end_date = timezone.utcnow() if self._state in State.finished() else None
+            if state in State.finished():
+                self.end_date = timezone.utcnow()
+                Stats.incr(
+                    'workflow.count.{:s}@-@{:s}'.format(self.dag_id, state), 1)
+                Stats.gauge(
+                    'workflow.duration.{:s}@-@{:s}'.format(self.dag_id, state),
+                    (self.end_date-self.start_date).total_seconds())
+            else:
+                self.end_date = None
 
     @declared_attr
     def state(self):
