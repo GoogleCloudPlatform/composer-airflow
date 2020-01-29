@@ -208,10 +208,6 @@ class BackfillJobTest(unittest.TestCase):
         dag.clear()
         session.close()
 
-    @unittest.skipIf(
-        "sqlite" in conf.get("core", "sql_alchemy_conn"),
-        "concurrent access not supported in sqlite",
-    )
     @parameterized.expand(
         [
             [
@@ -251,6 +247,8 @@ class BackfillJobTest(unittest.TestCase):
             ["latest_only", ("latest_only", "task1")],
         ]
     )
+    @unittest.skipIf('sqlite' in conf.get('core', 'sql_alchemy_conn'),
+                     "concurrent access not supported in sqlite")
     def test_backfill_examples(self, dag_id, expected_execution_order):
         """
         Test backfilling example dags
