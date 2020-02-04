@@ -94,7 +94,7 @@ def send_email(to, subject, html_content, files=None,
         basename = os.path.basename(fname)
         attachment = Attachment()
         with open(fname, "rb") as f:
-            attachment.content = str(base64.b64encode(f.read()), 'utf-8')
+            attachment.content = base64.b64encode(f.read()).decode('utf-8')
             attachment.type = mimetypes.guess_type(basename)[0]
             attachment.filename = basename
             attachment.disposition = "attachment"
