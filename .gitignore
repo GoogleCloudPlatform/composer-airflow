@@ -152,3 +152,15 @@ airflow-*.err
 airflow-*.out
 airflow-*.log
 airflow-*.pid
+
+# breeze
+/.build/.BACKEND
+/.bash_aliases
+/.bash_history
+/.build/.DOCKERHUB_REPO
+/.build/.DOCKERHUB_USER
+/.build/.ENV
+/.inputrc
+/.build/.KUBERNETES_MODE
+/.build/.KUBERNETES_VERSION
+/.build/.PYTHON_VERSION

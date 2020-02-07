@@ -21,9 +21,9 @@ import unittest
 
 from airflow import configuration
 from airflow.api.common.experimental.trigger_dag import trigger_dag
-from airflow.models import DagBag, DagRun
+from airflow.models import DagBag
 from airflow.models import DagRun
-from airflow.models.serialized_dag import SerializedDagModel
+from airflow.models import SerializedDagModel
 from airflow.settings import Session
 from airflow.www import app as application
 from parameterized import parameterized_class
