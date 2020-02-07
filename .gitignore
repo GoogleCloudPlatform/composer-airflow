@@ -158,3 +158,8 @@ airflow-*.pid
 .mypy_cache/
 .dmypy.json
 dmypy.json
+
+.bash_aliases
+.bash_history
+.build/
+.inputrc
