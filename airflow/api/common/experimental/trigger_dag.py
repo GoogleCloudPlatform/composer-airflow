@@ -19,7 +19,7 @@
 
 import json
 
-from airflow.models import DagModel
+from airflow import settings
 
 from airflow.exceptions import DagRunAlreadyExists, DagNotFound
 from airflow.models import DagRun, DagBag
@@ -90,15 +90,11 @@ def trigger_dag(
         execution_date=None,
         replace_microseconds=True,
 ):
-    dag_model = DagModel.get_current(dag_id)
-    if dag_model is None:
-        raise DagNotFound("Dag id {} not found in DagModel".format(dag_id))
-
     def read_store_serialized_dags():
         from airflow.configuration import conf
         return conf.getboolean('core', 'store_serialized_dags')
     dagbag = DagBag(
-        dag_folder=dag_model.fileloc,
+        dag_folder=settings.DAGS_FOLDER,
         store_serialized_dags=read_store_serialized_dags()
     )
     dag_run = DagRun()
