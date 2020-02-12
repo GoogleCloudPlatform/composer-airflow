@@ -20,6 +20,7 @@
 import json
 
 from airflow import settings
+
 from airflow.exceptions import DagRunAlreadyExists, DagNotFound
 from airflow.models import DagRun, DagBag
 from airflow.utils import timezone
@@ -35,13 +36,12 @@ def _trigger_dag(
         execution_date,
         replace_microseconds,
 ):
+    dag = dag_bag.get_dag(dag_id)  # prefetch dag if it is stored serialized
+
     if dag_id not in dag_bag.dags:
         raise DagNotFound("Dag id {} not found".format(dag_id))
 
-    dag = dag_bag.get_dag(dag_id)
-
-    if not execution_date:
-        execution_date = timezone.utcnow()
+    execution_date = execution_date if execution_date else timezone.utcnow()
 
     assert timezone.is_localized(execution_date)
 
@@ -90,13 +90,13 @@ def trigger_dag(
         execution_date=None,
         replace_microseconds=True,
 ):
-    try:
-        store_serialized_dags = conf.getboolean('core', 'store_serialized_dags')
-    except Exception:
-        store_serialized_dags = False
-
+    def read_store_serialized_dags():
+        from airflow.configuration import conf
+        return conf.getboolean('core', 'store_serialized_dags')
     dagbag = DagBag(
-        settings.DAGS_FOLDER, store_serialized_dags=store_serialized_dags)
+        dag_folder=settings.DAGS_FOLDER,
+        store_serialized_dags=read_store_serialized_dags()
+    )
     dag_run = DagRun()
     triggers = _trigger_dag(
         dag_id=dag_id,
