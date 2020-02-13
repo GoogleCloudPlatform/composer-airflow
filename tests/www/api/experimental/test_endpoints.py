@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 #
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
@@ -16,21 +15,50 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
 from datetime import timedelta
 import json
+import os
 import unittest
-from six.moves.urllib.parse import quote_plus
+from unittest import mock
+from urllib.parse import quote_plus
 
+from airflow.models import DagModel
+
+from airflow import settings
 from airflow.api.common.experimental.trigger_dag import trigger_dag
-from airflow.models import DagBag, DagModel, DagRun, Pool, TaskInstance
+from airflow.models import DagBag, DagRun, Pool, TaskInstance
+from airflow.models.serialized_dag import SerializedDagModel
 from airflow.settings import Session
-from airflow.utils.timezone import datetime, utcnow
+from airflow.utils.timezone import datetime, parse as parse_datetime, utcnow
 from airflow.www import app as application
+from parameterized import parameterized_class
+from tests.test_utils.config import conf_vars
 from tests.test_utils.db import clear_db_pools
 
+ROOT_FOLDER = os.path.realpath(
+    os.path.join(os.path.dirname(os.path.realpath(__file__)), os.pardir, os.pardir, os.pardir, os.pardir)
+)
 
-class TestApiExperimental(unittest.TestCase):
+
+class TestBase(unittest.TestCase):
+    def setUp(self):
+        super(TestBase, self).setUp()
+        self.app = application.create_app(testing=True)
+        self.app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///'
+        self.app.config['SECRET_KEY'] = 'secret_key'
+        self.app.config['CSRF_ENABLED'] = False
+        self.app.config['WTF_CSRF_ENABLED'] = False
+        self.client = self.app.test_client()
+        settings.configure_orm()
+        self.session = Session
+
+
+@parameterized_class([
+    {"dag_serialzation": "False"},
+    {"dag_serialzation": "True"},
+])
+class TestApiExperimental(TestBase):
+    dag_serialzation = "False"
 
     @classmethod
     def setUpClass(cls):
@@ -44,11 +72,7 @@ class TestApiExperimental(unittest.TestCase):
         dagbag = DagBag(include_examples=True)
         for dag in dagbag.dags.values():
             dag.sync_to_db()
-
-    def setUp(self):
-        super(TestApiExperimental, self).setUp()
-        app = application.create_app(testing=True)
-        self.app = app.test_client()
+            SerializedDagModel.write_dag(dag)
 
     def tearDown(self):
         session = Session()
@@ -56,100 +80,119 @@ class TestApiExperimental(unittest.TestCase):
         session.query(TaskInstance).delete()
         session.commit()
         session.close()
-        super(TestApiExperimental, self).tearDown()
+        super().tearDown()
 
     def test_task_info(self):
-        url_template = '/api/experimental/dags/{}/tasks/{}'
+        with conf_vars(
+            {("core", "store_serialized_dags"): self.dag_serialzation}
+        ):
+            url_template = '/api/experimental/dags/{}/tasks/{}'
 
-        response = self.app.get(
-            url_template.format('example_bash_operator', 'runme_0')
-        )
-        self.assertIn('"email"', response.data.decode('utf-8'))
-        self.assertNotIn('error', response.data.decode('utf-8'))
-        self.assertEqual(200, response.status_code)
+            response = self.client.get(
+                url_template.format('example_bash_operator', 'runme_0')
+            )
+            self.assertIn('"email"', response.data.decode('utf-8'))
+            self.assertNotIn('error', response.data.decode('utf-8'))
+            self.assertEqual(200, response.status_code)
 
-        response = self.app.get(
-            url_template.format('example_bash_operator', 'DNE')
-        )
-        self.assertIn('error', response.data.decode('utf-8'))
-        self.assertEqual(404, response.status_code)
+            response = self.client.get(
+                url_template.format('example_bash_operator', 'DNE')
+            )
+            self.assertIn('error', response.data.decode('utf-8'))
+            self.assertEqual(404, response.status_code)
 
-        response = self.app.get(
-            url_template.format('DNE', 'DNE')
-        )
-        self.assertIn('error', response.data.decode('utf-8'))
-        self.assertEqual(404, response.status_code)
+            response = self.client.get(
+                url_template.format('DNE', 'DNE')
+            )
+            self.assertIn('error', response.data.decode('utf-8'))
+            self.assertEqual(404, response.status_code)
 
     def test_get_dag_code(self):
-        url_template = '/api/experimental/dags/{}/code'
+        with conf_vars(
+            {("core", "store_serialized_dags"): self.dag_serialzation}
+        ):
+            url_template = '/api/experimental/dags/{}/code'
 
-        response = self.app.get(
-            url_template.format('example_bash_operator')
-        )
-        self.assertIn('BashOperator(', response.data.decode('utf-8'))
-        self.assertEqual(200, response.status_code)
+            response = self.client.get(
+                url_template.format('example_bash_operator')
+            )
+            self.assertIn('BashOperator(', response.data.decode('utf-8'))
+            self.assertEqual(200, response.status_code)
 
-        response = self.app.get(
-            url_template.format('xyz')
-        )
-        self.assertEqual(404, response.status_code)
+            response = self.client.get(
+                url_template.format('xyz')
+            )
+            self.assertEqual(404, response.status_code)
 
     def test_task_paused(self):
-        url_template = '/api/experimental/dags/{}/paused/{}'
+        with conf_vars(
+            {("core", "store_serialized_dags"): self.dag_serialzation}
+        ):
+            url_template = '/api/experimental/dags/{}/paused/{}'
 
-        response = self.app.get(
-            url_template.format('example_bash_operator', 'true')
-        )
-        self.assertIn('ok', response.data.decode('utf-8'))
-        self.assertEqual(200, response.status_code)
+            response = self.client.get(
+                url_template.format('example_bash_operator', 'true')
+            )
+            self.assertIn('ok', response.data.decode('utf-8'))
+            self.assertEqual(200, response.status_code)
 
-        url_template = '/api/experimental/dags/{}/paused/{}'
+            url_template = '/api/experimental/dags/{}/paused/{}'
 
-        response = self.app.get(
-            url_template.format('example_bash_operator', 'false')
-        )
-        self.assertIn('ok', response.data.decode('utf-8'))
-        self.assertEqual(200, response.status_code)
+            response = self.client.get(
+                url_template.format('example_bash_operator', 'false')
+            )
+            self.assertIn('ok', response.data.decode('utf-8'))
+            self.assertEqual(200, response.status_code)
 
     def test_trigger_dag(self):
-        url_template = '/api/experimental/dags/{}/dag_runs'
-        response = self.app.post(
-            url_template.format('example_bash_operator'),
-            data=json.dumps({'run_id': 'my_run' + utcnow().isoformat()}),
-            content_type="application/json"
-        )
+        with conf_vars(
+            {("core", "store_serialized_dags"): self.dag_serialzation}
+        ):
+            url_template = '/api/experimental/dags/{}/dag_runs'
+            response = self.client.post(
+                url_template.format('example_bash_operator'),
+                data=json.dumps({'run_id': 'my_run' + utcnow().isoformat()}),
+                content_type="application/json"
+            )
 
-        self.assertEqual(200, response.status_code)
+            self.assertEqual(200, response.status_code)
 
-        response = self.app.post(
-            url_template.format('does_not_exist_dag'),
-            data=json.dumps({}),
-            content_type="application/json"
-        )
-        self.assertEqual(404, response.status_code)
+            # Test error for nonexistent dag
+            response = self.client.post(
+                url_template.format('does_not_exist_dag'),
+                data=json.dumps({}),
+                content_type="application/json"
+            )
+            self.assertEqual(404, response.status_code)
 
     def test_delete_dag(self):
-        url_template = '/api/experimental/dags/{}'
+        with conf_vars(
+            {("core", "store_serialized_dags"): self.dag_serialzation}
+        ):
+            url_template = '/api/experimental/dags/{}'
 
-        from airflow import settings
-        session = settings.Session()
-        key = "my_dag_id"
-        session.add(DagModel(dag_id=key))
-        session.commit()
-        response = self.app.delete(
-            url_template.format(key),
-            content_type="application/json"
-        )
-        self.assertEqual(200, response.status_code)
+            from airflow import settings
+            session = settings.Session()
+            key = "my_dag_id_to_delete"
+            session.add(DagModel(dag_id=key))
+            session.commit()
+            response = self.client.delete(
+                url_template.format(key),
+                content_type="application/json"
+            )
+            self.assertEqual(200, response.status_code)
 
-        response = self.app.delete(
-            url_template.format('does_not_exist_dag'),
-            content_type="application/json"
-        )
-        self.assertEqual(404, response.status_code)
+            response = self.client.delete(
+                url_template.format('does_not_exist_dag'),
+                content_type="application/json"
+            )
+            self.assertEqual(404, response.status_code)
 
     def test_trigger_dag_for_date(self):
-        url_template = '/api/experimental/dags/{}/dag_runs'
+        with conf_vars(
+            {("core", "store_serialized_dags"): self.dag_serialzation}
+        ):
+            url_template = '/api/experimental/dags/{}/dag_runs'
         dag_id = 'example_bash_operator'
         hour_from_now = utcnow() + timedelta(hours=1)
         execution_date = datetime(hour_from_now.year,
@@ -159,7 +202,7 @@ class TestApiExperimental(unittest.TestCase):
         datetime_string = execution_date.isoformat()
 
         # Test Correct execution
-        response = self.app.post(
+        response = self.client.post(
             url_template.format(dag_id),
             data=json.dumps({'execution_date': datetime_string}),
             content_type="application/json"
@@ -174,7 +217,7 @@ class TestApiExperimental(unittest.TestCase):
                         .format(execution_date))
 
         # Test error for nonexistent dag
-        response = self.app.post(
+        response = self.client.post(
             url_template.format('does_not_exist_dag'),
             data=json.dumps({'execution_date': execution_date.isoformat()}),
             content_type="application/json"
@@ -182,7 +225,7 @@ class TestApiExperimental(unittest.TestCase):
         self.assertEqual(404, response.status_code)
 
         # Test error for bad datetime format
-        response = self.app.post(
+        response = self.client.post(
             url_template.format(dag_id),
             data=json.dumps({'execution_date': 'not_a_datetime'}),
             content_type="application/json"
@@ -190,116 +233,118 @@ class TestApiExperimental(unittest.TestCase):
         self.assertEqual(400, response.status_code)
 
     def test_task_instance_info(self):
-        url_template = '/api/experimental/dags/{}/dag_runs/{}/tasks/{}'
-        dag_id = 'example_bash_operator'
-        task_id = 'also_run_this'
-        execution_date = utcnow().replace(microsecond=0)
-        datetime_string = quote_plus(execution_date.isoformat())
-        wrong_datetime_string = quote_plus(
-            datetime(1990, 1, 1, 1, 1, 1).isoformat()
-        )
+        with conf_vars(
+            {("core", "store_serialized_dags"): self.dag_serialzation}
+        ):
+            url_template = '/api/experimental/dags/{}/dag_runs/{}/tasks/{}'
+            dag_id = 'example_bash_operator'
+            task_id = 'also_run_this'
+            execution_date = utcnow().replace(microsecond=0)
+            datetime_string = quote_plus(execution_date.isoformat())
+            wrong_datetime_string = quote_plus(
+                datetime(1990, 1, 1, 1, 1, 1).isoformat()
+            )
 
-        # Create DagRun
-        trigger_dag(dag_id=dag_id,
-                    run_id='test_task_instance_info_run',
-                    execution_date=execution_date)
+            # Create DagRun
+            trigger_dag(dag_id=dag_id,
+                        run_id='test_task_instance_info_run',
+                        execution_date=execution_date)
 
-        # Test Correct execution
-        response = self.app.get(
-            url_template.format(dag_id, datetime_string, task_id)
-        )
-        self.assertEqual(200, response.status_code)
-        self.assertIn('state', response.data.decode('utf-8'))
-        self.assertNotIn('error', response.data.decode('utf-8'))
+            # Test Correct execution
+            response = self.client.get(
+                url_template.format(dag_id, datetime_string, task_id)
+            )
+            self.assertEqual(200, response.status_code)
+            self.assertIn('state', response.data.decode('utf-8'))
+            self.assertNotIn('error', response.data.decode('utf-8'))
 
-        # Test error for nonexistent dag
-        response = self.app.get(
-            url_template.format('does_not_exist_dag', datetime_string,
-                                task_id),
-        )
-        self.assertEqual(404, response.status_code)
-        self.assertIn('error', response.data.decode('utf-8'))
+            # Test error for nonexistent dag
+            response = self.client.get(
+                url_template.format('does_not_exist_dag', datetime_string,
+                                    task_id),
+            )
+            self.assertEqual(404, response.status_code)
+            self.assertIn('error', response.data.decode('utf-8'))
 
-        # Test error for nonexistent task
-        response = self.app.get(
-            url_template.format(dag_id, datetime_string, 'does_not_exist_task')
-        )
-        self.assertEqual(404, response.status_code)
-        self.assertIn('error', response.data.decode('utf-8'))
+            # Test error for nonexistent task
+            response = self.client.get(
+                url_template.format(dag_id, datetime_string, 'does_not_exist_task')
+            )
+            self.assertEqual(404, response.status_code)
+            self.assertIn('error', response.data.decode('utf-8'))
 
-        # Test error for nonexistent dag run (wrong execution_date)
-        response = self.app.get(
-            url_template.format(dag_id, wrong_datetime_string, task_id)
-        )
-        self.assertEqual(404, response.status_code)
-        self.assertIn('error', response.data.decode('utf-8'))
+            # Test error for nonexistent dag run (wrong execution_date)
+            response = self.client.get(
+                url_template.format(dag_id, wrong_datetime_string, task_id)
+            )
+            self.assertEqual(404, response.status_code)
+            self.assertIn('error', response.data.decode('utf-8'))
 
-        # Test error for bad datetime format
-        response = self.app.get(
-            url_template.format(dag_id, 'not_a_datetime', task_id)
-        )
-        self.assertEqual(400, response.status_code)
-        self.assertIn('error', response.data.decode('utf-8'))
+            # Test error for bad datetime format
+            response = self.client.get(
+                url_template.format(dag_id, 'not_a_datetime', task_id)
+            )
+            self.assertEqual(400, response.status_code)
+            self.assertIn('error', response.data.decode('utf-8'))
 
     def test_dagrun_status(self):
-        url_template = '/api/experimental/dags/{}/dag_runs/{}'
-        dag_id = 'example_bash_operator'
-        execution_date = utcnow().replace(microsecond=0)
-        datetime_string = quote_plus(execution_date.isoformat())
-        wrong_datetime_string = quote_plus(
-            datetime(1990, 1, 1, 1, 1, 1).isoformat()
-        )
+        with conf_vars(
+            {("core", "store_serialized_dags"): self.dag_serialzation}
+        ):
+            url_template = '/api/experimental/dags/{}/dag_runs/{}'
+            dag_id = 'example_bash_operator'
+            execution_date = utcnow().replace(microsecond=0)
+            datetime_string = quote_plus(execution_date.isoformat())
+            wrong_datetime_string = quote_plus(
+                datetime(1990, 1, 1, 1, 1, 1).isoformat()
+            )
 
-        # Create DagRun
-        trigger_dag(dag_id=dag_id,
-                    run_id='test_task_instance_info_run',
-                    execution_date=execution_date)
+            # Create DagRun
+            trigger_dag(dag_id=dag_id,
+                        run_id='test_task_instance_info_run',
+                        execution_date=execution_date)
 
-        # Test Correct execution
-        response = self.app.get(
-            url_template.format(dag_id, datetime_string)
-        )
-        self.assertEqual(200, response.status_code)
-        self.assertIn('state', response.data.decode('utf-8'))
-        self.assertNotIn('error', response.data.decode('utf-8'))
+            # Test Correct execution
+            response = self.client.get(
+                url_template.format(dag_id, datetime_string)
+            )
+            self.assertEqual(200, response.status_code)
+            self.assertIn('state', response.data.decode('utf-8'))
+            self.assertNotIn('error', response.data.decode('utf-8'))
 
-        # Test error for nonexistent dag
-        response = self.app.get(
-            url_template.format('does_not_exist_dag', datetime_string),
-        )
-        self.assertEqual(404, response.status_code)
-        self.assertIn('error', response.data.decode('utf-8'))
+            # Test error for nonexistent dag
+            response = self.client.get(
+                url_template.format('does_not_exist_dag', datetime_string),
+            )
+            self.assertEqual(404, response.status_code)
+            self.assertIn('error', response.data.decode('utf-8'))
 
-        # Test error for nonexistent dag run (wrong execution_date)
-        response = self.app.get(
-            url_template.format(dag_id, wrong_datetime_string)
-        )
-        self.assertEqual(404, response.status_code)
-        self.assertIn('error', response.data.decode('utf-8'))
+            # Test error for nonexistent dag run (wrong execution_date)
+            response = self.client.get(
+                url_template.format(dag_id, wrong_datetime_string)
+            )
+            self.assertEqual(404, response.status_code)
+            self.assertIn('error', response.data.decode('utf-8'))
 
-        # Test error for bad datetime format
-        response = self.app.get(
-            url_template.format(dag_id, 'not_a_datetime')
-        )
-        self.assertEqual(400, response.status_code)
-        self.assertIn('error', response.data.decode('utf-8'))
+            # Test error for bad datetime format
+            response = self.client.get(
+                url_template.format(dag_id, 'not_a_datetime')
+            )
+            self.assertEqual(400, response.status_code)
+            self.assertIn('error', response.data.decode('utf-8'))
 
 
-class TestPoolApiExperimental(unittest.TestCase):
+class TestPoolApiExperimental(TestBase):
 
     USER_POOL_COUNT = 2
     TOTAL_POOL_COUNT = USER_POOL_COUNT + 1  # including default_pool
 
     @classmethod
     def setUpClass(cls):
-        super(TestPoolApiExperimental, cls).setUpClass()
+        super().setUpClass()
 
     def setUp(self):
-        super(TestPoolApiExperimental, self).setUp()
-        app = application.create_app(testing=True)
-        self.app = app.test_client()
-        self.session = Session()
-
+        super().setUp()
         clear_db_pools()
         self.pools = [Pool.get_default_pool()]
         for i in range(self.USER_POOL_COUNT):
@@ -314,16 +359,13 @@ class TestPoolApiExperimental(unittest.TestCase):
         self.session.commit()
         self.pool = self.pools[-1]
 
-    def tearDown(self):
-        super(TestPoolApiExperimental, self).tearDown()
-
     def _get_pool_count(self):
-        response = self.app.get('/api/experimental/pools')
+        response = self.client.get('/api/experimental/pools')
         self.assertEqual(response.status_code, 200)
         return len(json.loads(response.data.decode('utf-8')))
 
     def test_get_pool(self):
-        response = self.app.get(
+        response = self.client.get(
             '/api/experimental/pools/{}'.format(self.pool.pool),
         )
         self.assertEqual(response.status_code, 200)
@@ -331,13 +373,13 @@ class TestPoolApiExperimental(unittest.TestCase):
                          self.pool.to_json())
 
     def test_get_pool_non_existing(self):
-        response = self.app.get('/api/experimental/pools/foo')
+        response = self.client.get('/api/experimental/pools/foo')
         self.assertEqual(response.status_code, 404)
         self.assertEqual(json.loads(response.data.decode('utf-8'))['error'],
                          "Pool 'foo' doesn't exist")
 
     def test_get_pools(self):
-        response = self.app.get('/api/experimental/pools')
+        response = self.client.get('/api/experimental/pools')
         self.assertEqual(response.status_code, 200)
         pools = json.loads(response.data.decode('utf-8'))
         self.assertEqual(len(pools), self.TOTAL_POOL_COUNT)
@@ -345,7 +387,7 @@ class TestPoolApiExperimental(unittest.TestCase):
             self.assertDictEqual(pool, self.pools[i].to_json())
 
     def test_create_pool(self):
-        response = self.app.post(
+        response = self.client.post(
             '/api/experimental/pools',
             data=json.dumps({
                 'name': 'foo',
@@ -363,7 +405,7 @@ class TestPoolApiExperimental(unittest.TestCase):
 
     def test_create_pool_with_bad_name(self):
         for name in ('', '    '):
-            response = self.app.post(
+            response = self.client.post(
                 '/api/experimental/pools',
                 data=json.dumps({
                     'name': name,
@@ -380,7 +422,7 @@ class TestPoolApiExperimental(unittest.TestCase):
         self.assertEqual(self._get_pool_count(), self.TOTAL_POOL_COUNT)
 
     def test_delete_pool(self):
-        response = self.app.delete(
+        response = self.client.delete(
             '/api/experimental/pools/{}'.format(self.pool.pool),
         )
         self.assertEqual(response.status_code, 200)
@@ -389,7 +431,7 @@ class TestPoolApiExperimental(unittest.TestCase):
         self.assertEqual(self._get_pool_count(), self.TOTAL_POOL_COUNT - 1)
 
     def test_delete_pool_non_existing(self):
-        response = self.app.delete(
+        response = self.client.delete(
             '/api/experimental/pools/foo',
         )
         self.assertEqual(response.status_code, 404)
@@ -398,7 +440,7 @@ class TestPoolApiExperimental(unittest.TestCase):
 
     def test_delete_default_pool(self):
         clear_db_pools()
-        response = self.app.delete(
+        response = self.client.delete(
             '/api/experimental/pools/default_pool',
         )
         self.assertEqual(response.status_code, 400)
