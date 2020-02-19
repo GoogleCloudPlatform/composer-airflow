@@ -334,6 +334,7 @@ class DagBag(BaseDagBag, LoggingMixin):
                     ti.handle_failure("{} detected as zombie".format(ti),
                                       ti.test_mode, ti.get_template_context())
                     self.log.info('Marked zombie job %s as %s', ti, ti.state)
+                    Stats.incr('zombies_killed')
         session.commit()
 
     def bag_dag(self, dag, parent_dag, root_dag):
