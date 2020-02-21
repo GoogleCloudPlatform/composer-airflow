@@ -705,7 +705,12 @@ class Airflow(AirflowViewMixin, BaseView):
             html_code = highlight(
                 code, lexers.PythonLexer(), HtmlFormatter(linenos=True))
         except IOError as e:
-            html_code = str(e)
+            flash(
+                ("Please note that source code is not available "
+                 "when store_serialized_dags is true"),
+                "warning")
+            html_code = '<p>Failed to load file.</p><p>Details: {}</p>'.format(
+                escape(str(e)))
 
         return self.render(
             'airflow/dag_code.html', html_code=html_code, dag=dag, title=dag_id,
