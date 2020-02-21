@@ -19,7 +19,6 @@
 """Get code APIs."""
 from airflow.api.common.experimental import check_and_get_dag
 from airflow.exceptions import AirflowException
-from airflow.www import utils as wwwutils
 
 
 def get_code(dag_id):  # type (str) -> str
@@ -31,9 +30,7 @@ def get_code(dag_id):  # type (str) -> str
     dag = check_and_get_dag(dag_id=dag_id)
 
     try:
-        with wwwutils.open_maybe_zipped(dag.fileloc, 'r') as file:
-            code = file.read()
-            return code
-    except IOError as exception:
+        return dag.code()
+    except OSError as exception:
         error_message = "Error {} while reading Dag id {} Code".format(str(exception), dag_id)
         raise AirflowException(error_message)

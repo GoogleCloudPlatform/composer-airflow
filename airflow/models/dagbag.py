@@ -40,8 +40,9 @@ from airflow.exceptions import AirflowDagCycleException
 from airflow.executors import get_default_executor
 from airflow.settings import Stats
 from airflow.utils import timezone
-from airflow.utils.dag_processing import list_py_file_paths, correct_maybe_zipped
+from airflow.utils.dag_processing import list_py_file_paths
 from airflow.utils.db import provide_session
+from airflow.utils.file import correct_maybe_zipped
 from airflow.utils.helpers import pprinttable
 from airflow.utils.log.logging_mixin import LoggingMixin
 from airflow.utils.timeout import timeout
