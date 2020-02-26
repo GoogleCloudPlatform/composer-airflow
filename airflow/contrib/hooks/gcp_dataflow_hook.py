@@ -236,7 +236,7 @@ class DataFlowHook(GoogleCloudBaseHook):
         def label_formatter(labels_dict):
             return ['--labels={}={}'.format(key, value)
                     for key, value in labels_dict.items()]
-        self._start_dataflow(variables, name, ["python2"] + py_options + [dataflow],
+        self._start_dataflow(variables, name, ["python"] + py_options + [dataflow],
                              label_formatter)
 
     @staticmethod
