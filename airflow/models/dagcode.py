@@ -24,6 +24,7 @@ from sqlalchemy import BigInteger, Column, String, UnicodeText, and_, exists
 from airflow.exceptions import AirflowException
 from airflow.models import Base
 from airflow.utils import timezone
+from airflow.utils.file import correct_maybe_zipped
 from airflow.utils.file import open_maybe_zipped
 from airflow.utils.session import provide_session
 from airflow.utils.sqlalchemy import UtcDateTime
@@ -78,7 +79,7 @@ class DagCode(Base):
                 " Please rename the file.".format(self.fileloc))
 
         file_modified = datetime.datetime\
-            .fromtimestamp(os.path.getmtime(self.fileloc))\
+            .fromtimestamp(os.path.getmtime(correct_maybe_zipped(self.fileloc)))\
             .astimezone(tz=timezone.utc)
 
         if old_version and (file_modified - datetime.timedelta(seconds=120)) <\

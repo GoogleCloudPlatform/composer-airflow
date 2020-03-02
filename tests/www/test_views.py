@@ -825,6 +825,90 @@ class TestGanttView(unittest.TestCase):
         self.tester.test_with_base_date_and_num_runs_and_execution_date_within()
 
 
+class TestCodeView(unittest.TestCase):
+
+    CODE_URL = "/admin/airflow/code?dag_id={}"
+
+    def setUp(self):
+        super(TestCodeView, self).setUp()
+        app = application.create_app(testing=True)
+        self.app = app.test_client()
+
+    def test_code(self):
+        url = self.CODE_URL.format('example_bash_operator')
+        resp = self.app.get(url)
+        self.check_content_not_in_response('Failed to load file', resp)
+        self.check_content_in_response('example_bash_operator', resp)
+
+    def test_code_no_file(self):
+        url = self.CODE_URL.format('example_bash_operator')
+        mock_open_patch = mock.mock_open(read_data='')
+        mock_open_patch.side_effect = FileNotFoundError
+        with mock.patch('io.open', mock_open_patch):
+            resp = self.app.get(url)
+            self.check_content_in_response('Failed to load file', resp)
+            self.check_content_in_response('example_bash_operator', resp)
+
+    def test_code_from_db(self):
+        with conf_vars(
+            {
+                ("core", "store_dag_code"): "True"
+            }
+        ):
+            from airflow.models.dagcode import DagCode
+            dag = models.DagBag(include_examples=True).get_dag("example_bash_operator")
+            DagCode(dag.fileloc).sync_to_db()
+            url = self.CODE_URL.format('example_bash_operator')
+            resp = self.app.get(url)
+            self.check_content_not_in_response('Failed to load file', resp)
+            self.check_content_in_response('example_bash_operator', resp)
+
+    def test_zipped_code_from_db(self):
+        with conf_vars(
+            {
+                ("core", "store_dag_code"): "True"
+            }
+        ):
+            from airflow.models.dagcode import DagCode
+            dag = models.DagBag(include_examples=True).get_dag("test_zip_dag")
+            DagCode(dag.fileloc).sync_to_db()
+            url = self.CODE_URL.format('test_zip_dag')
+            resp = self.app.get(url)
+            self.check_content_not_in_response('Failed to load file', resp)
+            self.check_content_in_response('test_zip_dag', resp)
+
+    def test_code_from_db_all_example_dags(self):
+        with conf_vars(
+            {
+                ("core", "store_dag_code"): "True"
+            }
+        ):
+            from airflow.models.dagcode import DagCode
+            dagbag = models.DagBag(include_examples=True)
+            for dag in dagbag.dags.values():
+                DagCode(dag.fileloc).sync_to_db()
+            url = self.CODE_URL.format('example_bash_operator')
+            resp = self.app.get(url)
+            self.check_content_not_in_response('Failed to load file', resp)
+            self.check_content_in_response('example_bash_operator', resp)
+
+    def check_content_in_response(
+        self, text, resp, resp_code=200,
+        msg="Wanted to see content in code view but did not see it."
+    ):
+        resp_html = resp.data.decode('utf-8')
+        self.assertEqual(resp_code, resp.status_code)
+        self.assertIn(text, resp_html, msg=msg)
+
+    def check_content_not_in_response(
+        self, text, resp, resp_code=200,
+        msg="Did not want to see content in code view but saw it."
+    ):
+        resp_html = resp.data.decode('utf-8')
+        self.assertEqual(resp_code, resp.status_code)
+        self.assertNotIn(text, resp_html, msg=msg)
+
+
 class TestTaskInstanceView(unittest.TestCase):
     TI_ENDPOINT = '/admin/taskinstance/?flt2_execution_date_greater_than={}'
 
