@@ -613,7 +613,7 @@ class DAG(BaseDag, LoggingMixin):
     @provide_session
     def _get_code_from_db(self, session=None):
         fileloc_hash = DagCode.dag_fileloc_hash(self.fileloc)
-        code = None
+        code = ''
         dag_code = session.query(DagCode) \
             .filter(DagCode.fileloc_hash == fileloc_hash) \
             .first()

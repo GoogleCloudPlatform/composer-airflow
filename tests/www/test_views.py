@@ -843,7 +843,7 @@ class TestCodeView(unittest.TestCase):
     def test_code_no_file(self):
         url = self.CODE_URL.format('example_bash_operator')
         mock_open_patch = mock.mock_open(read_data='')
-        mock_open_patch.side_effect = FileNotFoundError
+        mock_open_patch.side_effect = IOError
         with mock.patch('io.open', mock_open_patch):
             resp = self.app.get(url)
             self.check_content_in_response('Failed to load file', resp)

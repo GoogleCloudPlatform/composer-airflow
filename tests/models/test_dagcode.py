@@ -77,5 +77,5 @@ class TestDagCode(unittest.TestCase):
         """Dag code detects duplicate key."""
         mock_hash.return_value = 0
 
-        with self.assertRaisesRegex(AirflowException, 'causes a hash collision in the database'):
+        with self.assertRaises(AirflowException):
             self._write_example_dags()

@@ -706,7 +706,7 @@ class Airflow(AirflowViewMixin, BaseView):
             html_code = highlight(
                 code, lexers.PythonLexer(), HtmlFormatter(linenos=True))
 
-        except OSError as e:
+        except Exception as e:
             flash(
                 ("Please note that source code is not available "
                  "when store_serialized_dags is true"),
