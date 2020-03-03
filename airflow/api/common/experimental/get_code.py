@@ -21,7 +21,7 @@ from airflow.api.common.experimental import check_and_get_dag
 from airflow.exceptions import AirflowException
 
 
-def get_code(dag_id: str) -> str:
+def get_code(dag_id):
     """Return python code of a given dag_id.
 
     :param dag_id: DAG id

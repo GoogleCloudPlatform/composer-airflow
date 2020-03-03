@@ -819,7 +819,7 @@ class TestCodeView(unittest.TestCase):
     def test_code_no_file(self):
         url = '/admin/airflow/code?dag_id=example_bash_operator'
         mock_open_patch = mock.mock_open(read_data='')
-        mock_open_patch.side_effect = FileNotFoundError
+        mock_open_patch.side_effect = IOError
         with mock.patch('io.open', mock_open_patch):
             resp = self.app.get(url, follow_redirects=True)
             self.check_content_in_response('Failed to load file', resp)

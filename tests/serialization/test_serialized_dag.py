@@ -55,7 +55,7 @@ class SerializedDagModelTest(unittest.TestCase):
     def test_dag_fileloc_hash(self):
         """Verifies the correctness of hashing file path."""
         self.assertEqual(DagCode.dag_fileloc_hash('/airflow/dags/test_dag.py'),
-                         12609242940894583)
+                         33826252060516589)
 
     def _write_example_dags(self):
         example_dags = make_example_dags(example_dags_module)

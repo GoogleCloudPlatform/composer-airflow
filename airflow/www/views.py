@@ -36,7 +36,6 @@ from functools import wraps
 from textwrap import dedent
 
 from airflow.models import DagModel
-from six.moves.urllib.parse import quote
 
 import markdown
 import pendulum
@@ -689,7 +688,7 @@ class Airflow(BaseView):
             html_code = highlight(
                 code, lexers.PythonLexer(), HtmlFormatter(linenos=True))
 
-        except OSError as e:
+        except Exception as e:
             flash(
                 ("Please note that source code is not available "
                  "when store_serialized_dags is true"),

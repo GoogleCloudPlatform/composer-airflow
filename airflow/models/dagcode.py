@@ -17,7 +17,7 @@
 import datetime
 import logging
 import os
-from typing import List
+import struct
 
 from sqlalchemy import BigInteger, Column, String, UnicodeText, and_, exists
 
@@ -50,14 +50,14 @@ class DagCode(Base):
     last_updated = Column(UtcDateTime, nullable=False)
     source_code = Column(UnicodeText(), nullable=False)
 
-    def __init__(self, full_filepath: str):
+    def __init__(self, full_filepath):
         self.fileloc = full_filepath
         self.fileloc_hash = DagCode.dag_fileloc_hash(self.fileloc)
         self.last_updated = timezone.utcnow()
         self.source_code = DagCode._read_code(self.fileloc)
 
     @classmethod
-    def _read_code(cls, fileloc: str):
+    def _read_code(cls, fileloc):
         with open_maybe_zipped(fileloc, 'r') as source:
             source_code = source.read()
         return source_code
@@ -79,8 +79,9 @@ class DagCode(Base):
                 " Please rename the file.".format(self.fileloc))
 
         file_modified = datetime.datetime\
-            .fromtimestamp(os.path.getmtime(correct_maybe_zipped(self.fileloc)))\
-            .astimezone(tz=timezone.utc)
+            .fromtimestamp(
+                os.path.getmtime(correct_maybe_zipped(self.fileloc)),
+                tz=timezone.utc)
 
         if old_version and (file_modified - datetime.timedelta(seconds=120)) <\
                 old_version.last_updated:
@@ -90,7 +91,7 @@ class DagCode(Base):
 
     @classmethod
     @provide_session
-    def remove_deleted_code(cls, alive_dag_filelocs: List[str], session=None):
+    def remove_deleted_code(cls, alive_dag_filelocs, session=None):
         """Deletes code not included in alive_dag_filelocs.
 
         :param alive_dag_filelocs: file paths of alive DAGs
@@ -108,7 +109,7 @@ class DagCode(Base):
 
     @classmethod
     @provide_session
-    def has_dag(cls, fileloc: str, session=None) -> bool:
+    def has_dag(cls, fileloc, session=None):
         """Checks a file exist in dag_code table.
 
         :param fileloc: the file to check
@@ -119,7 +120,7 @@ class DagCode(Base):
             .scalar()
 
     @staticmethod
-    def dag_fileloc_hash(full_filepath: str) -> int:
+    def dag_fileloc_hash(full_filepath):
         """"Hashing file location for indexing.
 
         :param full_filepath: full filepath of DAG file
@@ -129,7 +130,5 @@ class DagCode(Base):
         # which is over the limit of indexing. If we can reduce the length of fileloc, then
         # hashing is not needed.
         import hashlib
-        return int.from_bytes(
-            hashlib.sha1(
-                full_filepath.encode('utf-8')).digest()[-7:],
-            byteorder='big', signed=False)
+        return struct.unpack('>Q', hashlib.sha1(
+            full_filepath.encode('utf-8')).digest()[-8:])[0] >> 8
