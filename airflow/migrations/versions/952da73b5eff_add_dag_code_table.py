@@ -19,7 +19,7 @@
 """Add dag_code table
 
 Revision ID: 952da73b5eff
-Revises: d3d64fa99562
+Revises: d38e04c12aa2
 Create Date: 2020-03-02 13:09:37.904908
 
 """
@@ -27,7 +27,7 @@ Create Date: 2020-03-02 13:09:37.904908
 # revision identifiers, used by Alembic.
 
 revision = '952da73b5eff'
-down_revision = 'd3d64fa99562'
+down_revision = 'd38e04c12aa2'
 branch_labels = None
 depends_on = None
 
