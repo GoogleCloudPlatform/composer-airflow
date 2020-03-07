@@ -1631,7 +1631,7 @@ class DagModel(Base):
     def safe_dag_id(self):
         return self.dag_id.replace('.', '__dot__')
 
-    def get_dag(self, store_serialized_dags=False):
+    def get_dag(self, store_serialized_dags=STORE_SERIALIZED_DAGS):
         """Creates a dagbag to load and return a DAG.
         Calling it from UI should set store_serialized_dags = STORE_SERIALIZED_DAGS.
         There may be a delay for scheduler to write serialized DAG into database,
@@ -1683,7 +1683,7 @@ class DagModel(Base):
     def set_is_paused(self,
                       is_paused,  # type: bool
                       including_subdags=True,  # type: bool
-                      store_serialized_dags=False,  # type: bool
+                      store_serialized_dags=STORE_SERIALIZED_DAGS,  # type: bool
                       session=None,
                       ):
         # type: (...) -> None
