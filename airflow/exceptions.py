@@ -107,8 +107,3 @@ class TaskInstanceNotFound(AirflowNotFoundException):
 class PoolNotFound(AirflowNotFoundException):
     """Raise when a Pool is not available in the system"""
     pass
-
-
-class DagCodeNotFound(AirflowNotFoundException):
-    """Raise when a DAG is not available in the system"""
-    pass

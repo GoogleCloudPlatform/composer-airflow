@@ -17,13 +17,11 @@
 # specific language governing permissions and limitations
 # under the License.
 #
-from __future__ import unicode_literals
 
 import ast
 import codecs
 import copy
 import datetime as dt
-import html
 import itertools
 import json
 import logging
@@ -34,8 +32,6 @@ from collections import defaultdict
 from datetime import timedelta
 from functools import wraps
 from textwrap import dedent
-
-from airflow.models import DagModel
 
 import markdown
 import nvd3
@@ -669,29 +665,22 @@ class Airflow(BaseView):
 
     @expose('/code')
     @login_required
-    @provide_session
-    def code(self, session=None):
+    def code(self):
+        dag_id = request.args.get('dag_id')
+        dag = dagbag.get_dag(dag_id)
+        title = dag_id
         try:
-            dag_id = request.args.get('dag_id')
-            title = dag_id
-            dag_orm = DagModel.get_current(dag_id, session=session)
-            dag = dag_orm.get_dag(STORE_SERIALIZED_DAGS)
-            code = dag.code()
+            with wwwutils.open_maybe_zipped(dag.fileloc, 'r') as f:
+                code = f.read()
             html_code = highlight(
                 code, lexers.PythonLexer(), HtmlFormatter(linenos=True))
-
-        except Exception as e:
+        except IOError as e:
             flash(
                 ("Please note that source code is not available "
                  "when store_serialized_dags is true"),
                 "warning")
-            message = (
-                "Exception encountered during " +
-                "dag_id retrieval/dag retrieval fallback/code highlighting:\n\n{}\n"
-                .format(e)
-            )
             html_code = '<p>Failed to load file.</p><p>Details: {}</p>'.format(
-                html.escape(message))
+                escape(str(e)))
 
         return self.render(
             'airflow/dag_code.html', html_code=html_code, dag=dag, title=title,

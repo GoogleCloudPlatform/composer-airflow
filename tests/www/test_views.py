@@ -20,8 +20,6 @@
 import io
 import copy
 import logging.config
-import urllib
-
 import mock
 import os
 import shutil
@@ -30,6 +28,7 @@ import unittest
 import sys
 import json
 
+from urllib.parse import quote_plus
 from werkzeug.test import Client
 
 
@@ -42,7 +41,6 @@ from airflow.settings import Session
 from airflow.utils.timezone import datetime
 from airflow.www import app as application
 from airflow import configuration as conf
-from tests.test_utils.config import conf_vars
 
 
 class TestChartModelView(unittest.TestCase):
@@ -395,7 +393,7 @@ class TestLogView(unittest.TestCase):
         response = \
             self.app.get(url_template.format(self.DAG_ID,
                                              self.TASK_ID,
-                                             urllib.urlencode(self.DEFAULT_DATE.isoformat()),
+                                             quote_plus(self.DEFAULT_DATE.isoformat()),
                                              1,
                                              json.dumps({})))
 
@@ -411,7 +409,7 @@ class TestLogView(unittest.TestCase):
         response = \
             self.app.get(url_template.format(self.DAG_ID,
                                              self.TASK_ID,
-                                             urllib.urlencode(self.DEFAULT_DATE.isoformat()),
+                                             quote_plus(self.DEFAULT_DATE.isoformat()),
                                              1))
 
         self.assertIn('"message":', response.data.decode('utf-8'))
@@ -772,86 +770,6 @@ class TestGanttView(unittest.TestCase):
 
     def test_dt_nr_dr_form_with_base_date_and_num_runs_and_execution_date_within(self):
         self.tester.test_with_base_date_and_num_runs_and_execution_date_within()
-
-
-class TestCodeView(unittest.TestCase):
-
-    CODE_URL = "/admin/airflow/code?dag_id={}"
-
-    def setUp(self):
-        super(TestCodeView, self).setUp()
-        configuration.load_test_config()
-        app = application.create_app(testing=True)
-        app.config['WTF_CSRF_METHODS'] = []
-        self.app = app.test_client()
-
-    def test_code(self):
-        url = self.CODE_URL.format('example_bash_operator')
-        resp = self.app.get(url)
-        self.check_content_not_in_response('Failed to load file', resp)
-        self.check_content_in_response('example_bash_operator', resp)
-
-    def test_code_no_file(self):
-        url = self.CODE_URL.format('example_bash_operator')
-        mock_open_patch = mock.mock_open(read_data='')
-        mock_open_patch.side_effect = IOError
-        with mock.patch('io.open', mock_open_patch):
-            resp = self.app.get(url)
-            self.check_content_in_response('Failed to load file', resp)
-            self.check_content_in_response('example_bash_operator', resp)
-
-    def test_code_from_db(self):
-        with conf_vars(
-            {
-                ("core", "store_dag_code"): "True"
-            }
-        ):
-            from airflow.models import DagCode
-            dag = models.DagBag(include_examples=True).get_dag("example_bash_operator")
-            DagCode(dag.fileloc).sync_to_db()
-            url = self.CODE_URL.format('example_bash_operator')
-            resp = self.app.get(url)
-            self.check_content_not_in_response('Failed to load file', resp)
-            self.check_content_in_response('example_bash_operator', resp)
-
-    def test_zipped_code_from_db(self):
-        with conf_vars(
-            {
-                ("core", "store_dag_code"): "True"
-            }
-        ):
-            from airflow.models import DagCode
-            dag = models.DagBag(include_examples=True).get_dag("test_zip_dag")
-            DagCode(dag.fileloc).sync_to_db()
-            url = self.CODE_URL.format('test_zip_dag')
-            resp = self.app.get(url)
-            self.check_content_not_in_response('Failed to load file', resp)
-            self.check_content_in_response('test_zip_dag', resp)
-
-    def test_code_from_db_all_example_dags(self):
-        with conf_vars(
-            {
-                ("core", "store_dag_code"): "True"
-            }
-        ):
-            from airflow.models import DagCode
-            dagbag = models.DagBag(include_examples=True)
-            for dag in dagbag.dags.values():
-                DagCode(dag.fileloc).sync_to_db()
-            url = self.CODE_URL.format('example_bash_operator')
-            resp = self.app.get(url)
-            self.check_content_not_in_response('Failed to load file', resp)
-            self.check_content_in_response('example_bash_operator', resp)
-
-    def check_content_in_response(self, text, resp, resp_code=200):
-        resp_html = resp.data.decode('utf-8')
-        self.assertEqual(resp_code, resp.status_code)
-        self.assertIn(text, resp_html)
-
-    def check_content_not_in_response(self, text, resp, resp_code=200):
-        resp_html = resp.data.decode('utf-8')
-        self.assertEqual(resp_code, resp.status_code)
-        self.assertNotIn(text, resp_html)
 
 
 class TestTaskInstanceView(unittest.TestCase):

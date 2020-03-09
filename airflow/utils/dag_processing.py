@@ -217,7 +217,7 @@ class SimpleDagBag(BaseDagBag):
         return self.dag_id_to_simple_dag[dag_id]
 
 
-def list_py_file_paths(directory, safe_mode=conf.getboolean('core', 'DAG_DISCOVERY_SAFE_MODE'),
+def list_py_file_paths(directory, safe_mode=True,
                        include_examples=conf.getboolean('core', 'LOAD_EXAMPLES')):
     """
     Traverse a directory and look for Python files.
@@ -851,10 +851,6 @@ class DagFileProcessorManager(LoggingMixin):
             if STORE_SERIALIZED_DAGS:
                 from airflow.models import SerializedDagModel
                 SerializedDagModel.remove_deleted_dags(self._file_paths)
-
-            if conf.getboolean('core', 'store_dag_code'):
-                from airflow.models import DagCode
-                DagCode.remove_deleted_code(self._file_paths)
 
     def _print_stat(self):
         """
