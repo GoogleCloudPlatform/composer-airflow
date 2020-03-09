@@ -67,7 +67,8 @@ def upgrade():
         # Get current session
         sessionmaker = sa.orm.sessionmaker()
         session = sessionmaker(bind=connection)
-        dagbag = DagBag(settings.DAGS_FOLDER)
+        dagbag = DagBag(
+            dag_folder=settings.DAGS_FOLDER, store_serialized_dags=False)
         query = session.query(sa.func.count(TaskInstance.max_tries)).filter(
             TaskInstance.max_tries == -1
         )
@@ -105,7 +106,8 @@ def downgrade():
         connection = op.get_bind()
         sessionmaker = sa.orm.sessionmaker()
         session = sessionmaker(bind=connection)
-        dagbag = DagBag(settings.DAGS_FOLDER)
+        dagbag = DagBag(
+            dag_folder=settings.DAGS_FOLDER, store_serialized_dags=False)
         query = session.query(sa.func.count(TaskInstance.max_tries)).filter(
             TaskInstance.max_tries != -1
         )
