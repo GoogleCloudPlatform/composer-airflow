@@ -89,7 +89,7 @@ class DagBag(BaseDagBag, LoggingMixin):
             executor=None,
             include_examples=conf.getboolean('core', 'LOAD_EXAMPLES'),
             safe_mode=conf.getboolean('core', 'DAG_DISCOVERY_SAFE_MODE'),
-            store_serialized_dags=False,
+            store_serialized_dags=conf.getboolean('core', 'store_serialized_dags', fallback=False),
     ):
 
         # do not use default arg in signature, to fix import cycle on plugin load

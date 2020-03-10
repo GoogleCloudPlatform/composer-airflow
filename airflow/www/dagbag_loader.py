@@ -32,6 +32,8 @@ from multiprocessing import Event
 from multiprocessing import Process
 from multiprocessing import Queue
 
+from airflow.configuration import conf
+
 from airflow import configuration
 from airflow import models
 from airflow import settings
@@ -55,7 +57,11 @@ class _DagBag(models.DagBag):
     A wrapper of models.DagBag without calling collect_dags during initialization.
     """
 
-    def __init__(self, dag_folder=None):
+    def __init__(
+        self,
+        dag_folder=None,
+        store_serialized_dags=conf.getboolean('core', 'store_serialized_dags', fallback=False)
+    ):
         # do not use default arg in signature, to fix import cycle on plugin load
         dag_folder = dag_folder or settings.DAGS_FOLDER
         self.log.info("Filling up the DagBag from %s", dag_folder)
@@ -66,7 +72,7 @@ class _DagBag(models.DagBag):
         self.executor = None
         self.import_errors = {}
         self.has_logged = False
-        self.store_serialized_dags = False
+        self.store_serialized_dags = store_serialized_dags
 
 
 def _kill_proc(dummy_signum, dummy_frame):
