@@ -32,6 +32,7 @@ from io import BytesIO as IO
 import json
 import os
 from six.moves.urllib.parse import urlencode
+from six import string_types
 import time
 import wtforms
 from wtforms.compat import text_type
