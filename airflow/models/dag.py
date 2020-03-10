@@ -1642,7 +1642,8 @@ class DagModel(Base):
         FIXME: remove it when webserver does not access to DAG folder in future.
         """
         dag = DagBag(
-            dag_folder=self.fileloc, store_serialized_dags=store_serialized_dags).get_dag(self.dag_id)
+            dag_folder=self.fileloc, store_serialized_dags=store_serialized_dags
+        ).get_dag(self.dag_id)
         if store_serialized_dags and dag is None:
             dag = self.get_dag()
         return dag

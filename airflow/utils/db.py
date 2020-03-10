@@ -329,7 +329,7 @@ def initdb(rbac=False):
         session.add(KET(know_event_type='Marketing Campaign'))
     session.commit()
 
-    dagbag = models.DagBag()
+    dagbag = models.DagBag(store_serialized_dags=False)
     # Save individual DAGs in the ORM
     for dag in dagbag.dags.values():
         dag.sync_to_db()
