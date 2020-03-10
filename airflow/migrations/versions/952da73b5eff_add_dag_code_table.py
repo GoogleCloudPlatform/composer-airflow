@@ -34,9 +34,6 @@ depends_on = None
 from alembic import op
 import sqlalchemy as sa
 
-from airflow.models import DagCode
-from airflow.models import SerializedDagModel
-
 
 def upgrade():
     """Apply add source code table"""
@@ -53,14 +50,6 @@ def upgrade():
                         type_=sa.BigInteger(), nullable=False)
         op.create_index(   # pylint: disable=no-member
             'idx_fileloc_hash', 'serialized_dag', ['fileloc_hash'])
-
-    sessionmaker = sa.orm.sessionmaker()
-    session = sessionmaker(bind=conn)
-    serialized_dags = session.query(SerializedDagModel).all()
-    for dag in serialized_dags:
-        dag.fileloc_hash = DagCode.dag_fileloc_hash(dag.fileloc)
-        session.merge(dag)
-    session.commit()
 
 
 def downgrade():
