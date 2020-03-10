@@ -111,7 +111,8 @@ wwwutils.make_serialized_dags_env_var_file(STORE_SERIALIZED_DAGS,
                                                      '/home/airflow/serialized_dags_env'))
 
 if not async_dagbag_loader:
-    dagbag = models.DagBag(settings.DAGS_FOLDER, store_serialized_dags=STORE_SERIALIZED_DAGS)
+    dagbag = models.DagBag(
+        settings.DAGS_FOLDER, store_serialized_dags=conf.getboolean('core', 'store_serialized_dags'))
 else:
     dagbag = dagbag_loader.create_async_dagbag(settings.DAGS_FOLDER)
 
@@ -683,7 +684,7 @@ class Airflow(BaseView):
         try:
             dag_id = request.args.get('dag_id')
             dag_orm = DagModel.get_dagmodel(dag_id, session=session)
-            dag = dag_orm.get_dag(STORE_SERIALIZED_DAGS)
+            dag = dag_orm.get_dag(conf.getboolean('core', 'store_serialized_dags'))
             code = dag.code()
             html_code = highlight(
                 code, lexers.PythonLexer(), HtmlFormatter(linenos=True))
@@ -796,7 +797,7 @@ class Airflow(BaseView):
         try:
             ti.render_templates()
         except Exception as e:
-            if STORE_SERIALIZED_DAGS:
+            if conf.getboolean('core', 'store_serialized_dags'):
                 flash(
                     ("Please note that templates rendered by functions do not work "
                      "when store_serialized_dags is true"),
@@ -1188,7 +1189,7 @@ class Airflow(BaseView):
             state=State.RUNNING,
             conf=run_conf,
             external_trigger=True,
-            store_serialized_dags=STORE_SERIALIZED_DAGS
+            store_serialized_dags=conf.getboolean('core', 'store_serialized_dags')
         )
 
         flash(

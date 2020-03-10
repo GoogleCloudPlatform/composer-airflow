@@ -93,7 +93,6 @@ from airflow.models.kubernetes import KubeWorkerIdentifier, KubeResourceVersion 
 from airflow.models.log import Log
 from airflow.models.taskfail import TaskFail
 from airflow.models.taskreschedule import TaskReschedule
-from airflow.settings import STORE_SERIALIZED_DAGS, MIN_SERIALIZED_DAG_UPDATE_INTERVAL
 from airflow.ti_deps.deps.not_in_retry_period_dep import NotInRetryPeriodDep
 from airflow.ti_deps.deps.prev_dagrun_dep import PrevDagrunDep
 from airflow.ti_deps.deps.trigger_rule_dep import TriggerRuleDep
@@ -304,7 +303,7 @@ class DagBag(BaseDagBag, LoggingMixin):
             executor=None,
             include_examples=configuration.conf.getboolean('core', 'LOAD_EXAMPLES'),
             safe_mode=configuration.conf.getboolean('core', 'DAG_DISCOVERY_SAFE_MODE'),
-            store_serialized_dags=STORE_SERIALIZED_DAGS):
+            store_serialized_dags=configuration.conf.getboolean('core', 'store_serialized_dags', fallback=False)):
 
         # do not use default arg in signature, to fix import cycle on plugin load
         if executor is None:
@@ -2964,7 +2963,7 @@ class DagModel(Base):
     def safe_dag_id(self):
         return self.dag_id.replace('.', '__dot__')
 
-    def get_dag(self, store_serialized_dags=STORE_SERIALIZED_DAGS):
+    def get_dag(self, store_serialized_dags=configuration.conf.getboolean('core', 'store_serialized_dags', fallback=False)):
         """Creates a dagbag to load and return a DAG.
         Calling it from UI should set store_serialized_dags = STORE_SERIALIZED_DAGS.
         There may be a delay for scheduler to write serialized DAG into database,
@@ -2985,7 +2984,7 @@ class DagModel(Base):
                       start_date=None,
                       external_trigger=False,
                       conf=None,
-                      store_serialized_dags=STORE_SERIALIZED_DAGS,
+                      store_serialized_dags=configuration.conf.getboolean('core', 'store_serialized_dags', fallback=False),
                       session=None):
         """
         Creates a dag run from this dag including the tasks associated with this dag.
@@ -3018,7 +3017,7 @@ class DagModel(Base):
     def set_is_paused(self,
                       is_paused,
                       including_subdags=True,
-                      store_serialized_dags=STORE_SERIALIZED_DAGS,
+                      store_serialized_dags=configuration.conf.getboolean('core', 'store_serialized_dags', fallback=False),
                       session=None):
         """
         Pause/Un-pause a DAG.
@@ -4273,13 +4272,15 @@ class DAG(BaseDag, LoggingMixin):
         # Write DAGs to serialized_dag table in DB.
         # subdags are not written into serialized_dag, because they are not displayed
         # in the DAG list on UI. They are included in the serialized parent DAG.
-        if STORE_SERIALIZED_DAGS and not self.is_subdag:
+        if configuration.conf.getboolean('core', 'store_serialized_dags', fallback=False)\
+                and not self.is_subdag:
             SerializedDagModel.write_dag(
                 self,
-                min_update_interval=MIN_SERIALIZED_DAG_UPDATE_INTERVAL,
+                min_update_interval=configuration.conf.getint(
+                    'core', 'min_serialized_dag_update_interval', fallback=30),
                 session=session
             )
-        if configuration.getboolean('core', 'store_dag_code'):
+        if configuration.conf.getboolean('core', 'store_dag_code'):
             DagCode(self.fileloc).sync_to_db(session=session)
 
     @staticmethod

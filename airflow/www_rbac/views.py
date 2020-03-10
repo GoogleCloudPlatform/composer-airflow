@@ -58,7 +58,6 @@ from airflow.models import XCom, DagRun, errors, DagModel
 from airflow.models.connection import Connection
 from airflow.models.log import Log
 from airflow.models.taskfail import TaskFail
-from airflow.settings import STORE_SERIALIZED_DAGS
 from airflow.ti_deps.dep_context import DepContext, QUEUE_DEPS, SCHEDULER_DEPS
 from airflow.utils import timezone
 from airflow.utils.dates import infer_time_unit, scale_time_units
@@ -404,7 +403,7 @@ class Airflow(AirflowBaseView):
         try:
             dag_id = request.args.get('dag_id')
             dag_orm = DagModel.get_dagmodel(dag_id, session=session)
-            dag = dag_orm.get_dag(STORE_SERIALIZED_DAGS)
+            dag = dag_orm.get_dag(conf.getboolean('core', 'store_serialized_dags'))
             code = dag.code()
             html_code = highlight(
                 code, lexers.PythonLexer(), HtmlFormatter(linenos=True))

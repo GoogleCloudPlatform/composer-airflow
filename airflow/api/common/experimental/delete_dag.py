@@ -16,14 +16,13 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+from airflow.configuration import conf
 from sqlalchemy import or_
 
 from airflow import models
 from airflow.exceptions import DagNotFound, DagFileExists
 from airflow.models import SerializedDagModel
 from airflow.models.taskfail import TaskFail
-from airflow.settings import STORE_SERIALIZED_DAGS
 from airflow.utils.db import provide_session
 
 
@@ -49,7 +48,7 @@ def delete_dag(dag_id, keep_records_in_log=True, session=None):
 
     # Scheduler removes DAGs without files from serialized_dag table every dag_dir_list_interval.
     # There may be a lag, so explicitly removes serialized DAG here.
-    if STORE_SERIALIZED_DAGS and SerializedDagModel.has_dag(dag_id=dag_id, session=session):
+    if conf.getboolean('core', 'store_serialized_dags') and SerializedDagModel.has_dag(dag_id=dag_id, session=session):
         SerializedDagModel.remove_dag(dag_id=dag_id, session=session)
 
     count = 0
