@@ -25,7 +25,7 @@ Create Date: 2020-02-28 14:06:09.539934
 """
 
 # revision identifiers, used by Alembic.
-from airflow.models import SerializedDagModel
+from airflow.models.serialized_dag import SerializedDagModel
 from airflow.models.dagcode import DagCode
 
 revision = '952da73b5eff'
