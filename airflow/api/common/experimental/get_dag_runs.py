@@ -16,10 +16,12 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from airflow.configuration import conf
 from flask import url_for
 
 from airflow.exceptions import AirflowException
 from airflow.models import DagBag, DagRun
+from airflow.utils.log.logging_mixin import LoggingMixin
 
 
 def get_dag_runs(dag_id, state=None, run_url_route='Airflow.graph'):
@@ -30,10 +32,13 @@ def get_dag_runs(dag_id, state=None, run_url_route='Airflow.graph'):
     :return: List of DAG runs of a DAG with requested state,
     or all runs if the state is not specified
     """
-    dagbag = DagBag()
+    logger = LoggingMixin()
+    logger.log.info("Called get_dag_runs for: %s", dag_id)
+    dagbag = DagBag(store_serialized_dags=conf.getboolean('core', 'store_serialized_dags', fallback=False))
+    dag = dagbag.get_dag(dag_id)
 
     # Check DAG exists.
-    if dag_id not in dagbag.dags:
+    if dag is None:
         error_message = "Dag id {} not found".format(dag_id)
         raise AirflowException(error_message)
 

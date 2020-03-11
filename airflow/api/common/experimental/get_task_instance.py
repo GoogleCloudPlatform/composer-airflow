@@ -16,24 +16,27 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from airflow.configuration import conf
 
 from airflow.exceptions import (DagNotFound, TaskNotFound,
                                 DagRunNotFound, TaskInstanceNotFound)
 from airflow.models import DagBag
+from airflow.utils.log.logging_mixin import LoggingMixin
 
 
 def get_task_instance(dag_id, task_id, execution_date):
     """Return the task object identified by the given dag_id and task_id."""
+    logger = LoggingMixin()
+    logger.log.info("Called get_task for DAG: %s and task: %s", dag_id, task_id)
 
-    dagbag = DagBag()
+    dagbag = DagBag(store_serialized_dags=conf.getboolean('core', 'store_serialized_dags', fallback=False))
+    dag = dagbag.get_dag(dag_id)
 
     # Check DAG exists.
-    if dag_id not in dagbag.dags:
+    if dag is None:
         error_message = "Dag id {} not found".format(dag_id)
         raise DagNotFound(error_message)
 
-    # Get DAG object and check Task Exists
-    dag = dagbag.get_dag(dag_id)
     if not dag.has_task(task_id):
         error_message = 'Task {} not found in dag {}'.format(task_id, dag_id)
         raise TaskNotFound(error_message)

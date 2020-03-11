@@ -24,6 +24,7 @@ from airflow.exceptions import DagNotFound, DagFileExists
 from airflow.models import SerializedDagModel
 from airflow.models.taskfail import TaskFail
 from airflow.utils.db import provide_session
+from airflow.utils.log.logging_mixin import LoggingMixin
 
 
 @provide_session
@@ -36,6 +37,8 @@ def delete_dag(dag_id, keep_records_in_log=True, session=None):
         The default value is True.
     :type keep_records_in_log: bool
     """
+    logger = LoggingMixin()
+    logger.log.info("Called delete_dag for: %s", dag_id)
     DM = models.DagModel
     dag = session.query(DM).filter(DM.dag_id == dag_id).first()
     if dag is None:

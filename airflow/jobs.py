@@ -1489,7 +1489,7 @@ class SchedulerJob(BaseJob):
                     self.log.error(msg)
                     try:
                         simple_dag = simple_dag_bag.get_dag(dag_id)
-                        dagbag = models.DagBag(simple_dag.full_filepath)
+                        dagbag = models.DagBag(simple_dag.full_filepath, store_serialized_dags=False)
                         dag = dagbag.get_dag(dag_id)
                         ti.task = dag.get_task(task_id)
                         ti.handle_failure(msg)

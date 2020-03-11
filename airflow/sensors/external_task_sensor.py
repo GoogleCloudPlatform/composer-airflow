@@ -130,7 +130,8 @@ class ExternalTaskSensor(BaseSensorOperator):
                                            '{} was deleted.'.format(self.external_dag_id))
 
             if self.external_task_id:
-                refreshed_dag_info = DagBag(dag_to_wait.fileloc).get_dag(self.external_dag_id)
+                refreshed_dag_info = DagBag(dag_to_wait.fileloc, store_serialized_dags=False).\
+                    get_dag(self.external_dag_id)
                 if not refreshed_dag_info.has_task(self.external_task_id):
                     raise AirflowException('The external task'
                                            '{} in DAG {} does not exist.'.format(self.external_task_id,

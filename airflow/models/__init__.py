@@ -303,7 +303,7 @@ class DagBag(BaseDagBag, LoggingMixin):
             executor=None,
             include_examples=configuration.conf.getboolean('core', 'LOAD_EXAMPLES'),
             safe_mode=configuration.conf.getboolean('core', 'DAG_DISCOVERY_SAFE_MODE'),
-            store_serialized_dags=configuration.conf.getboolean('core', 'store_serialized_dags', fallback=False)):
+            store_serialized_dags=False):
 
         # do not use default arg in signature, to fix import cycle on plugin load
         if executor is None:
@@ -2963,7 +2963,7 @@ class DagModel(Base):
     def safe_dag_id(self):
         return self.dag_id.replace('.', '__dot__')
 
-    def get_dag(self, store_serialized_dags=configuration.conf.getboolean('core', 'store_serialized_dags', fallback=False)):
+    def get_dag(self, store_serialized_dags=False):
         """Creates a dagbag to load and return a DAG.
         Calling it from UI should set store_serialized_dags = STORE_SERIALIZED_DAGS.
         There may be a delay for scheduler to write serialized DAG into database,
