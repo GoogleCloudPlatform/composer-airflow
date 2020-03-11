@@ -32,7 +32,7 @@ TEST_DAG_ID = 'unit_tests'
 class TimedeltaSensorTest(unittest.TestCase):
     def setUp(self):
         self.dagbag = models.DagBag(
-            dag_folder=DEV_NULL, include_examples=True)
+            dag_folder=DEV_NULL, include_examples=True, store_serialized_dags=False)
         self.args = {'owner': 'airflow', 'start_date': DEFAULT_DATE}
         self.dag = DAG(TEST_DAG_ID, default_args=self.args)
 

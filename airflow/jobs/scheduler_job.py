@@ -1316,7 +1316,7 @@ class SchedulerJob(BaseJob):
                     self.log.error(msg)
                     try:
                         simple_dag = simple_dag_bag.get_dag(dag_id)
-                        dagbag = models.DagBag(simple_dag.full_filepath)
+                        dagbag = models.DagBag(simple_dag.full_filepath, store_serialized_dags=False)
                         dag = dagbag.get_dag(dag_id)
                         ti.task = dag.get_task(task_id)
                         ti.handle_failure(msg)
@@ -1510,7 +1510,7 @@ class SchedulerJob(BaseJob):
         simple_dags = []
 
         try:
-            dagbag = models.DagBag(file_path, include_examples=False)
+            dagbag = models.DagBag(file_path, include_examples=False, store_serialized_dags=False)
         except Exception:
             self.log.exception("Failed at reloading the DAG file %s", file_path)
             Stats.incr('dag_file_refresh_error', 1, 1)

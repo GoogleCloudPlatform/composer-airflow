@@ -60,7 +60,7 @@ class _DagBag(models.DagBag):
     def __init__(
         self,
         dag_folder=None,
-        store_serialized_dags=conf.getboolean('core', 'store_serialized_dags', fallback=False)
+        store_serialized_dags=False
     ):
         # do not use default arg in signature, to fix import cycle on plugin load
         dag_folder = dag_folder or settings.DAGS_FOLDER

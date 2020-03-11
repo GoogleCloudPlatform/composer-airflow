@@ -1060,7 +1060,7 @@ class CliTests(unittest.TestCase):
         self.app.config['TESTING'] = True
 
         self.parser = cli.CLIFactory.get_parser()
-        self.dagbag = models.DagBag(dag_folder=DEV_NULL, include_examples=True)
+        self.dagbag = models.DagBag(dag_folder=DEV_NULL, include_examples=True, store_serialized_dags=False)
         settings.configure_orm()
         self.session = Session
 

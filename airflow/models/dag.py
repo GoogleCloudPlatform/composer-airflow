@@ -39,6 +39,7 @@ from dateutil.relativedelta import relativedelta
 from future.standard_library import install_aliases
 from sqlalchemy import Boolean, Column, Index, Integer, String, Text, func, or_
 
+from airflow import configuration
 from airflow import settings, utils
 from airflow.configuration import conf
 from airflow.dag.base_dag import BaseDag
@@ -1633,7 +1634,7 @@ class DagModel(Base):
         return self.dag_id.replace('.', '__dot__')
 
     def get_dag(self,
-        store_serialized_dags=conf.getboolean('core', 'store_serialized_dags', fallback=False)
+        store_serialized_dags=False
     ):
         """Creates a dagbag to load and return a DAG.
         Calling it from UI should set store_serialized_dags = STORE_SERIALIZED_DAGS.
@@ -1675,19 +1676,21 @@ class DagModel(Base):
         :type session: sqlalchemy.orm.session.Session
         """
 
-        return self.get_dag().create_dagrun(run_id=run_id,
-                                            state=state,
-                                            execution_date=execution_date,
-                                            start_date=start_date,
-                                            external_trigger=external_trigger,
-                                            conf=conf,
-                                            session=session)
+        return self.get_dag(configuration.conf.getboolean('core', 'store_serialized_dags', fallback=False))\
+            .create_dagrun(
+                run_id=run_id,
+                state=state,
+                execution_date=execution_date,
+                start_date=start_date,
+                external_trigger=external_trigger,
+                conf=conf,
+                session=session)
 
     @provide_session
     def set_is_paused(self,
                       is_paused,  # type: bool
                       including_subdags=True,  # type: bool
-                      store_serialized_dags=conf.getboolean('core', 'store_serialized_dags', fallback=False),  # type: bool
+                      store_serialized_dags=False,  # type: bool
                       session=None,
                       ):
         # type: (...) -> None

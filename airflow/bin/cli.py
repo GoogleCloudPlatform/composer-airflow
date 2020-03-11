@@ -141,7 +141,7 @@ def process_subdir(subdir):
 
 
 def get_dag(args):
-    dagbag = DagBag(process_subdir(args.subdir))
+    dagbag = DagBag(process_subdir(args.subdir), store_serialized_dags=False)
     if args.dag_id not in dagbag.dags:
         raise AirflowException(
             'dag_id could not be found: {}. Either the dag did not exist or it failed to '
@@ -152,7 +152,7 @@ def get_dag(args):
 def get_dags(args):
     if not args.dag_regex:
         return [get_dag(args)]
-    dagbag = DagBag(process_subdir(args.subdir))
+    dagbag = DagBag(process_subdir(args.subdir), store_serialized_dags=False)
     matched_dags = [dag for dag in dagbag.dags.values() if re.search(
         args.dag_id, dag.dag_id)]
     if not matched_dags:
@@ -642,7 +642,7 @@ def rotate_fernet_key(args):
 
 @cli_utils.action_logging
 def list_dags(args):
-    dagbag = DagBag(process_subdir(args.subdir))
+    dagbag = DagBag(process_subdir(args.subdir), store_serialized_dags=False)
     s = textwrap.dedent("""\n
     -------------------------------------------------------------------
     DAGS
@@ -1447,7 +1447,7 @@ def list_dag_runs(args, dag=None):
     if dag:
         args.dag_id = dag.dag_id
 
-    dagbag = DagBag()
+    dagbag = DagBag(store_serialized_dags=False)
 
     if args.dag_id not in dagbag.dags:
         error_message = "Dag id {} not found".format(args.dag_id)

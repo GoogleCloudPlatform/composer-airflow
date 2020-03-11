@@ -89,7 +89,7 @@ class DagBag(BaseDagBag, LoggingMixin):
             executor=None,
             include_examples=conf.getboolean('core', 'LOAD_EXAMPLES'),
             safe_mode=conf.getboolean('core', 'DAG_DISCOVERY_SAFE_MODE'),
-            store_serialized_dags=conf.getboolean('core', 'store_serialized_dags', fallback=False),
+            store_serialized_dags=False,
     ):
 
         # do not use default arg in signature, to fix import cycle on plugin load
@@ -399,6 +399,9 @@ class DagBag(BaseDagBag, LoggingMixin):
         un-anchored regexes, not shell-like glob patterns.
         """
         if self.store_serialized_dags:
+            self.log.info(
+                "Not filling up the DagBag because store_serialized_dags is set to true"
+            )
             return
 
         self.log.info("Filling up the DagBag from %s", dag_folder)

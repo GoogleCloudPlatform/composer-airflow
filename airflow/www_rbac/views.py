@@ -80,7 +80,6 @@ if os.environ.get('SKIP_DAGS_PARSING') != 'True':
 else:
     dagbag = models.DagBag(
         os.devnull,
-        store_serialized_dags=conf.getboolean('core', 'store_serialized_dags', fallback=False),
         include_examples=False
     )
 
