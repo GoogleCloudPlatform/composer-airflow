@@ -929,6 +929,25 @@ class TestTriggerDag(unittest.TestCase):
         self.assertIsNotNone(run)
         self.assertIn("manual__", run.run_id)
 
+    def test_trigger_dag_button_serialized_dags(self):
+        with conf_vars(
+            {
+                ("core", "store_serialized_dags"): "True"
+            }
+        ):
+            test_dag_id = "example_bash_operator"
+            models.DagBag().get_dag(test_dag_id).sync_to_db()
+
+            DR = models.DagRun
+            self.session.query(DR).delete()
+            self.session.commit()
+
+            self.app.post('/admin/airflow/trigger?dag_id={}'.format(test_dag_id))
+
+            run = self.session.query(DR).filter(DR.dag_id == test_dag_id).first()
+            self.assertIsNotNone(run)
+            self.assertIn("manual__", run.run_id)
+
 
 class HelpersTest(unittest.TestCase):
     @classmethod
