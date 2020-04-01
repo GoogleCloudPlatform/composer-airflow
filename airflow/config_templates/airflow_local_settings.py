@@ -90,7 +90,7 @@ DEFAULT_LOGGING_CONFIG = {
         'airflow.processor': {
             'handlers': ['processor'],
             'level': LOG_LEVEL,
-            'propagate': True,
+            'propagate': False,
         },
         'airflow.task': {
             'handlers': ['task'],
