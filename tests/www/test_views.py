@@ -1053,6 +1053,67 @@ class TestTriggerDag(unittest.TestCase):
         self.assertIsNotNone(run)
         self.assertIn("manual__", run.run_id)
 
+    def test_trigger_dag_button_serialized_dags(self):
+        with conf_vars(
+            {
+                ("core", "store_serialized_dags"): "True"
+            }
+        ):
+            test_dag_id = "example_bash_operator"
+            models.DagBag().get_dag(test_dag_id).sync_to_db()
+
+            DR = models.DagRun
+            self.session.query(DR).delete()
+            self.session.commit()
+
+            self.app.post('/admin/airflow/trigger?dag_id={}'.format(test_dag_id))
+
+            run = self.session.query(DR).filter(DR.dag_id == test_dag_id).first()
+            self.assertIsNotNone(run)
+            self.assertIn("manual__", run.run_id)
+
+    @mock.patch('airflow.models.dag.DAG.create_dagrun')
+    def test_trigger_dag(self, mock_dagrun):
+        test_dag_id = "example_bash_operator"
+        execution_date = timezone.utcnow()
+        run_id = "manual__{0}".format(execution_date.isoformat())
+        mock_dagrun.return_value = DagRun(
+            dag_id=test_dag_id, run_id=run_id,
+            execution_date=execution_date, start_date=datetime(2020, 1, 1, 1, 1, 1),
+            external_trigger=True,
+            conf={},
+            state="running"
+        )
+
+        response = self.app.post(
+            '/admin/airflow/trigger?dag_id={}'.format(test_dag_id), data={}, follow_redirects=True)
+        self.assertIn(
+            'Triggered example_bash_operator, it should start any moment now.',
+            response.data.decode('utf-8'))
+
+    @mock.patch('airflow.models.dag.DAG.create_dagrun')
+    @mock.patch('airflow.utils.dag_processing.os.path.isfile')
+    @conf_vars({("core", "store_serialized_dags"): "True"})
+    def test_trigger_serialized_dag(self, mock_os_isfile, mock_dagrun):
+        mock_os_isfile.return_value = False
+
+        test_dag_id = "example_bash_operator"
+        execution_date = timezone.utcnow()
+        run_id = "manual__{0}".format(execution_date.isoformat())
+        mock_dagrun.return_value = DagRun(
+            dag_id=test_dag_id, run_id=run_id,
+            execution_date=execution_date, start_date=datetime(2020, 1, 1, 1, 1, 1),
+            external_trigger=True,
+            conf={},
+            state="running"
+        )
+
+        response = self.app.post(
+            '/admin/airflow/trigger?dag_id={}'.format(test_dag_id), data={}, follow_redirects=True)
+        self.assertIn(
+            'Triggered example_bash_operator, it should start any moment now.',
+            response.data.decode('utf-8'))
+
 
 class HelpersTest(unittest.TestCase):
     @classmethod
