@@ -256,9 +256,11 @@ class TestStringifiedDAGs(unittest.TestCase):
             self.validate_deserialized_dag(stringified_dags[dag_id], dags[dag_id])
 
         example_skip_dag = stringified_dags['example_skip_dag']
-        skip_operator_1_task = example_skip_dag.task_dict['skip_operator_1']
         self.validate_deserialized_task(
-            skip_operator_1_task, 'DummySkipOperator', '#e8b7e4', '#000')
+            stringified_dags['example_skip_dag'].get_task('skip_operator_1'),
+            dags['example_skip_dag'].get_task('skip_operator_1'),
+            'DummySkipOperator', '#e8b7e4', '#000'
+        )
 
         # Verify that the DAG object has 'full_filepath' attribute
         # and is equal to fileloc
@@ -268,7 +270,8 @@ class TestStringifiedDAGs(unittest.TestCase):
         example_subdag_operator = stringified_dags['example_subdag_operator']
         section_1_task = example_subdag_operator.task_dict['section-1']
         self.validate_deserialized_task(
-            section_1_task,
+            stringified_dags['example_subdag_operator'].get_task('section-1'),
+            dags['example_subdag_operator'].get_task('section-1'),
             SubDagOperator.__name__,
             SubDagOperator.ui_color,
             SubDagOperator.ui_fgcolor
@@ -294,13 +297,50 @@ class TestStringifiedDAGs(unittest.TestCase):
             sorted(serialized_dag.task_ids),
             sorted([str(task) for task in dag.task_ids]))
 
-    def validate_deserialized_task(self, task, task_type, ui_color, ui_fgcolor):
+    def validate_deserialized_task(
+        self, serialized_task, task, task_type, ui_color, ui_fgcolor
+    ):
         """Verify non-airflow operators are casted to BaseOperator."""
-        self.assertTrue(isinstance(task, SerializedBaseOperator))
+        assert isinstance(serialized_task, SerializedBaseOperator)
+        assert not isinstance(task, SerializedBaseOperator)
+        assert isinstance(task, BaseOperator)
+
         # Verify the original operator class is recorded for UI.
-        self.assertTrue(task.task_type == task_type)
-        self.assertTrue(task.ui_color == ui_color)
-        self.assertTrue(task.ui_fgcolor == ui_fgcolor)
+        self.assertTrue(serialized_task.task_type == task_type)
+        self.assertTrue(serialized_task.ui_color == ui_color)
+        self.assertTrue(serialized_task.ui_fgcolor == ui_fgcolor)
+
+        fields_to_check = task.get_serialized_fields() - {
+            # Checked separately
+            '_task_type', 'subdag',
+
+            # Type is exluded, so don't check it
+            '_log',
+
+            # List vs tuple. Check separately
+            'template_fields',
+
+            # We store the string, real dag has the actual code
+            'on_failure_callback', 'on_success_callback', 'on_retry_callback',
+
+            # Checked separately
+            'resources',
+        }
+
+        assert serialized_task.task_type == task.task_type
+        assert set(serialized_task.template_fields) == set(task.template_fields)
+
+        assert serialized_task.upstream_task_ids == task.upstream_task_ids
+        assert serialized_task.downstream_task_ids == task.downstream_task_ids
+
+        for field in fields_to_check:
+            assert getattr(serialized_task, field) == getattr(task, field), \
+                f'{task.dag.dag_id}.{task.task_id}.{field} does not match'
+
+        if serialized_task.resources is None:
+            assert task.resources is None or task.resources == []
+        else:
+            assert serialized_task.resources == task.resources
 
         # Check that for Deserialised task, task.subdag is None for all other Operators
         # except for the SubDagOperator where task.subdag is an instance of DAG object
