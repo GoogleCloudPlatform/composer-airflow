@@ -50,6 +50,7 @@ from airflow.dag.base_dag import BaseDag, BaseDagBag
 from airflow.exceptions import AirflowException
 from airflow.settings import Stats
 from airflow.models import errors
+from airflow.settings import STORE_SERIALIZED_DAGS
 from airflow.utils import timezone
 from airflow.utils.helpers import reap_process_group
 from airflow.utils.db import provide_session
@@ -905,7 +906,7 @@ class DagFileProcessorManager(LoggingMixin):
             except Exception:
                 self.log.exception("Error removing old import errors")
 
-            if conf.getboolean('core', 'store_serialized_dags', fallback=False):
+            if STORE_SERIALIZED_DAGS:
                 from airflow.models import SerializedDagModel
                 from airflow.models.dag import DagModel
                 SerializedDagModel.remove_deleted_dags(self._file_paths)
