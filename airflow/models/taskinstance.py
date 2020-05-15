@@ -1118,7 +1118,7 @@ class TaskInstance(Base, LoggingMixin):
         task = self.task
         from airflow import macros
         tables = None
-        if 'tables' in task.params:
+        if task.params and 'tables' in task.params:
             tables = task.params['tables']
 
         params = {}

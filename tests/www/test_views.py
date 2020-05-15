@@ -468,6 +468,27 @@ class TestLogView(unittest.TestCase):
         self.assertIn('Log for testing.', response.data.decode('utf-8'))
         self.assertEqual(200, response.status_code)
 
+    def test_logs_with_metadata_serialized_dags(self):
+        ti = self.session.query(TaskInstance).filter(
+            TaskInstance.dag_id == self.DAG_ID,
+            TaskInstance.task_id == self.TASK_ID).first()
+        ti.params = None
+        self.session.merge(ti)
+        self.session.commit()
+        url_template = "/admin/airflow/get_logs_with_metadata?dag_id={}&" \
+                       "task_id={}&execution_date={}&" \
+                       "try_number={}&metadata=null"
+        response = \
+            self.app.get(url_template.format(self.DAG_ID,
+                                             self.TASK_ID,
+                                             quote_plus(self.DEFAULT_DATE.isoformat()),
+                                             1))
+
+        self.assertIn('"message":', response.data.decode('utf-8'))
+        self.assertIn('"metadata":', response.data.decode('utf-8'))
+        self.assertIn('Log for testing.', response.data.decode('utf-8'))
+        self.assertEqual(200, response.status_code)
+
 
 class TestVarImportView(unittest.TestCase):
 
