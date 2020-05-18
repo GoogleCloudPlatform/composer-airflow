@@ -31,12 +31,6 @@ if [[ -z "${AIRFLOW__CORE__SQL_ALCHEMY_CONN:=}" ]]; then
     echo "AIRFLOW__CORE__SQL_ALCHEMY_CONN not set - using default" >&2
 fi
 
-# Update short and long options in the breeze-complete script
-# This way autocomplete will work automagically with all options
-# shellcheck source=run-tests-complete
-. "${MY_DIR}/run-tests-complete"
-
-
 # environment
 export AIRFLOW_HOME=${AIRFLOW_HOME:=${HOME}}
 AIRFLOW_SOURCES="$(cd "${MY_DIR}" && pwd)"
