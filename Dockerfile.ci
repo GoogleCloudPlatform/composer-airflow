@@ -125,6 +125,7 @@ RUN mkdir -pv /usr/share/man/man1 \
     && apt-get install --no-install-recommends -y \
       gnupg \
       libgcc-8-dev \
+      gcc-8-base \
       openjdk-8-jdk \
       apt-transport-https \
       bash-completion \
