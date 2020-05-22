@@ -52,7 +52,7 @@ try:
 except:
     logging.warning('Using default Composer Environment Variables. Overrides '
                     'have not been applied.')
-if not configuration.getboolean('core', 'unit_test_mode'):
+if not conf.getboolean('core', 'unit_test_mode'):
     airflow.plugins_manager = six.moves.reload_module(airflow.plugins_manager)
     airflow.configuration = six.moves.reload_module(airflow.configuration)
     airflow = six.moves.reload_module(airflow)
@@ -73,17 +73,17 @@ def create_app(config=None, testing=False):
         'webserver', 'AUTHENTICATE')
 
     app.config['SESSION_COOKIE_HTTPONLY'] = True
-    app.config['SESSION_COOKIE_SECURE'] = configuration.conf.getboolean('webserver', 'COOKIE_SECURE')
-    app.config['SESSION_COOKIE_SAMESITE'] = configuration.conf.get('webserver', 'COOKIE_SAMESITE')
+    app.config['SESSION_COOKIE_SECURE'] = conf.conf.getboolean('webserver', 'COOKIE_SECURE')
+    app.config['SESSION_COOKIE_SAMESITE'] = conf.conf.get('webserver', 'COOKIE_SAMESITE')
 
-    if config:
+    if conf:
         app.config.from_mapping(config)
 
     csrf.init_app(app)
 
     app.config['TESTING'] = testing
     try:
-        app.config['WEB_SERVER_NAME'] = configuration.get('webserver', 'WEB_SERVER_NAME')
+        app.config['WEB_SERVER_NAME'] = conf.get('webserver', 'WEB_SERVER_NAME')
     except:
         app.config['WEB_SERVER_NAME'] = ''
 
@@ -114,7 +114,7 @@ def create_app(config=None, testing=False):
         vs = views
         av(vs.Airflow(name='DAGs', category='DAGs'))
 
-        if not configuration.conf.getboolean('core', 'secure_mode'):
+        if not conf.conf.getboolean('core', 'secure_mode'):
             av(vs.QueryView(name='Ad Hoc Query', category="Data Profiling"))
             av(vs.ChartModelView(
                 models.Chart, Session, name="Charts", category="Data Profiling"))

@@ -48,7 +48,7 @@ from airflow.exceptions import AirflowDagCycleException, AirflowSkipException
 from airflow.jobs import BackfillJob
 from airflow.models import DAG, TaskInstance as TI, DagBag
 from airflow.models import DagModel, DagRun
-from airflow.models import State as ST
+from airflow.utils.state import State as ST
 from airflow.models import XCom
 from airflow.models import Variable
 from airflow.models import clear_task_instances
