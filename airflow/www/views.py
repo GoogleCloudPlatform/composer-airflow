@@ -810,6 +810,7 @@ class Airflow(AirflowViewMixin, BaseView):
         try:
             ti.render_templates()
         except Exception as e:
+            traceback.print_exc()
             flash("Error rendering template: " + str(e), "error")
         title = "Rendered Template"
         html_dict = {}
@@ -2341,6 +2342,7 @@ class QueryView(wwwutils.DataProfilingMixin, AirflowViewMixin, BaseView):
                     na_rep='',
                 ) if has_data else ''
             except Exception as e:
+                traceback.print_exc()
                 flash(str(e), 'error')
                 error = True
 
