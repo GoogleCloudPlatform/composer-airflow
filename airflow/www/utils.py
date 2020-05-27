@@ -20,6 +20,7 @@
 # flake8: noqa: E402
 
 from future import standard_library
+from six import string_types
 
 standard_library.install_aliases()  # noqa: E402
 from builtins import str, object

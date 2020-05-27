@@ -88,6 +88,11 @@ def create_app(config=None, testing=False):
     except:
         app.config['WEB_SERVER_NAME'] = ''
 
+    try:
+        app.config['SQLALCHEMY_DATABASE_URI'] = conf.get('core', 'SQL_ALCHEMY_CONN')
+    except:
+        pass
+
     airflow.load_login()
     airflow.login.LOGIN_MANAGER.init_app(app)
 
