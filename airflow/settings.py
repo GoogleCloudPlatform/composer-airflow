@@ -353,7 +353,7 @@ def prepare_syspath():
 
 def import_local_settings():
     try:
-        from airflow.config_templates import airflow_local_settings
+        import airflow_local_settings
 
         if hasattr(airflow_local_settings, "__all__"):
             for i in airflow_local_settings.__all__:
