@@ -213,7 +213,7 @@ class TestApiExperimental(TestBase):
                         .format(execution_date))
 
         # Test correct execution with execution date and microseconds replaced
-        response = self.app.post(
+        response = self.client.post(
             url_template.format(dag_id),
             data=json.dumps({'execution_date': datetime_string, 'replace_microseconds': 'true'}),
             content_type="application/json"
