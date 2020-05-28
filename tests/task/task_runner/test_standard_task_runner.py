@@ -123,7 +123,8 @@ class TestStandardTaskRunner(unittest.TestCase):
         runner.start()
 
         # give the task some time to startup
-        time.sleep(3)
+        # Upped to 30 to wait for the retry logic when reading "env_var.json".
+        time.sleep(30)
 
         runner.terminate()
 
