@@ -850,7 +850,9 @@ class CoreTest(unittest.TestCase):
         # Running task instance asynchronously
         p = multiprocessing.Process(target=job.run)
         p.start()
-        sleep(5)
+        # Wait so that the process has a chance to start. Additional 30s
+        # to wait for the retry logic when reading "env_var.json".
+        sleep(35)
         settings.engine.dispose()
         session = settings.Session()
         ti.refresh_from_db(session=session)
