@@ -106,7 +106,12 @@ serialized_simple_dag_ground_truth = {
                     ]
                 }
             }
-        }
+        },
+        '_concurrency': 16,
+        '_default_view': 'tree',
+        'catchup': True,
+        'max_active_runs': 16,
+        'orientation': 'LR',
     },
 }
 
