@@ -366,11 +366,11 @@ class TestGoogleCloudBaseHook(unittest.TestCase):
 
         request.assert_called_once_with(
             '/test-action',
-            body=None,
-            connection_type=None,
-            headers={'user-agent': 'airflow/' + version.version},
-            method='GET',
-            redirections=5
+            'GET',
+            None,
+            {'user-agent': 'airflow-' + version.version},
+            5,
+            None
         )
         self.assertEqual(response, new_response)
         self.assertEqual(content, new_content)
