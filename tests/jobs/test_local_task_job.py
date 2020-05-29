@@ -161,7 +161,7 @@ class LocalTaskJobTest(unittest.TestCase):
                 time2 = heartbeat_records[i]
                 # Assert that difference small enough
                 delta = (time2 - time1).total_seconds()
-                self.assertAlmostEqual(delta, job.heartrate, delta=0.05)
+                self.assertAlmostEqual(delta, job.heartrate, delta=0.1)
 
     @pytest.mark.xfail(condition=True, reason="This test might be flaky in postgres/mysql")
     def test_mark_success_no_kill(self):
