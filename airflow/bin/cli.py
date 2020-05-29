@@ -136,7 +136,7 @@ def setup_locations(process, pid=None, stdout=None, stderr=None, log=None):
 
 def process_subdir(subdir):
     if subdir:
-        subdir = subdir.replace('DAGS_FOLDER', DAGS_FOLDER)
+        subdir = subdir.replace('DAGS_FOLDER', settings.DAGS_FOLDER)
         subdir = os.path.abspath(os.path.expanduser(subdir))
         return subdir
 
