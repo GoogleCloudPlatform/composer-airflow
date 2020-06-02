@@ -327,11 +327,18 @@ class DataFlowJobTest(unittest.TestCase):
 
 class DataflowTest(unittest.TestCase):
 
-    def test_data_flow_valid_job_id(self):
+    def test_data_flow_valid_job_id_old_format(self):
         cmd = ['echo', 'additional unit test lines.\n' +
                'INFO: the Dataflow monitoring console, please navigate to' +
                'https://console.cloud.google.com/dataflow/jobsDetail/locations/' +
                '{}/jobs/{}?project={}'.format(TEST_LOCATION, TEST_JOB_ID, TEST_PROJECT)]
+        self.assertEqual(_Dataflow(cmd).wait_for_done(), TEST_JOB_ID)
+
+    def test_data_flow_valid_job_id(self):
+        cmd = ['echo', 'additional unit test lines.\n' +
+               'INFO: the Dataflow monitoring console, please navigate to' +
+               'https://console.cloud.google.com/dataflow/jobs/' +
+               '{}/{}?project={}'.format(TEST_LOCATION, TEST_JOB_ID, TEST_PROJECT)]
         self.assertEqual(_Dataflow(cmd).wait_for_done(), TEST_JOB_ID)
 
     def test_data_flow_missing_job_id(self):
