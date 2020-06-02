@@ -140,11 +140,17 @@ class _Dataflow(LoggingMixin):
 
     @staticmethod
     def _extract_job(line):
-        # Job id info: https://goo.gl/SE29y9.
+        # The pattern changed in 2.20 version of the apache-beam.
+        # Old job id info: https://goo.gl/SE29y9
+        # New job id info: http://shortn/_nzhJ40427C
+        old_job_id_pattern = re.compile(
+            b'.*console.cloud.google.com/dataflow/jobsDetail/locations/.*/jobs/([a-z|0-9|A-Z|\-|\_]+).*')
         job_id_pattern = re.compile(
-            br'.*console.cloud.google.com/dataflow.*/jobs/([a-z|0-9|A-Z|\-|\_]+).*')
-        matched_job = job_id_pattern.search(line or '')
-        if matched_job:
+            b'.*console.cloud.google.com/dataflow/jobs/.*/([a-z|0-9|A-Z|\-|\_]+).*')
+
+        for pattern in (old_job_id_pattern, job_id_pattern):
+          matched_job = pattern.search(line or '')
+          if matched_job:
             return matched_job.group(1).decode()
 
     def wait_for_done(self):
