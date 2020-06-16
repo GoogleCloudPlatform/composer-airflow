@@ -19,7 +19,7 @@
 """add dag_code table
 
 Revision ID: 952da73b5eff
-Revises: 852ae6c715af
+Revises: d38e04c12aa2
 Create Date: 2020-03-12 12:39:01.797462
 
 """
@@ -32,7 +32,7 @@ from airflow.models.dagcode import DagCode
 from airflow.models.serialized_dag import SerializedDagModel
 
 revision = '952da73b5eff'
-down_revision = '852ae6c715af'
+down_revision = 'd38e04c12aa2'
 branch_labels = None
 depends_on = None
 
