@@ -174,7 +174,8 @@ if REMOTE_LOGGING:
         }
 
         DEFAULT_LOGGING_CONFIG['handlers'].update(S3_REMOTE_HANDLERS)
-    # elif REMOTE_BASE_LOG_FOLDER.startswith('gs://'):
+    elif REMOTE_BASE_LOG_FOLDER.startswith('gs://'):
+        pass
     #     GCS_REMOTE_HANDLERS = {
     #         'task': {
     #             'class': 'airflow.utils.log.gcs_task_handler.GCSTaskHandler',
