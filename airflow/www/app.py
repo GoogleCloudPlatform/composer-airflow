@@ -17,12 +17,11 @@
 # specific language governing permissions and limitations
 # under the License.
 #
-from datetime import datetime, timedelta
 from typing import Any
 import json
 import logging
 import os
-import time
+import six
 
 import six
 from flask import Flask
@@ -48,21 +47,10 @@ from airflow.utils.json import AirflowJsonEncoder
 
 csrf = CSRFProtect()
 
-# Wait up to 25 seconds for env_var.json to sync
-# (gsutil cp to the local filesystem)
-timeout_at = datetime.now() + timedelta(seconds=25)
-
-while datetime.now() < timeout_at:
-    try:
-        with open('/home/airflow/gcs/env_var.json', 'r') as env_var_json:
-            os.environ.update(json.load(env_var_json))
-        logging.info('Composer Environment Variables have been loaded.')
-        break
-    except:
-        logging.warning('Can\'t load Environment Variable overrides.',
-                      exc_info=True)
-        time.sleep(1)
-else:
+try:
+    with open('/home/airflow/gcs/env_var.json', 'r') as env_var_json:
+        os.environ.update(json.load(env_var_json))
+except:
     logging.warning('Using default Composer Environment Variables. Overrides '
                     'have not been applied.')
 if not configuration.getboolean('core', 'unit_test_mode'):
