@@ -17,7 +17,12 @@
 # specific language governing permissions and limitations
 # under the License.
 #
+from datetime import datetime, timedelta
 from typing import Any
+import json
+import logging
+import os
+import time
 
 import six
 from flask import Flask
@@ -42,14 +47,29 @@ from airflow.utils.net import get_hostname
 
 csrf = CSRFProtect()
 
+# Wait up to 25 seconds for env_var.json to sync 
+# (gsutil cp to the local filesystem)
+timeout_at = datetime.now() + timedelta(seconds=25)
+
+while datetime.now() < timeout_at:
+    try:
+        with open('/home/airflow/gcs/env_var.json', 'r') as env_var_json:
+            os.environ.update(json.load(env_var_json))
+        logging.info('Composer Environment Variables have been loaded.')
+        break
+    except:
+        logging.warning('Can\'t load Environment Variable overrides.',
+                      exc_info=True)
+        time.sleep(1)
+else:
+    logging.warning('Using default Composer Environment Variables. Overrides '
+                    'have not been applied.')
+if not conf.getboolean('core', 'unit_test_mode'):
+    airflow.plugins_manager = six.moves.reload_module(airflow.plugins_manager)
+    airflow.configuration = six.moves.reload_module(airflow.configuration)
+    airflow = six.moves.reload_module(airflow)
 
 def create_app(config=None, testing=False):
-    global airflow
-    airflow.www.init_env_vars()
-    if not conf.getboolean('core', 'unit_test_mode'):
-        airflow.plugins_manager = six.moves.reload_module(airflow.plugins_manager)
-        airflow.configuration = six.moves.reload_module(airflow.configuration)
-        airflow = six.moves.reload_module(airflow)
     app = Flask(__name__)
     if conf.getboolean('webserver', 'ENABLE_PROXY_FIX'):
         app.wsgi_app = ProxyFix(
