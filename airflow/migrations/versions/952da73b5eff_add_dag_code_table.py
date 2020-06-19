@@ -49,8 +49,10 @@ def upgrade():
     conn = op.get_bind()
     if conn.dialect.name not in ('sqlite'):
         op.drop_index('idx_fileloc_hash', 'serialized_dag')
-        op.alter_column(table_name='serialized_dag', column_name='fileloc_hash',
-                        type_=sa.BigInteger(), nullable=False)
+        op.drop_column(table_name='serialized_dag', column_name='fileloc_hash')
+        op.add_column(
+            table_name='serialized_dag',
+            column=sa.Column('fileloc_hash', sa.BigInteger(), nullable=False))
         op.create_index(   # pylint: disable=no-member
             'idx_fileloc_hash', 'serialized_dag', ['fileloc_hash'])
 
