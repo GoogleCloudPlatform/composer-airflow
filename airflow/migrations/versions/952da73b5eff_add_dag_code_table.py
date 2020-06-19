@@ -25,6 +25,8 @@ Create Date: 2020-03-02 13:09:37.904908
 """
 
 # revision identifiers, used by Alembic.
+from airflow.models import SerializedDagModel
+from airflow.models.dagcode import DagCode
 
 revision = '952da73b5eff'
 down_revision = 'd38e04c12aa2'
@@ -46,11 +48,20 @@ def upgrade():
     conn = op.get_bind()
     if conn.dialect.name != 'sqlite':
         op.drop_index('idx_fileloc_hash', 'serialized_dag')
-        op.alter_column(table_name='serialized_dag', column_name='fileloc_hash',
-                        type_=sa.BigInteger(), nullable=False)
+        op.drop_column(table_name='serialized_dag', column_name='fileloc_hash')
+        op.add_column(
+            table_name='serialized_dag',
+            column=sa.Column('fileloc_hash', sa.BigInteger(), nullable=False))
         op.create_index(   # pylint: disable=no-member
             'idx_fileloc_hash', 'serialized_dag', ['fileloc_hash'])
 
+    sessionmaker = sa.orm.sessionmaker()
+    session = sessionmaker(bind=conn)
+    serialized_dags = session.query(SerializedDagModel).all()
+    for dag in serialized_dags:
+        dag.fileloc_hash = DagCode.dag_fileloc_hash(dag.fileloc)
+        session.merge(dag)
+    session.commit()
 
 def downgrade():
     """Unapply add source code table"""
