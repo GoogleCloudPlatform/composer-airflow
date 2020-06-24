@@ -60,18 +60,34 @@ app = Celery(
 
 
 @app.task
-def execute_command(command_to_exec):
+def execute_command(
+                    command_to_exec,
+                    num_attempts=conf.getint('celery', 'max_command_attempts', fallback=1)):
     log = LoggingMixin().log
     log.info("Executing command in Celery: %s", command_to_exec)
     env = os.environ.copy()
-    try:
-        subprocess.check_call(command_to_exec, stderr=subprocess.STDOUT,
-                              close_fds=True, env=env)
-    except subprocess.CalledProcessError as e:
-        log.exception('execute_command encountered a CalledProcessError')
-        log.error(e.output)
+    retry_wait_duration = conf.getfloat(
+        'celery', 'command_retry_wait_duration', fallback=5.0)
 
-        raise AirflowException('Celery command failed')
+    attempt = 0
+    while attempt < num_attempts:
+        attempt += 1
+        log.info('Starting attempt #%d to execute command' % attempt)
+
+        try:
+            subprocess.check_call(command_to_exec, stderr=subprocess.STDOUT,
+                                  close_fds=True, env=env)
+            return
+        except subprocess.CalledProcessError as e:
+            log.exception('execute_command encountered a CalledProcessError')
+            log.error('Subprocess output: "%s"', e.output)
+
+        if attempt != num_attempts:
+            log.info('Sleeping for %ss before retrying command', retry_wait_duration)
+            time.sleep(retry_wait_duration)
+
+    raise AirflowException(
+        'Celery was unable to execute command within %d attempt(s)' % attempt)
 
 
 class ExceptionWithTraceback(object):

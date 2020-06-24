@@ -16,6 +16,7 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+import subprocess
 import sys
 import unittest
 from multiprocessing import Pool
@@ -26,6 +27,7 @@ from celery.contrib.testing.worker import start_worker
 import pytest
 from celery import states as celery_states
 
+from airflow.exceptions import AirflowException
 from airflow.executors import celery_executor
 from airflow.executors.celery_executor import (CeleryExecutor, celery_configuration,
                                                send_task_to_executor, execute_command)
@@ -136,6 +138,61 @@ class CeleryExecutorTest(unittest.TestCase):
                  mock.call('executor.queued_tasks', mock.ANY),
                  mock.call('executor.running_tasks', mock.ANY)]
         mock_stats_gauge.assert_has_calls(calls)
+
+    @mock.patch('subprocess.check_call')
+    def test_execute_command_success(self, mock_check_call):
+        fake_command = ['airflow', 'run']
+        celery_executor.execute_command(fake_command, num_attempts=3)
+        # Subprocess call should only happen once if successful the first time.
+        mock_check_call.assert_called_once_with(
+            fake_command, stderr=subprocess.STDOUT, close_fds=True,
+            env=mock.ANY)
+
+    @mock.patch('subprocess.check_call')
+    @mock.patch('time.sleep')
+    def test_execute_command_eventual_success(self, mock_sleep, mock_check_call):
+        fake_command = ['airflow', 'run']
+        fake_return_code = 1
+        mock_check_call.side_effect = [
+            subprocess.CalledProcessError(fake_return_code, fake_command),
+            None,
+        ]
+        celery_executor.execute_command(fake_command, num_attempts=3)
+        call = mock.call(
+            fake_command, stderr=subprocess.STDOUT, close_fds=True,
+            env=mock.ANY)
+        mock_check_call.assert_has_calls([call, call])
+        self.assertEqual(mock_sleep.call_count, 1)
+
+    @mock.patch('subprocess.check_call')
+    def test_execute_command_fail(self, mock_check_call):
+        fake_command = ['airflow', 'run']
+        fake_return_code = 1
+        mock_check_call.side_effect = subprocess.CalledProcessError(
+            fake_return_code, fake_command)
+
+        with self.assertRaises(AirflowException):
+            celery_executor.execute_command(fake_command, num_attempts=1)
+        mock_check_call.assert_called_once_with(
+            fake_command, stderr=subprocess.STDOUT, close_fds=True,
+            env=mock.ANY)
+
+    @mock.patch('subprocess.check_call')
+    @mock.patch('time.sleep')
+    def test_execute_command_fail_with_retries(self, mock_sleep, mock_check_call):
+        fake_command = ['airflow', 'run']
+        fake_return_code = 1
+        mock_check_call.side_effect = subprocess.CalledProcessError(
+            fake_return_code, fake_command)
+
+        with self.assertRaises(AirflowException):
+            celery_executor.execute_command(fake_command, num_attempts=3)
+        call = mock.call(
+            fake_command, stderr=subprocess.STDOUT, close_fds=True,
+            env=mock.ANY)
+        mock_check_call.assert_has_calls([call, call, call])
+        # The last attempt should not wait after failing.
+        self.assertEqual(mock_sleep.call_count, 2)
 
 
 def test_operation_timeout_config():
