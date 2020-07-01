@@ -570,9 +570,8 @@ class TestWorkerStart(unittest.TestCase):
 class TestGunicornMonitor(unittest.TestCase):
 
     def setUp(self):
-        self.gunicorn_master_proc = mock.Mock(pid=2137)
         self.monitor = cli.GunicornMonitor(
-            gunicorn_master_proc=self.gunicorn_master_proc,
+            gunicorn_master_pid=1,
             num_workers_expected=4,
             master_timeout=60,
             worker_refresh_interval=60,
@@ -671,7 +670,7 @@ class TestGunicornMonitorGeneratePluginState(unittest.TestCase):
             self._prepare_test_file("{}/file3.txt".format(tempdir), 300)
 
             monitor = cli.GunicornMonitor(
-                gunicorn_master_proc=mock.MagicMock(),
+                gunicorn_master_pid=1,
                 num_workers_expected=4,
                 master_timeout=60,
                 worker_refresh_interval=60,
@@ -723,7 +722,7 @@ class TestCLIGetNumReadyWorkersRunning(unittest.TestCase):
         self.child = mock.MagicMock()
         self.process = mock.MagicMock()
         self.monitor = cli.GunicornMonitor(
-            gunicorn_master_proc=self.gunicorn_master_proc,
+            gunicorn_master_pid=1,
             num_workers_expected=4,
             master_timeout=60,
             worker_refresh_interval=60,
