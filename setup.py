@@ -159,7 +159,7 @@ azure_blob_storage = [
     'azure-storage-blob<12.0',
 ]
 azure_container_instances = [
-    'azure-mgmt-containerinstance>=1.5.0'
+    'azure-mgmt-containerinstance>=1.5.0,<2'
 ]
 azure_cosmos = [
     'azure-cosmos>=3.0.1'
