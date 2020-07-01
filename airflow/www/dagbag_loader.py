@@ -177,10 +177,19 @@ def _create_dagbag(dag_folder, queue):
     from airflow import configuration
     try:
         with open('/home/airflow/gcs/env_var.json', 'r') as env_var_json:
-            os.environ.update(json.load(env_var_json))
+            env_var_content = json.load(env_var_json)
+            os.environ.update(env_var_content)
+        with open('/home/airflow/gcs/env_var.json.bkp', 'w') as env_var_backup:
+            json.dump(env_var_content, env_var_backup)
     except:
-        logging.warning('Using default Composer Environment Variables. Overrides '
-                        'have not been applied.')
+        try:
+            with open('/home/airflow/gcs/env_var.json.bkp', 'r') as env_var_json:
+                env_var_content = json.load(env_var_json)
+                os.environ.update(env_var_content)
+            logging.info('Composer Environment Variables were loaded from backup.')
+        except:
+            logging.warning('Using default Composer Environment Variables. Overrides '
+                            'have not been applied.')
     configuration = six.moves.reload_module(configuration)
     airflow.configuration = six.moves.reload_module(airflow.configuration)
     airflow.plugins_manager = six.moves.reload_module(airflow.plugins_manager)
