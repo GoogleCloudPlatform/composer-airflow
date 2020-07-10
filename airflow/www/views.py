@@ -198,8 +198,8 @@ def task_instance_link(v, c, m, p):
 def state_token(state):
     color = State.color(state)
     return Markup(
-        '<span class="label" style="background-color:{color};">'
-        '{state}</span>').format(**locals())
+        "<span class='label' style='background-color:{color};'>"
+        "{state}</span>").format(**locals())
 
 
 def parse_datetime_f(value):
