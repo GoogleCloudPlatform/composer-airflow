@@ -590,7 +590,7 @@ if not os.path.isfile(AIRFLOW_CONFIG):
             cfg = cfg.encode('utf8')
         f.write(cfg)
 
-log.info("Reading the config from %s", AIRFLOW_CONFIG)
+log.debug("Reading the config from %s", AIRFLOW_CONFIG)
 
 
 class AutoReloadableProxy(object):
