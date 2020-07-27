@@ -424,7 +424,8 @@ class TestAirflowBaseViews(TestBase):
         if "dev" in version.version:
             airflow_doc_site = "https://airflow.readthedocs.io/en/latest"
         else:
-            airflow_doc_site = 'https://airflow.apache.org/docs/{}'.format(version.version)
+            airflow_doc_site = 'https://airflow.apache.org/docs/{}'.format(
+                version.open_source_version())
 
         self.check_content_in_response(airflow_doc_site, resp)
 

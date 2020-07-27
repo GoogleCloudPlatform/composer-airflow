@@ -159,7 +159,8 @@ def create_app(config=None, testing=False):
         if "dev" in version.version:
             airflow_doc_site = "https://airflow.readthedocs.io/en/latest"
         else:
-            airflow_doc_site = 'https://airflow.apache.org/docs/{}'.format(version.version)
+            airflow_doc_site = 'https://airflow.apache.org/docs/{}'.format(
+                version.open_source_version())
 
         admin.add_link(base.MenuLink(
             name="Website",
