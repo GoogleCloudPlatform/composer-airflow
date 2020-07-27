@@ -108,7 +108,6 @@ except Exception:
     STORE_SERIALIZED_DAGS = False
 
 # File serialized_dags_env contains an env var representing Airflow config store_serialized_dags.
-# FIXME: currently existence of this file indicates store_serialized_dags is True.
 wwwutils.make_serialized_dags_env_var_file(STORE_SERIALIZED_DAGS,
                                            os.getenv('AIRFLOW_SERIALIZED_DAGS_ENV_FILE',
                                                      '/home/airflow/serialized_dags_env'))
