@@ -655,6 +655,37 @@ class TestBigQueryCursor(unittest.TestCase):
         self.assertFalse(bq_cursor.all_pages_loaded)
         self.assertListEqual(bq_cursor.buffer, [])
 
+    @mock.patch.object(hook.BigQueryHook, 'get_service')
+    def test_next(self, mock_get_service):
+        mock_get_query_results = mock_get_service.return_value.jobs.return_value.getQueryResults
+        mock_execute = mock_get_query_results.return_value.execute
+        mock_execute.return_value = {
+            "rows": [
+                {"f": [{"v": "one"}, {"v": 1}]},
+                {"f": [{"v": "two"}, {"v": 2}]},
+            ],
+            "pageToken": None,
+            "schema": {
+                "fields": [
+                    {"name": "field_1", "type": "STRING"},
+                    {"name": "field_2", "type": "INTEGER"},
+                ]
+            }
+        }
+        bq_hook = hook.BigQueryHook()
+        bq_cursor = bq_hook.get_cursor()
+        bq_cursor.job_id = "test"
+        bq_cursor.location = "us-east1"
+
+        result = bq_cursor.next()
+        self.assertEqual(['one', 1], result)
+
+        result = bq_cursor.next()
+        self.assertEqual(['two', 2], result)
+
+        mock_get_query_results.assert_called_once_with(jobId="test", location="us-east1", pageToken=None, projectId=None)
+        mock_execute.assert_called_once_with(num_retries=bq_cursor.num_retries)
+
 
 class TestLabelsInRunJob(unittest.TestCase):
     @mock.patch.object(hook.BigQueryBaseCursor, 'run_with_configuration')
