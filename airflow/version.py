@@ -18,4 +18,4 @@
 # under the License.
 #
 
-version = '1.10.6-composer'
+version = '1.10.6+composer'
