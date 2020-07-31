@@ -45,8 +45,8 @@ class CeleryExecutorTest(unittest.TestCase):
         executor = CeleryExecutor()
         executor.start()
         with start_worker(app=app, logfile=sys.stdout, loglevel='debug'):
-            success_command = ['true', 'some_parameter']
-            fail_command = ['false', 'some_parameter']
+            success_command = ['airflow', 'tasks', 'run', 'true', 'some_parameter']
+            fail_command = ['airflow', 'version']
 
             cached_celery_backend = execute_command.backend
             task_tuples_to_send = [('success', 'fake_simple_ti', success_command,
@@ -138,8 +138,30 @@ class CeleryExecutorTest(unittest.TestCase):
         mock_stats_gauge.assert_has_calls(calls)
 
     @mock.patch('subprocess.check_call')
+    def test_command_validation_incorrect_1(self, mock_check_call):
+        # Check that we validate _on the receiving_ side, not just sending side
+        with self.assertRaises(ValueError):
+            celery_executor.execute_command(['true'])
+        mock_check_call.assert_not_called()
+
+    @mock.patch('subprocess.check_call')
+    def test_command_validation_incorrect_2(self, mock_check_call):
+        # Check that we validate _on the receiving_ side, not just sending side
+        with self.assertRaises(ValueError):
+            celery_executor.execute_command(['airflow', 'version'])
+        mock_check_call.assert_not_called()
+
+    @mock.patch('subprocess.check_call')
+    def test_command_validation_success(self, mock_check_call):
+        command=['airflow', 'tasks', 'run'];
+        celery_executor.execute_command(command)
+        mock_check_call.assert_called_once_with(
+            command, stderr=mock.ANY, close_fds=mock.ANY, env=mock.ANY,
+        )
+
+    @mock.patch('subprocess.check_call')
     def test_execute_command_success(self, mock_check_call):
-        fake_command = ['airflow', 'run']
+        fake_command = ['airflow', 'tasks', 'run']
         celery_executor.execute_command(fake_command, num_attempts=3)
         # Subprocess call should only happen once if successful the first time.
         mock_check_call.assert_called_once_with(
@@ -149,7 +171,7 @@ class CeleryExecutorTest(unittest.TestCase):
     @mock.patch('subprocess.check_call')
     @mock.patch('time.sleep')
     def test_execute_command_eventual_success(self, mock_sleep, mock_check_call):
-        fake_command = ['airflow', 'run']
+        fake_command = ['airflow', 'tasks', 'run']
         fake_return_code = 1
         mock_check_call.side_effect = [
             subprocess.CalledProcessError(fake_return_code, fake_command),
@@ -164,7 +186,7 @@ class CeleryExecutorTest(unittest.TestCase):
 
     @mock.patch('subprocess.check_call')
     def test_execute_command_fail(self, mock_check_call):
-        fake_command = ['airflow', 'run']
+        fake_command = ['airflow', 'tasks', 'run']
         fake_return_code = 1
         mock_check_call.side_effect = subprocess.CalledProcessError(
             fake_return_code, fake_command)
@@ -178,7 +200,7 @@ class CeleryExecutorTest(unittest.TestCase):
     @mock.patch('subprocess.check_call')
     @mock.patch('time.sleep')
     def test_execute_command_fail_with_retries(self, mock_sleep, mock_check_call):
-        fake_command = ['airflow', 'run']
+        fake_command = ['airflow', 'tasks', 'run']
         fake_return_code = 1
         mock_check_call.side_effect = subprocess.CalledProcessError(
             fake_return_code, fake_command)
