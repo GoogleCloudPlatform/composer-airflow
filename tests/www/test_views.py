@@ -991,6 +991,33 @@ class TestTriggerDag(unittest.TestCase):
             response.data.decode('utf-8'))
 
 
+class TestDagModelView(unittest.TestCase):
+    EDIT_URL = '/admin/dagmodel/edit/?id=example_bash_operator'
+
+    @classmethod
+    def setUpClass(cls):
+        super(TestDagModelView, cls).setUpClass()
+        app = application.create_app(testing=True)
+        app.config['WTF_CSRF_METHODS'] = []
+        cls.app = app.test_client()
+
+    def test_edit_disabled_fields(self):
+        response = self.app.post(
+            self.EDIT_URL,
+            data={
+                "fileloc": "/etc/passwd",
+            },
+            follow_redirects=True,
+        )
+        self.assertEqual(response.status_code, 200)
+        session = Session()
+        DM = models.DagModel
+        dm = session.query(DM).filter(DM.dag_id == 'example_bash_operator').one()
+        session.close()
+
+        self.assertNotEqual(dm.fileloc, "/etc/passwd", "Disabled fields shouldn't be updated")
+
+
 class HelpersTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
