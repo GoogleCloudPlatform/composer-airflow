@@ -803,7 +803,7 @@ class Airflow(AirflowViewMixin, BaseView):
         root = request.args.get('root', '')
         # Loads dag from file
         logging.info("Processing DAG file to render template.")
-        dag = dagbag.get_dag(dag_id, from_file_only=True)
+        dag = dagbag.get_dag(dag_id)
         task = copy.copy(dag.get_task(task_id))
         ti = models.TaskInstance(task=task, execution_date=dttm)
         try:
