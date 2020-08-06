@@ -59,6 +59,8 @@ app = Celery(
 
 @app.task
 def execute_command(command_to_exec):
+    if command_to_exec[0:2] != ["airflow", "run"]:
+        raise ValueError('The command must start with ["airflow", "run"].')
     log = LoggingMixin().log
     log.info("Executing command in Celery: %s", command_to_exec)
     env = os.environ.copy()
