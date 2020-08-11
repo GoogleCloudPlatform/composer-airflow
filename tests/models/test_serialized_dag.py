@@ -96,7 +96,7 @@ class SerializedDagModelTest(unittest.TestCase):
 
             # Update DAG
             example_bash_op_dag.tags += ["new_tag"]
-            six.assertCountEqual(self, example_bash_op_dag.tags, ["example", "new_tag"])
+            self.assertCountEqual(example_bash_op_dag.tags, ["example", "new_tag"])
 
             SDM.write_dag(dag=example_bash_op_dag)
             s_dag_2 = session.query(SDM).get(example_bash_op_dag.dag_id)
