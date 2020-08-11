@@ -5219,6 +5219,7 @@ class SerializedDagModel(Base, LoggingMixin):
     fileloc_hash = Column(String(40), nullable=False)
     data = Column(JSON, nullable=False)
     last_updated = Column(UtcDateTime, nullable=False)
+    dag_hash = Column(String(32), nullable=False)
 
     __table_args__ = (
         Index('idx_fileloc_hash', fileloc_hash, unique=False),
@@ -5234,6 +5235,7 @@ class SerializedDagModel(Base, LoggingMixin):
         self.fileloc_hash = DagCode.dag_fileloc_hash(self.fileloc)
         self.data = SerializedDAG.to_dict(dag)
         self.last_updated = timezone.utcnow()
+        self.dag_hash = hashlib.md5(json.dumps(self.data, sort_keys=True).encode("utf-8")).hexdigest()
 
     @classmethod
     @provide_session
@@ -5255,7 +5257,17 @@ class SerializedDagModel(Base, LoggingMixin):
                      (timezone.utcnow() - timedelta(seconds=min_update_interval)) < cls.last_updated))
             ).scalar():
                 return
-        session.merge(cls(dag))
+
+        cls.log.debug("Checking if DAG (%s) changed", dag.dag_id)
+
+        new_serialized_dag = cls(dag)
+        serialized_dag_hash_from_db = session.query(cls.dag_hash).filter(cls.dag_id == dag.dag_id).scalar()
+
+        if serialized_dag_hash_from_db == new_serialized_dag.dag_hash:
+            log.debug("Serialized DAG (%s) is unchanged. Skipping writing to DB", dag.dag_id)
+            return
+        cls.log.debug("Writing Serialized DAG: %s to the DB", dag.dag_id)
+        session.merge(new_serialized_dag)
         cls.log.info("DAG: %s written to the DB", dag)
 
     @classmethod
