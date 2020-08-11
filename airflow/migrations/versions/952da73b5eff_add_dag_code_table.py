@@ -25,7 +25,6 @@ Create Date: 2020-02-28 14:06:09.539934
 """
 
 # revision identifiers, used by Alembic.
-from airflow.models.serialized_dag import SerializedDagModel
 from airflow.models.dagcode import DagCode
 
 revision = '952da73b5eff'
@@ -39,6 +38,18 @@ import sqlalchemy as sa
 
 def upgrade():
     """Apply add source code table"""
+    from sqlalchemy.ext.declarative import declarative_base
+
+    Base = declarative_base()
+
+    class SerializedDagModel(Base):
+        __tablename__ = 'serialized_dag'
+
+        # There are other columns here, but these are the only ones we need for the SELECT/UPDATE we are doing
+        dag_id = sa.Column(sa.String(250), primary_key=True)
+        fileloc = sa.Column(sa.String(2000), nullable=False)
+        fileloc_hash = sa.Column(sa.BigInteger, nullable=False)
+
     op.create_table('dag_code',  # pylint: disable=no-member
                     sa.Column('fileloc_hash', sa.BigInteger(), nullable=False, primary_key=True, autoincrement=False),
                     sa.Column('fileloc', sa.String(length=2000), nullable=False),
