@@ -22,7 +22,6 @@
 import datetime
 import enum
 import logging
-from inspect import Parameter, signature
 import six
 from typing import TYPE_CHECKING, Dict, List, Optional, Union
 
