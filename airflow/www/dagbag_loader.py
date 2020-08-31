@@ -18,6 +18,7 @@
 # under the License.
 #
 import copy
+import inspect
 import json
 import logging
 import os
@@ -108,6 +109,9 @@ def _create_dagbag(dag_folder, queue):
                 return set([_stringify(v) for v in x])
             elif isinstance(x, tuple):
                 return tuple([_stringify(v) for v in x])
+            elif inspect.isclass(x):
+                # eval(x.__module__ + "." + x.__name__) recreates type
+                return '' + x.__module__ + "." + x.__name__
             else:
                 return str(x)
         except:
@@ -167,14 +171,16 @@ def _create_dagbag(dag_folder, queue):
             except:
                 logging.warning('Dagbag loader sender errors.', exc_info=True)
 
-    import airflow
-    from airflow import configuration
     try:
         with open('/home/airflow/gcs/env_var.json', 'r') as env_var_json:
             os.environ.update(json.load(env_var_json))
     except:
         logging.warning('Using default Composer Environment Variables. Overrides '
                         'have not been applied.')
+
+    import airflow
+    from airflow import configuration
+
     configuration = six.moves.reload_module(configuration)
     airflow.configuration = six.moves.reload_module(airflow.configuration)
     airflow.plugins_manager = six.moves.reload_module(airflow.plugins_manager)
