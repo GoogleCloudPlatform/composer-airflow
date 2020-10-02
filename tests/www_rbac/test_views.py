@@ -355,7 +355,7 @@ class TestMountPoint(unittest.TestCase):
 
     def test_mount(self):
         # Test an endpoint that doesn't need auth!
-        resp = self.client.get('/test/health')
+        resp = self.client.get('/test/_ah/health')
         self.assertEqual(resp.status_code, 200)
         self.assertIn(b"healthy", resp.data)
 
@@ -433,7 +433,7 @@ class TestAirflowBaseViews(TestBase):
                                  latest_heartbeat=last_scheduler_heartbeat_for_testing_1))
         self.session.commit()
 
-        resp_json = json.loads(self.client.get('health', follow_redirects=True).data.decode('utf-8'))
+        resp_json = json.loads(self.client.get('_ah/health', follow_redirects=True).data.decode('utf-8'))
 
         self.assertEqual('healthy', resp_json['metadatabase']['status'])
         self.assertEqual('healthy', resp_json['scheduler']['status'])
@@ -458,7 +458,7 @@ class TestAirflowBaseViews(TestBase):
                                  latest_heartbeat=last_scheduler_heartbeat_for_testing_2))
         self.session.commit()
 
-        resp_json = json.loads(self.client.get('health', follow_redirects=True).data.decode('utf-8'))
+        resp_json = json.loads(self.client.get('_ah/health', follow_redirects=True).data.decode('utf-8'))
 
         self.assertEqual('healthy', resp_json['metadatabase']['status'])
         self.assertEqual('unhealthy', resp_json['scheduler']['status'])
@@ -479,7 +479,7 @@ class TestAirflowBaseViews(TestBase):
             delete()
         self.session.commit()
 
-        resp_json = json.loads(self.client.get('health', follow_redirects=True).data.decode('utf-8'))
+        resp_json = json.loads(self.client.get('_ah/health', follow_redirects=True).data.decode('utf-8'))
 
         self.assertEqual('healthy', resp_json['metadatabase']['status'])
         self.assertEqual('unhealthy', resp_json['scheduler']['status'])
