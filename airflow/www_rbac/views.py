@@ -185,7 +185,7 @@ class AirflowBaseView(BaseView):
 
 
 class Airflow(AirflowBaseView):
-    @expose('/health')
+    @expose('/_ah/health')
     def health(self):
         """
         An endpoint helping check the health status of the Airflow instance,
