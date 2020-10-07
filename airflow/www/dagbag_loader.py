@@ -67,6 +67,7 @@ class _DagBag(models.DagBag):
         self.executor = None
         self.import_errors = {}
         self.has_logged = False
+        self.store_serialized_dags = False
 
 
 def _kill_proc(dummy_signum, dummy_frame):
