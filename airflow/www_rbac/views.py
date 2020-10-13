@@ -81,6 +81,19 @@ from airflow.www_rbac.widgets import AirflowModelListWidget
 
 PAGE_SIZE = conf.getint('webserver', 'page_size')
 FILTER_TAGS_COOKIE = 'tags_filter'
+
+# If store_serialized_dags is True, scheduler writes serialized DAGs to DB, and webserver
+# reads DAGs from DB instead of importing from files.
+try:
+    STORE_SERIALIZED_DAGS = conf.getboolean('core', 'store_serialized_dags')
+except Exception:
+    STORE_SERIALIZED_DAGS = False
+
+# File serialized_dags_env contains an env var representing Airflow config store_serialized_dags.
+wwwutils.make_serialized_dags_env_var_file(STORE_SERIALIZED_DAGS,
+                                           os.getenv('AIRFLOW_SERIALIZED_DAGS_ENV_FILE',
+                                                     '/home/airflow/serialized_dags_env'))
+
 if os.environ.get('SKIP_DAGS_PARSING') != 'True':
     dagbag = models.DagBag(settings.DAGS_FOLDER, store_serialized_dags=STORE_SERIALIZED_DAGS)
 else:
