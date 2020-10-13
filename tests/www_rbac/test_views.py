@@ -815,9 +815,8 @@ class TestAirflowBaseViews(TestBase):
 
             self.check_content_in_response('', resp, resp_code=200)
 
-            msg = "Task is in the &#39;{}&#39; state which is not a valid state for execution. " \
-                  .format(state) + "The task must be cleared in order to be run"
-            self.assertFalse(re.search(msg, resp.get_data(as_text=True)))
+            msg = "The Run operation is currently not supported in Composer, but you can clear the task instance which will be executed automatically"
+            self.assertTrue(re.search(msg, resp.get_data(as_text=True)))
 
     @mock.patch('airflow.executors.get_default_executor')
     def test_run_with_not_runnable_states(self, get_default_executor_function):
@@ -845,8 +844,7 @@ class TestAirflowBaseViews(TestBase):
 
             self.check_content_in_response('', resp, resp_code=200)
 
-            msg = "Task is in the &#39;{}&#39; state which is not a valid state for execution. " \
-                  .format(state) + "The task must be cleared in order to be run"
+            msg = "The Run operation is currently not supported in Composer, but you can clear the task instance which will be executed automatically"
             self.assertTrue(re.search(msg, resp.get_data(as_text=True)))
 
     def test_refresh(self):

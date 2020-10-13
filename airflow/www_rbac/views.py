@@ -989,6 +989,9 @@ class Airflow(AirflowBaseView):
             flash("Only works with the Celery or Kubernetes executors, sorry", "error")
             return redirect(origin)
 
+        flash("The Run operation is currently not supported in Composer, but you can clear the task instance which will be executed automatically.")
+        return redirect(origin)
+
         ti = models.TaskInstance(task=task, execution_date=execution_date)
         ti.refresh_from_db()
 
