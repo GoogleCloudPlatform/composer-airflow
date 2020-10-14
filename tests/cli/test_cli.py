@@ -660,7 +660,6 @@ class TestWorkerStart(unittest.TestCase):
             concurrency=int(concurrency),
             autoscale=autoscale,
             hostname=celery_hostname,
-            loglevel=mock.ANY,
         )
 
 
