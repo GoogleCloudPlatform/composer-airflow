@@ -103,7 +103,7 @@ class TestFileTaskLogHandler(unittest.TestCase):
         self.assertEqual(len(logs), 1)
         self.assertEqual(len(logs), len(metadatas))
         self.assertTrue(isinstance(metadatas[0], dict))
-        target_re = r'\n\[[^\]]+\] {test_log_handlers.py:\d+} INFO - test\n'
+        target_re = r'\n\[[^\]]+\] {test_log_handlers.py:\d+} INFO - test'
 
         # We should expect our log line from the callable above to appear in
         # the logs we read back
