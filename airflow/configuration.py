@@ -39,7 +39,6 @@ import warnings
 
 from backports.configparser import ConfigParser, _UNSET, NoOptionError, NoSectionError
 import yaml
-from zope.deprecation import deprecated
 
 from airflow.exceptions import AirflowConfigException
 from airflow.utils.module_loading import import_string
@@ -727,27 +726,6 @@ if not os.path.isfile(AIRFLOW_CONFIG):
 log.info("Reading the config from %s", AIRFLOW_CONFIG)
 
 
-class AutoReloadableProxy(object):
-    def __init__(self, make_delegate):
-        self.__make_delegate = make_delegate
-        self.__delegate = make_delegate()
-
-    def __getattr__(self, attribute):
-        attr = getattr(self.__delegate, attribute)
-        if callable(attr):
-            def call_attr_and_maybe_reload(*args, **kwargs):
-                try:
-                    return attr(*args, **kwargs)
-                except TypeError:
-                    # We suspect that configuration module got reloaded. Let's
-                    # retry after recreating the delgate object.
-                    self.__delegate = self.__make_delegate()
-                    return getattr(self.__delegate, attribute)(*args, **kwargs)
-
-            return call_attr_and_maybe_reload
-        return attr
-
-
 def make_airflow_config_parser():
     parser = AirflowConfigParser(
         default_config=parameterized_config(DEFAULT_CONFIG))
@@ -755,7 +733,32 @@ def make_airflow_config_parser():
     return parser
 
 
-conf = AutoReloadableProxy(make_airflow_config_parser)
+class AutoReloadableProxy(object):
+    # This is here to avoid max recursion error, read this, especially part about how copy works
+    # https://nedbatchelder.com/blog/201010/surprising_getattr_recursion.html
+    _delegate = make_airflow_config_parser()
+
+    def __init__(self):
+        self._delegate = make_airflow_config_parser()
+
+    def __getattr__(self, attribute):
+        attr = getattr(self._delegate, attribute)
+        if callable(attr):
+            def call_attr_and_maybe_reload(*args, **kwargs):
+                try:
+                    return attr(*args, **kwargs)
+                except TypeError:
+                    # We suspect that configuration module got reloaded. Let's
+                    # retry after recreating the delgate object.
+                    self._delegate = make_airflow_config_parser()
+                    return getattr(self._delegate, attribute)(*args, **kwargs)
+
+            return call_attr_and_maybe_reload
+        return attr
+
+
+conf = AutoReloadableProxy()
+conf.read(AIRFLOW_CONFIG)
 
 if conf.has_option('core', 'AIRFLOW_HOME'):
     msg = (
