@@ -19,3 +19,7 @@
 #
 
 version = '1.10.12+composer'
+
+
+def open_source_version():
+    return '1.10.10'
