@@ -34,7 +34,7 @@ fi
 # Update short and long options in the breeze-complete script
 # This way autocomplete will work automagically with all options
 # shellcheck source=run-tests-complete
-. "${MY_DIR}/run-tests-complete"
+#. "${MY_DIR}/run-tests-complete"
 
 
 # environment
