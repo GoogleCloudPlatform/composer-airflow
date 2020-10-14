@@ -19,7 +19,7 @@
 """Add RenderedTaskInstanceFields table
 
 Revision ID: 852ae6c715af
-Revises: a4c2fd67d16b
+Revises: 952da73b5eff
 Create Date: 2020-03-10 22:19:18.034961
 
 """
@@ -29,7 +29,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = '852ae6c715af'
-down_revision = 'a4c2fd67d16b'
+down_revision = '952da73b5eff'
 branch_labels = None
 depends_on = None
 
