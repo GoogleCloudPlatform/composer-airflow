@@ -35,7 +35,6 @@ import six
 from flask._compat import PY2
 
 from airflow.operators.bash_operator import BashOperator
-from airflow.utils import timezone
 from airflow.utils.db import create_session
 from parameterized import parameterized
 from tests.compat import mock
