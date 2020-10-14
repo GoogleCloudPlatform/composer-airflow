@@ -17,7 +17,9 @@
 # specific language governing permissions and limitations
 # under the License.
 #
+import json
 import logging
+import os
 import socket
 from datetime import timedelta
 from typing import Any
@@ -42,6 +44,24 @@ appbuilder = None
 csrf = CSRFProtect()
 
 log = logging.getLogger(__name__)
+
+if os.path.isfile('/home/airflow/gcs/env_var.json') \
+  or os.path.isfile('/home/airflow/gcs/env_var.json.bkp'):
+    try:
+        with open('/home/airflow/gcs/env_var.json', 'r') as env_var_json:
+            env_var_content = json.load(env_var_json)
+            os.environ.update(env_var_content)
+        with open('/home/airflow/gcs/env_var.json.bkp', 'w') as env_var_backup:
+            json.dump(env_var_content, env_var_backup)
+    except:
+        try:
+            with open('/home/airflow/gcs/env_var.json.bkp', 'r') as env_var_json:
+                env_var_content = json.load(env_var_json)
+                os.environ.update(env_var_content)
+            log.info('Composer Environment Variables were loaded from backup.')
+        except:
+            log.warning('Using default Composer Environment Variables. Overrides '
+                        'have not been applied.')
 
 def create_app(config=None, session=None, testing=False, app_name="Airflow"):
     global app, appbuilder
