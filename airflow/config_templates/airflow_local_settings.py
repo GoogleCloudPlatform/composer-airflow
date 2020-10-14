@@ -174,18 +174,8 @@ if REMOTE_LOGGING:
         }
 
         DEFAULT_LOGGING_CONFIG['handlers'].update(S3_REMOTE_HANDLERS)
-    # elif REMOTE_BASE_LOG_FOLDER.startswith('gs://'):
-    #     GCS_REMOTE_HANDLERS = {
-    #         'task': {
-    #             'class': 'airflow.utils.log.gcs_task_handler.GCSTaskHandler',
-    #             'formatter': 'airflow',
-    #             'base_log_folder': os.path.expanduser(BASE_LOG_FOLDER),
-    #             'gcs_log_folder': REMOTE_BASE_LOG_FOLDER,
-    #             'filename_template': FILENAME_TEMPLATE,
-    #         },
-    #     }
-    #
-    #     DEFAULT_LOGGING_CONFIG['handlers'].update(GCS_REMOTE_HANDLERS)
+    elif REMOTE_BASE_LOG_FOLDER.startswith('gs://'):
+        pass
     elif REMOTE_BASE_LOG_FOLDER.startswith('wasb'):
         WASB_REMOTE_HANDLERS = {
             'task': {
