@@ -321,6 +321,7 @@ class TestMarkDAGRun(unittest.TestCase):
     def _create_test_dag_run(self, state, date):
         return self.dag1.create_dagrun(
             run_id='manual__' + datetime.now().isoformat(),
+            start_date=timezone.utcnow(),
             state=state,
             execution_date=date
         )
@@ -508,12 +509,14 @@ class TestMarkDAGRun(unittest.TestCase):
     def test_set_state_with_multiple_dagruns(self, session=None):
         self.dag2.create_dagrun(
             run_id='manual__' + datetime.now().isoformat(),
+            start_date=timezone.utcnow(),
             state=State.FAILED,
             execution_date=self.execution_dates[0],
             session=session
         )
         self.dag2.create_dagrun(
             run_id='manual__' + datetime.now().isoformat(),
+            start_date=timezone.utcnow(),
             state=State.FAILED,
             execution_date=self.execution_dates[1],
             session=session
