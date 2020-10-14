@@ -65,7 +65,7 @@ from airflow.exceptions import AirflowException
 from airflow.models.dagcode import DagCode
 from airflow.settings import STATE_COLORS, STORE_SERIALIZED_DAGS
 from airflow.ti_deps.dep_context import RUNNING_DEPS, SCHEDULER_QUEUED_DEPS, DepContext
-from airflow.utils import timezone
+from airflow.utils import dagbag_loader, timezone
 from airflow.utils.dates import infer_time_unit, scale_time_units
 from airflow.utils.db import provide_session, create_session
 from airflow.utils.helpers import alchemy_to_dict, render_log_filename
@@ -82,6 +82,11 @@ from airflow.www_rbac.widgets import AirflowModelListWidget
 PAGE_SIZE = conf.getint('webserver', 'page_size')
 FILTER_STATUS_COOKIE = 'dag_status_filter'
 
+try:
+    async_dagbag_loader = conf.getboolean('webserver', 'async_dagbag_loader')
+except Exception:
+    async_dagbag_loader = False
+
 # If store_serialized_dags is True, scheduler writes serialized DAGs to DB, and webserver
 # reads DAGs from DB instead of importing from files.
 try:
@@ -94,10 +99,12 @@ wwwutils.make_serialized_dags_env_var_file(STORE_SERIALIZED_DAGS,
                                            os.getenv('AIRFLOW_SERIALIZED_DAGS_ENV_FILE',
                                                      '/home/airflow/serialized_dags_env'))
 
-if os.environ.get('SKIP_DAGS_PARSING') != 'True':
-    dagbag = models.DagBag(settings.DAGS_FOLDER, store_serialized_dags=STORE_SERIALIZED_DAGS)
-else:
+if os.environ.get('SKIP_DAGS_PARSING') == 'True':
     dagbag = models.DagBag(os.devnull, include_examples=False)
+elif async_dagbag_loader:
+    dagbag = dagbag_loader.create_async_dagbag(settings.DAGS_FOLDER)
+else:
+    dagbag = models.DagBag(settings.DAGS_FOLDER, store_serialized_dags=STORE_SERIALIZED_DAGS)
 
 
 def get_safe_url(url):
