@@ -170,15 +170,23 @@ def _create_dagbag(dag_folder, queue):
     import airflow
     from airflow import configuration
 
-    try:
-        with open('/home/airflow/gcs/env_var.json', 'r') as env_var_json:
-            os.environ.update(json.load(env_var_json))
-        logging.info('Composer Environment Variables have been loaded.')
-    except:
-        logging.warning('Can\'t load Environment Variable overrides.',
-                      exc_info=True)
-        logging.warning('Using default Composer Environment Variables. Overrides '
-                        'have not been applied.')
+    if os.path.isfile('/home/airflow/gcs/env_var.json') \
+      or os.path.isfile('/home/airflow/gcs/env_var.json.bkp'):
+        try:
+            with open('/home/airflow/gcs/env_var.json', 'r') as env_var_json:
+                env_var_content = json.load(env_var_json)
+                os.environ.update(env_var_content)
+            with open('/home/airflow/gcs/env_var.json.bkp', 'w') as env_var_backup:
+                json.dump(env_var_content, env_var_backup)
+        except:
+            try:
+                with open('/home/airflow/gcs/env_var.json.bkp', 'r') as env_var_json:
+                    env_var_content = json.load(env_var_json)
+                    os.environ.update(env_var_content)
+                logging.info('Composer Environment Variables were loaded from backup.')
+            except:
+                logging.warning('Using default Composer Environment Variables. Overrides '
+                                'have not been applied.')
 
     configuration = six.moves.reload_module(configuration)
     airflow.configuration = six.moves.reload_module(airflow.configuration)
