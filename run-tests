@@ -190,6 +190,10 @@ if [[ "${#NOSE_ARGS[@]}" == "0" ]]; then
             "--with-ignore-docstrings"
             "--rednose"
             "--with-timer"
+            "--timer-warning 30"
+            "--timer-fail error"
+            "--process-timeout=30"
+            "--process-restartworker"
             "-v"
             "--logging-level=DEBUG")
 fi
