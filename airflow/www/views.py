@@ -77,14 +77,13 @@ from airflow.models.dagcode import DagCode
 from airflow.settings import STATE_COLORS, STORE_SERIALIZED_DAGS
 from airflow.operators.subdag_operator import SubDagOperator
 from airflow.ti_deps.dep_context import RUNNING_DEPS, SCHEDULER_QUEUED_DEPS, DepContext
-from airflow.utils import timezone
+from airflow.utils import dagbag_loader, timezone
 from airflow.utils.dates import infer_time_unit, scale_time_units, parse_execution_date
 from airflow.utils.db import create_session, provide_session
 from airflow.utils.helpers import alchemy_to_dict, render_log_filename
 from airflow.utils.net import get_hostname
 from airflow.utils.state import State
 from airflow.utils.timezone import datetime
-from airflow.www import dagbag_loader
 from airflow.www import utils as wwwutils
 from airflow.www.forms import (DateTimeForm, DateTimeWithNumRunsForm,
                                DateTimeWithNumRunsWithDagRunsForm)

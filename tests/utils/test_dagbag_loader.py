@@ -19,7 +19,7 @@
 import six
 
 from airflow import settings
-from airflow.www import dagbag_loader
+from airflow.utils import dagbag_loader
 
 if six.PY2:
     # Need `assertRegex` back-ported from unittest2
