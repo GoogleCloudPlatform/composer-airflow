@@ -30,20 +30,20 @@ def get_hostname():
 class GetHostname(unittest.TestCase):
 
     @mock.patch('airflow.utils.net.socket')
-    @mock.patch('airflow.configuration.conf')
+    @mock.patch('airflow.utils.net.conf')
     def test_get_hostname_unset(self, patched_conf, patched_socket):
         patched_conf.get = mock.Mock(return_value=None)
         patched_socket.getfqdn = mock.Mock(return_value='first')
         self.assertTrue(net.get_hostname() == 'first')
 
-    @mock.patch('airflow.configuration.conf')
+    @mock.patch('airflow.utils.net.conf')
     def test_get_hostname_set(self, patched_conf):
         patched_conf.get = mock.Mock(
             return_value='tests.utils.test_net:get_hostname'
         )
         self.assertTrue(net.get_hostname() == 'awesomehostname')
 
-    @mock.patch('airflow.configuration.conf')
+    @mock.patch('airflow.utils.net.conf')
     def test_get_hostname_set_incorrect(self, patched_conf):
         patched_conf.get = mock.Mock(
             return_value='tests.utils.test_net'
@@ -51,7 +51,7 @@ class GetHostname(unittest.TestCase):
         with self.assertRaises(ValueError):
             net.get_hostname()
 
-    @mock.patch('airflow.configuration.conf')
+    @mock.patch('airflow.utils.net.conf')
     def test_get_hostname_set_missing(self, patched_conf):
         patched_conf.get = mock.Mock(
             return_value='tests.utils.test_net:missing_func'
