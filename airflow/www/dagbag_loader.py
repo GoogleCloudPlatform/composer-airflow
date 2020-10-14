@@ -28,6 +28,7 @@ import sys
 import threading
 import time
 from collections import defaultdict
+from datetime import datetime, timedelta
 from multiprocessing import Event
 from multiprocessing import Process
 from multiprocessing import Queue
@@ -168,10 +169,21 @@ def _create_dagbag(dag_folder, queue):
 
     import airflow
     from airflow import configuration
-    try:
-        with open('/home/airflow/gcs/env_var.json', 'r') as env_var_json:
-            os.environ.update(json.load(env_var_json))
-    except:
+    # Wait up to 25 seconds for env_var.json to sync
+    # (gsutil cp to the local filesystem)
+    timeout_at = datetime.now() + timedelta(seconds=25)
+
+    while datetime.now() < timeout_at:
+        try:
+            with open('/home/airflow/gcs/env_var.json', 'r') as env_var_json:
+                os.environ.update(json.load(env_var_json))
+            logging.info('Composer Environment Variables have been loaded.')
+            break
+        except:
+            logging.warning('Can\'t load Environment Variable overrides.',
+                          exc_info=True)
+            time.sleep(1)
+    else:
         logging.warning('Using default Composer Environment Variables. Overrides '
                         'have not been applied.')
     configuration = six.moves.reload_module(configuration)
