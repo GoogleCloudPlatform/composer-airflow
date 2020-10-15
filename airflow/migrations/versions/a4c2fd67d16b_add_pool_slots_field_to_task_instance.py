@@ -15,7 +15,6 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
 """add pool_slots field to task_instance
 
 Revision ID: a4c2fd67d16b
@@ -26,6 +25,7 @@ Create Date: 2020-01-14 03:35:01.161519
 
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy.engine.reflection import Inspector
 
 # revision identifiers, used by Alembic.
 revision = 'a4c2fd67d16b'
@@ -35,8 +35,16 @@ depends_on = None
 
 
 def upgrade():
-    op.add_column('task_instance', sa.Column('pool_slots', sa.Integer, default=1))
+  conn = op.get_bind()
+  inspector = Inspector.from_engine(conn)
+
+  task_instance_column_names = [
+      column['name'] for column in inspector.get_columns('task_instance')
+  ]
+  if not 'pool_slots' in task_instance_column_names:
+    op.add_column('task_instance',
+                  sa.Column('pool_slots', sa.Integer, default=1))
 
 
 def downgrade():
-    op.drop_column('task_instance', 'pool_slots')
+  op.drop_column('task_instance', 'pool_slots')
