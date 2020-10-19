@@ -2697,7 +2697,7 @@ class TestTaskInstance:
                 },
                 'labels': {
                     'airflow-worker': '0',
-                    'airflow_version': version,
+                    'airflow_version': version.replace('+', '-'),
                     'dag_id': 'test_render_k8s_pod_yaml',
                     'run_id': 'test_run_id',
                     'kubernetes_executor': 'True',
