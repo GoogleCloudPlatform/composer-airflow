@@ -38,7 +38,7 @@ INSTALL_PROVIDERS_FROM_SOURCES = 'INSTALL_PROVIDERS_FROM_SOURCES'
 
 logger = logging.getLogger(__name__)
 
-version = '2.0.1'
+version = '2.0.1+composer'
 
 my_dir = dirname(__file__)
 
@@ -469,6 +469,18 @@ yandex = [
 zendesk = [
     'zdesk',
 ]
+composer_additional = [
+    "crcmod<2.0",
+    "google-apitools",
+    "google-cloud-pubsublite<1.0.0",
+    "pip<20.3.0",
+    "pipdeptree",
+    "tensorflow==2.2.0",
+]
+
+composer = (
+    mysql + password + postgres + celery + redis + statsd + virtualenv + composer_additional + apache_beam
+)
 # End dependencies group
 
 devel = [
@@ -591,6 +603,7 @@ EXTRAS_REQUIREMENTS: Dict[str, List[str]] = {
     'apache.webhdfs': webhdfs,
     'async': async_packages,
     'cgroups': cgroups,
+    'composer': composer,
     'dask': dask,
     'github_enterprise': flask_oauth,
     'google_auth': flask_oauth,
@@ -869,6 +882,8 @@ def add_all_provider_packages() -> None:
     add_provider_packages_to_extras_requirements("devel_all", ALL_PROVIDERS)
     add_provider_packages_to_extras_requirements("all_dbs", ALL_DB_PROVIDERS)
     add_provider_packages_to_extras_requirements("devel_hadoop", ["apache.hdfs", "apache.hive", "presto"])
+    add_provider_packages_to_extras_requirements(
+        "composer", ["apache.beam", "cncf.kubernetes", "google", "mysql", "postgres", "sendgrid", "ssh"])
 
 
 class Develop(develop_orig):
