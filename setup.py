@@ -49,7 +49,7 @@ PY39 = sys.version_info >= (3, 9)
 
 logger = logging.getLogger(__name__)
 
-version = "2.5.1"
+version = "2.5.1+composer"
 
 AIRFLOW_SOURCES_ROOT = Path(__file__).parent.resolve()
 PROVIDERS_ROOT = AIRFLOW_SOURCES_ROOT / "airflow" / "providers"
@@ -328,6 +328,45 @@ virtualenv = [
 webhdfs = [
     "hdfs[avro,dataframe,kerberos]>=2.0.4",
 ]
+composer_additional = [
+    "crcmod<2.0",
+    "dbt-core",
+    "firebase-admin",
+    # We need to keep Flower pinned to 1.0.0 as starting from 1.1.0 it doesn't support basic authentication.
+    "flower==1.0.0",
+    "gcsfs",
+    # google-api-core==2.8.2 excluded from dependencies because it produces TypeError exception
+    # when Google Spanner attempts to run transactions that include data modification in a database
+    "google-api-core!=2.8.2",
+    "google-apitools",
+    "google-cloud-aiplatform",
+    # This package is hosted from AR repository, it is not available in public pypi.
+    "google-cloud-datacatalog-lineage-producer-client",
+    "google-cloud-datastore",
+    "google-cloud-filestore",
+    # higher version of package have conflict in the dependencies with the google-ads package
+    "google-cloud-firestore==2.5.0",
+    "google-cloud-pubsublite<1.0.0",
+    "keyrings.google-artifactregistry-auth",
+    "pip<20.3.0",
+    # pyOpenSSL>=22.1.0 break the pip install and gives a stacktrace that in one method parameter doesn't
+    # exist
+    "pyOpenSSL<22.1.0",
+    "pipdeptree",
+    "sqllineage==1.3.7",
+    "tensorflow",
+]
+composer = (
+    PROVIDER_DEPENDENCIES["mysql"][DEPS]
+    + password
+    + PROVIDER_DEPENDENCIES["postgres"][DEPS]
+    + celery
+    + PROVIDER_DEPENDENCIES["redis"][DEPS]
+    + statsd
+    + virtualenv
+    + composer_additional
+    + PROVIDER_DEPENDENCIES["apache.beam"][DEPS]
+)
 # End dependencies group
 
 # Mypy 0.900 and above ships only with stubs from stdlib so if we need other stubs, we need to install them
@@ -471,6 +510,7 @@ CORE_EXTRAS_DEPENDENCIES: dict[str, list[str]] = {
     "celery": celery,
     "cgroups": cgroups,
     "cncf.kubernetes": kubernetes,
+    "composer": composer,
     "dask": dask,
     "deprecated_api": deprecated_api,
     "github_enterprise": flask_appbuilder_oauth,
@@ -635,7 +675,15 @@ devel_all = get_unique_dependency_list(
 
 # Those are packages excluded for "all" dependencies
 PACKAGES_EXCLUDED_FOR_ALL = []
-PACKAGES_EXCLUDED_FOR_ALL.extend(["snakebite"])
+PACKAGES_EXCLUDED_FOR_ALL.extend(
+    [
+        # Exclude this package from devel_all/devel_ci extras, it is not needed there and
+        # since this package is hosted from AR repo it requires setting up authentication
+        # that we can avoid if we will not install it.
+        "google-cloud-datacatalog-lineage-producer-client",
+        "snakebite",
+    ]
+)
 
 
 def is_package_excluded(package: str, exclusion_list: list[str]) -> bool:
@@ -701,12 +749,13 @@ EXTRAS_DEPENDENCIES = sort_extras_dependencies()
 # Those providers are pre-installed always when airflow is installed.
 # Those providers do not have dependency on airflow2.0 because that would lead to circular dependencies.
 # This is not a problem for PIP but some tools (pipdeptree) show those as a warning.
+# TODO: restore `http` and `sqlite` in case when we remove it from add_all_provider_packages function, we
+# cannot have them in both places because this have higher priority and override restriction from
+# add_all_provider_packages
 PREINSTALLED_PROVIDERS = [
     "common.sql",
     "ftp",
-    "http",
     "imap",
-    "sqlite",
 ]
 
 
@@ -766,6 +815,19 @@ class AirflowDistribution(Distribution):
                     for package_id in PREINSTALLED_PROVIDERS
                 ]
             )
+        # needed for `pip check` to correctly discover restrictions that was added specially for Composer
+        # Exclude "google-cloud-datacatalog-lineage-producer-client" package from Composer Airflow
+        # install_requires. This will make possible to install composer-airflow[devel_ci] without access to AR
+        # repo (this library is hosted in AR) and we do not really need to have it in install_requires for
+        # "pip check", as we do not have any constraint for a specific version and
+        # "pip install .[composer]"/"pip download .[composer]" will anyway install/download it.
+        self.install_requires.extend(
+            [
+                _req
+                for _req in EXTRAS_DEPENDENCIES["composer"]
+                if _req != "google-cloud-datacatalog-lineage-producer-client"
+            ]
+        )
 
 
 def replace_extra_dependencies_with_provider_packages(extra: str, providers: list[str]) -> None:
@@ -849,6 +911,22 @@ def add_all_provider_packages() -> None:
         "devel_hadoop", ["apache.hdfs", "apache.hive", "presto", "trino"]
     )
     add_all_deprecated_provider_packages()
+    add_provider_packages_to_extra_dependencies(
+        "composer",
+        [
+            "apache.beam",
+            "cncf.kubernetes",
+            "dbt-cloud",
+            "google",
+            "hashicorp",
+            "http",
+            "mysql",
+            "postgres",
+            "sendgrid",
+            "ssh",
+            "sqlite",
+        ],
+    )
 
 
 class Develop(develop_orig):
