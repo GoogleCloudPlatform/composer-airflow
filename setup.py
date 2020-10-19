@@ -45,7 +45,7 @@ PY39 = sys.version_info >= (3, 9)
 
 logger = logging.getLogger(__name__)
 
-version = '2.3.4'
+version = '2.3.4+composer'
 
 AIRFLOW_SOURCES_ROOT = Path(__file__).parent.resolve()
 my_dir = dirname(__file__)
@@ -577,6 +577,37 @@ yandex = [
 zendesk = [
     'zenpy>=2.0.24',
 ]
+composer_additional = [
+    "crcmod<2.0",
+    "dbt-core",
+    "firebase-admin",
+    # We need to keep Flower pinned to 1.0.0 as starting from 1.1.0 it doesn't support basic authentication.
+    "flower==1.0.0",
+    "gcsfs",
+    # google-api-core==2.8.2 excluded from dependencies because it produces TypeError exception
+    # when Google Spanner attempts to run transactions that include data modification in a database
+    "google-api-core!=2.8.2",
+    "google-apitools",
+    "google-cloud-aiplatform",
+    # This package is hosted from AR repository, it is not available in public pypi.
+    "google-cloud-datacatalog-lineage-producer-client",
+    "google-cloud-datastore",
+    "google-cloud-filestore",
+    # higher version of package have conflict in the dependencies with the google-ads package
+    "google-cloud-firestore==2.5.0",
+    "google-cloud-pubsublite<1.0.0",
+    "keyrings.google-artifactregistry-auth",
+    "pip<20.3.0",
+    # pyOpenSSL>=22.1.0 break the pip install and gives a stacktrace that in one method parameter doesn't
+    # exist
+    "pyOpenSSL<22.1.0",
+    "pipdeptree",
+    "tensorflow",
+]
+
+composer = (
+    mysql + password + postgres + celery + redis + statsd + virtualenv + composer_additional + apache_beam
+)
 # End dependencies group
 
 # Mypy 0.900 and above ships only with stubs from stdlib so if we need other stubs, we need to install them
@@ -761,6 +792,7 @@ CORE_EXTRAS_REQUIREMENTS: Dict[str, List[str]] = {
     'celery': celery,  # also has provider, but it extends the core with the CeleryExecutor
     'cgroups': cgroups,
     'cncf.kubernetes': kubernetes,  # also has provider, but it extends the core with the KubernetesExecutor
+    'composer': composer,
     'dask': dask,
     'deprecated_api': deprecated_api,
     'github_enterprise': flask_appbuilder_oauth,
@@ -911,6 +943,10 @@ devel_all = list(set(_all_requirements + doc + devel + devel_hadoop))
 PACKAGES_EXCLUDED_FOR_ALL = []
 PACKAGES_EXCLUDED_FOR_ALL.extend(
     [
+        # Exclude this package from devel_all/devel_ci extras, it is not needed there and
+        # since this package is hosted from AR repo it requires setting up authentication
+        # that we can avoid if we will not install it.
+        'google-cloud-datacatalog-lineage-producer-client',
         'snakebite',
     ]
 )
@@ -977,11 +1013,12 @@ EXTRAS_REQUIREMENTS = sort_extras_requirements()
 # Those providers are pre-installed always when airflow is installed.
 # Those providers do not have dependency on airflow2.0 because that would lead to circular dependencies.
 # This is not a problem for PIP but some tools (pipdeptree) show those as a warning.
+# TODO: restore `http` and `sqlite` in case when we remove it from add_all_provider_packages function, we
+# cannot have them in both places because this have higher priority and override restriction from
+# add_all_provider_packages
 PREINSTALLED_PROVIDERS = [
     'ftp',
-    'http',
     'imap',
-    'sqlite',
 ]
 
 
@@ -1038,6 +1075,19 @@ class AirflowDistribution(Distribution):
             self.install_requires.extend(
                 [get_provider_package_from_package_id(package_id) for package_id in PREINSTALLED_PROVIDERS]
             )
+        # needed for `pip check` to correctly discover restrictions that was added specially for Composer
+        # Exclude "google-cloud-datacatalog-lineage-producer-client" package from Composer Airflow
+        # install_requires. This will make possible to install composer-airflow[devel_ci] without access to AR
+        # repo (this library is hosted in AR) and we do not really need to have it in install_requires for
+        # "pip check", as we do not have any constraint for a specific version and
+        # "pip install .[composer]"/"pip download .[composer]" will anyway install/download it.
+        self.install_requires.extend(
+            [
+                _req
+                for _req in EXTRAS_REQUIREMENTS['composer']
+                if _req != "google-cloud-datacatalog-lineage-producer-client"
+            ]
+        )
 
 
 def replace_extra_requirement_with_provider_packages(extra: str, providers: List[str]) -> None:
@@ -1087,7 +1137,9 @@ def replace_extra_requirement_with_provider_packages(extra: str, providers: List
         ]
 
 
-def add_provider_packages_to_extra_requirements(extra: str, providers: List[str]) -> None:
+def add_provider_packages_to_extra_requirements(
+    extra: str, providers: List[str], constraints: Dict[str, str] = None
+) -> None:
     """
     Adds provider packages as requirements to extra. This is used to add provider packages as requirements
     to the "bulk" kind of extras. Those bulk extras do not have the detailed 'extra' requirements as
@@ -1095,9 +1147,17 @@ def add_provider_packages_to_extra_requirements(extra: str, providers: List[str]
 
     :param extra: Name of the extra to add providers to
     :param providers: list of provider ids
+    :param constraints: constraints for providers
     """
+    if constraints is None:
+        constraints = {}
     EXTRAS_REQUIREMENTS[extra].extend(
-        [get_provider_package_from_package_id(package_name) for package_name in providers]
+        [
+            '{}{}'.format(
+                get_provider_package_from_package_id(package_name), constraints.get(package_name, '')
+            )
+            for package_name in providers
+        ]
     )
 
 
@@ -1121,6 +1181,23 @@ def add_all_provider_packages() -> None:
         "devel_hadoop", ["apache.hdfs", "apache.hive", "presto", "trino"]
     )
     add_all_deprecated_provider_packages()
+    add_provider_packages_to_extra_requirements(
+        "composer",
+        [
+            "apache.beam",
+            "cncf.kubernetes",
+            "dbt-cloud",
+            "google",
+            "hashicorp",
+            "http",
+            "mysql",
+            "postgres",
+            "sendgrid",
+            "ssh",
+            "sqlite",
+        ],
+        {},
+    )
 
 
 class Develop(develop_orig):
