@@ -259,7 +259,7 @@ class TestRenderedTaskInstanceFields(unittest.TestCase):
                 },
                 'labels': {
                     'airflow-worker': 'worker-config',
-                    'airflow_version': version,
+                    'airflow_version': version.replace('+', '-'),
                     'dag_id': 'test_get_k8s_pod_yaml',
                     'execution_date': '2019-01-01T00_00_00_plus_00_00',
                     'kubernetes_executor': 'True',

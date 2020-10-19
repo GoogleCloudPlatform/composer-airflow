@@ -1857,7 +1857,7 @@ class TestTaskInstance(unittest.TestCase):
                 },
                 'labels': {
                     'airflow-worker': 'worker-config',
-                    'airflow_version': version,
+                    'airflow_version': version.replace('+', '-'),
                     'dag_id': 'test_get_rendered_k8s_spec',
                     'execution_date': '2016-01-01T00_00_00_plus_00_00',
                     'kubernetes_executor': 'True',

@@ -1,0 +1,200 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+---
+default_stages: [commit, push]
+default_language_version:
+  # force all unspecified python hooks to run python3
+  python: python3
+minimum_pre_commit_version: "1.20.0"
+repos:
+  - repo: meta
+    hooks:
+      - id: identity
+      - id: check-hooks-apply
+  - repo: https://github.com/Lucas-C/pre-commit-hooks
+    rev: v1.1.9
+    hooks:
+      - id: forbid-tabs
+        exclude: ^docs/Makefile$|^clients/gen/go.sh|\.gitmodules$
+  - repo: https://github.com/psf/black
+    rev: 20.8b1
+    hooks:
+      - id: black
+        args: [--config=./pyproject.toml]
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v3.4.0
+    hooks:
+      - id: check-merge-conflict
+      - id: debug-statements
+      - id: check-builtin-literals
+      - id: detect-private-key
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+      - id: check-executables-have-shebangs
+      - id: check-xml
+      - id: trailing-whitespace
+      - id: fix-encoding-pragma
+        args:
+          - --remove
+  - repo: https://github.com/asottile/pyupgrade
+    rev: v2.7.4
+    hooks:
+      - id: pyupgrade
+        args: ["--py36-plus"]
+  - repo: https://github.com/pre-commit/pygrep-hooks
+    rev: v1.7.0
+    hooks:
+      - id: rst-backticks
+      - id: python-no-log-warn
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.25.0
+    hooks:
+      - id: yamllint
+        name: Check yaml files with yamllint
+        entry: yamllint -c yamllint-config.yml --strict
+        types: [yaml]
+        exclude:
+          ^.*init_git_sync\.template\.yaml$|^.*airflow\.template\.yaml$|^chart/(?:templates|files)/.*\.yaml
+  - repo: https://github.com/timothycrosley/isort
+    rev: 5.6.4
+    hooks:
+      - id: isort
+        name: Run isort to sort imports
+        files: \.py$
+        # To keep consistent with the global isort skip config defined in setup.cfg
+        exclude: ^build/.*$|^.tox/.*$|^venv/.*$
+  - repo: https://github.com/pycqa/pydocstyle
+    rev: 5.1.1
+    hooks:
+      - id: pydocstyle
+        name: Run pydocstyle
+        args:
+          - --convention=pep257
+          - --add-ignore=D100,D102,D104,D105,D107,D205,D400,D401
+        exclude: |
+          (?x)
+          ^tests/.*\.py$|
+          ^scripts/.*\.py$|
+          ^dev|
+          ^provider_packages|
+          ^kubernetes_tests|
+          .*example_dags/.*|
+          ^chart/.*\.py$
+  - repo: local
+    hooks:
+      - id: pydevd
+        language: pygrep
+        name: Check for pydevd debug statements accidentally left
+        entry: "pydevd.*settrace\\("
+        pass_filenames: true
+        files: \.py$
+      - id: dont-use-safe-filter
+        language: pygrep
+        name: Don't use safe in templates
+        description: the Safe filter is error-prone, use Markup() in code instead
+        entry: "\\|\\s*safe"
+        files: \.html$
+        pass_filenames: true
+      - id: no-relative-imports
+        language: pygrep
+        name: No relative imports
+        description: Airflow style is to use absolute imports only
+        entry: "^\\s*from\\s+\\."
+        pass_filenames: true
+        files: \.py$
+        exclude: ^tests/
+      - id: language-matters
+        language: pygrep
+        name: Check for language that we do not accept as community
+        description: Please use "deny_list" or "allow_list"  instead.
+        entry: "(?i)(black|white)[_-]?list"
+        pass_filenames: true
+        exclude: >
+          (?x)
+          ^airflow/providers/apache/cassandra/hooks/cassandra.py$|
+          ^airflow/providers/apache/hive/operators/hive_stats.py$|
+          ^airflow/providers/apache/hive/.*PROVIDER_CHANGES_*|
+          ^airflow/providers/apache/hive/.*README.md$|
+          ^tests/providers/apache/cassandra/hooks/test_cassandra.py$|
+          ^docs/apache-airflow-providers-apache-cassandra/connections/cassandra.rst$|
+          ^CHANGELOG.txt$
+      - id: consistent-pylint
+        language: pygrep
+        name: Check for inconsistent pylint disable/enable without space
+        entry: "pylint:disable|pylint:enable"
+        pass_filenames: true
+        files: \.py$
+      - id: provide-create-sessions
+        language: pygrep
+        name: Check provide_session and create_session imports
+        description: provide_session and create_session should be imported from airflow.utils.session
+          to avoid import cycles.
+        entry: "from airflow\\.utils\\.db import.* (provide_session|create_session)"
+        files: \.py$
+        pass_filenames: true
+      - id: incorrect-use-of-LoggingMixin
+        language: pygrep
+        name: Make sure LoggingMixin is not used alone
+        entry: "LoggingMixin\\(\\)"
+        files: \.py$
+        pass_filenames: true
+      - id: daysago-import-check
+        language: pygrep
+        name: Make sure days_ago is imported from airflow.utils.dates
+        entry: "(airflow\\.){0,1}utils\\.dates\\.days_ago"
+        files: \.py$
+        pass_filenames: true
+      - id: stylelint
+        name: stylelint
+        entry: "stylelint"
+        language: node
+        files: ^airflow/www/.*\.(css|scss|sass)$
+        # Keep dependency versions in sync w/ airflow/www/package.json
+        additional_dependencies: ['stylelint@13.3.1', 'stylelint-config-standard@20.0.0']
+      - id: build
+        name: Check if image build is needed
+        entry: ./scripts/ci/pre_commit/pre_commit_ci_build.sh 3.6 false
+        language: system
+        always_run: true
+        pass_filenames: false
+      - id: mypy
+        name: Run mypy
+        language: system
+        entry: "./scripts/ci/pre_commit/pre_commit_mypy.sh"
+        files: \.py$
+        exclude: ^dev|^provider_packages|^chart|^docs
+      - id: mypy
+        name: Run mypy for /docs/ folder
+        language: system
+        entry: "./scripts/ci/pre_commit/pre_commit_mypy.sh"
+        files: ^docs/.*\.py$
+        exclude: rtd-deprecation
+        require_serial: true
+      - id: pylint
+        name: Run pylint
+        language: system
+        entry: "./scripts/ci/pre_commit/pre_commit_pylint.sh"
+        files: \.py$
+        exclude: ^scripts/.*\.py$|^dev|^provider_packages|^chart
+        pass_filenames: true
+        require_serial: true
+      - id: flake8
+        name: Run flake8
+        language: system
+        entry: "./scripts/ci/pre_commit/pre_commit_flake8.sh"
+        files: \.py$
+        pass_filenames: true
