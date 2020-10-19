@@ -49,7 +49,7 @@ PY39 = sys.version_info >= (3, 9)
 
 logger = logging.getLogger(__name__)
 
-version = "2.5.3"
+version = "2.5.3+composer"
 
 AIRFLOW_SOURCES_ROOT = Path(__file__).parent.resolve()
 PROVIDERS_ROOT = AIRFLOW_SOURCES_ROOT / "airflow" / "providers"
@@ -326,6 +326,47 @@ virtualenv = [
 webhdfs = [
     "hdfs[avro,dataframe,kerberos]>=2.0.4",
 ]
+composer_additional = [
+    "crcmod<2.0",
+    "cryptography",
+    "dbt-bigquery",
+    "dbt-core",
+    "firebase-admin",
+    # We need to keep Flower pinned to 1.0.0 as starting from 1.1.0 it doesn't support basic authentication.
+    "flower==1.0.0",
+    "gcsfs",
+    "google-apitools",
+    "google-cloud-aiplatform",
+    "google-cloud-asset",
+    # This package is hosted from AR repository, it is not available in public pypi.
+    "google-cloud-datacatalog-lineage-producer-client",
+    "google-cloud-datastore",
+    "google-cloud-documentai",
+    "google-cloud-filestore",
+    # higher version of package have conflict in the dependencies with the google-ads package
+    "google-cloud-firestore",
+    "google-cloud-pubsublite<1.0.0",
+    "keyrings.google-artifactregistry-auth",
+    "pip<20.3.0",
+    "pyOpenSSL",
+    "pipdeptree",
+    "sqllineage==1.3.7",
+    # in version 0.4.4 we are getting TypeError for composer.data_lineage tests. The problem is with parsing
+    # the sql string inside the sqllineage package
+    "sqlparse!=0.4.4",
+    "tensorflow",
+]
+composer = (
+    PROVIDER_DEPENDENCIES["mysql"][DEPS]
+    + password
+    + PROVIDER_DEPENDENCIES["postgres"][DEPS]
+    + celery
+    + PROVIDER_DEPENDENCIES["redis"][DEPS]
+    + statsd
+    + virtualenv
+    + composer_additional
+    + PROVIDER_DEPENDENCIES["apache.beam"][DEPS]
+)
 # End dependencies group
 
 # Mypy 0.900 and above ships only with stubs from stdlib so if we need other stubs, we need to install them
@@ -464,6 +505,7 @@ CORE_EXTRAS_DEPENDENCIES: dict[str, list[str]] = {
     "celery": celery,
     "cgroups": cgroups,
     "cncf.kubernetes": kubernetes,
+    "composer": composer,
     "dask": dask,
     "deprecated_api": deprecated_api,
     "github_enterprise": flask_appbuilder_oauth,
@@ -628,7 +670,15 @@ devel_all = get_unique_dependency_list(
 
 # Those are packages excluded for "all" dependencies
 PACKAGES_EXCLUDED_FOR_ALL = []
-PACKAGES_EXCLUDED_FOR_ALL.extend(["snakebite"])
+PACKAGES_EXCLUDED_FOR_ALL.extend(
+    [
+        # Exclude this package from devel_all/devel_ci extras, it is not needed there and
+        # since this package is hosted from AR repo it requires setting up authentication
+        # that we can avoid if we will not install it.
+        "google-cloud-datacatalog-lineage-producer-client",
+        "snakebite",
+    ]
+)
 
 
 def is_package_excluded(package: str, exclusion_list: list[str]) -> bool:
@@ -694,12 +744,13 @@ EXTRAS_DEPENDENCIES = sort_extras_dependencies()
 # Those providers are pre-installed always when airflow is installed.
 # Those providers do not have dependency on airflow2.0 because that would lead to circular dependencies.
 # This is not a problem for PIP but some tools (pipdeptree) show those as a warning.
+# TODO: restore `http` and `sqlite` in case when we remove it from add_all_provider_packages function, we
+# cannot have them in both places because this have higher priority and override restriction from
+# add_all_provider_packages
 PREINSTALLED_PROVIDERS = [
     "common.sql",
     "ftp",
-    "http",
     "imap",
-    "sqlite",
 ]
 
 
@@ -759,6 +810,19 @@ class AirflowDistribution(Distribution):
                     for package_id in PREINSTALLED_PROVIDERS
                 ]
             )
+        # needed for `pip check` to correctly discover restrictions that was added specially for Composer
+        # Exclude "google-cloud-datacatalog-lineage-producer-client" package from Composer Airflow
+        # install_requires. This will make possible to install composer-airflow[devel_ci] without access to AR
+        # repo (this library is hosted in AR) and we do not really need to have it in install_requires for
+        # "pip check", as we do not have any constraint for a specific version and
+        # "pip install .[composer]"/"pip download .[composer]" will anyway install/download it.
+        self.install_requires.extend(
+            [
+                _req
+                for _req in EXTRAS_DEPENDENCIES["composer"]
+                if _req != "google-cloud-datacatalog-lineage-producer-client"
+            ]
+        )
 
 
 def replace_extra_dependencies_with_provider_packages(extra: str, providers: list[str]) -> None:
@@ -808,7 +872,9 @@ def replace_extra_dependencies_with_provider_packages(extra: str, providers: lis
         ]
 
 
-def add_provider_packages_to_extra_dependencies(extra: str, providers: list[str]) -> None:
+def add_provider_packages_to_extra_dependencies(
+    extra: str, providers: list[str], constraints: dict[str, str] | None = None
+) -> None:
     """
     Adds provider packages as dependencies to extra. This is used to add provider packages as dependencies
     to the "bulk" kind of extras. Those bulk extras do not have the detailed 'extra' dependencies as
@@ -816,9 +882,15 @@ def add_provider_packages_to_extra_dependencies(extra: str, providers: list[str]
 
     :param extra: Name of the extra to add providers to
     :param providers: list of provider ids
+    :param constraints: constraints for providers
     """
+    if constraints is None:
+        constraints = {}
     EXTRAS_DEPENDENCIES[extra].extend(
-        [get_provider_package_name_from_package_id(package_name) for package_name in providers]
+        [
+            f"{get_provider_package_name_from_package_id(package_name)}{constraints.get(package_name, '')}"
+            for package_name in providers
+        ]
     )
 
 
@@ -842,6 +914,26 @@ def add_all_provider_packages() -> None:
         "devel_hadoop", ["apache.hdfs", "apache.hive", "presto", "trino"]
     )
     add_all_deprecated_provider_packages()
+    add_provider_packages_to_extra_dependencies(
+        "composer",
+        [
+            "apache.beam",
+            "cncf.kubernetes",
+            "dbt-cloud",
+            "google",
+            "hashicorp",
+            "http",
+            "mysql",
+            "postgres",
+            "sendgrid",
+            "ssh",
+            "sqlite",
+        ],
+        {
+            # TODO: remove when BigQuery operators are fixed in community
+            "google": "==2023.6.6+composer",
+        },
+    )
 
 
 class Develop(develop_orig):
