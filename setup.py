@@ -44,7 +44,7 @@ PY39 = sys.version_info >= (3, 9)
 
 logger = logging.getLogger(__name__)
 
-version = '2.2.5'
+version = '2.2.5+composer'
 
 my_dir = dirname(__file__)
 
@@ -545,6 +545,21 @@ yandex = [
 zendesk = [
     'zenpy>=2.0.24',
 ]
+composer_additional = [
+    "crcmod<2.0",
+    "google-apitools",
+    "google-cloud-aiplatform",
+    "google-cloud-datastore",
+    "google-cloud-pubsublite<1.0.0",
+    "keyrings.google-artifactregistry-auth",
+    "pip<20.3.0",
+    "pipdeptree",
+    "tensorflow==2.2.0",
+]
+
+composer = (
+    mysql + password + postgres + celery + redis + statsd + virtualenv + composer_additional + apache_beam
+)
 # End dependencies group
 
 # Dependencies needed for development only
@@ -707,6 +722,7 @@ CORE_EXTRAS_REQUIREMENTS: Dict[str, List[str]] = {
     'celery': celery,  # also has provider, but it extends the core with the Celery executor
     'cgroups': cgroups,
     'cncf.kubernetes': kubernetes,  # also has provider, but it extends the core with the KubernetesExecutor
+    'composer': composer,
     'dask': dask,
     'deprecated_api': deprecated_api,
     'github_enterprise': flask_appbuilder_authlib,
@@ -1005,7 +1021,9 @@ def replace_extra_requirement_with_provider_packages(extra: str, providers: List
     ]
 
 
-def add_provider_packages_to_extra_requirements(extra: str, providers: List[str]) -> None:
+def add_provider_packages_to_extra_requirements(
+    extra: str, providers: List[str], constraints: Dict[str, str] = None
+) -> None:
     """
     Adds provider packages as requirements to extra. This is used to add provider packages as requirements
     to the "bulk" kind of extras. Those bulk extras do not have the detailed 'extra' requirements as
@@ -1013,9 +1031,17 @@ def add_provider_packages_to_extra_requirements(extra: str, providers: List[str]
 
     :param extra: Name of the extra to add providers to
     :param providers: list of provider ids
+    :param constraints: constraints for providers
     """
+    if constraints is None:
+        constraints = {}
     EXTRAS_REQUIREMENTS[extra].extend(
-        [get_provider_package_from_package_id(package_name) for package_name in providers]
+        [
+            '{}{}'.format(
+                get_provider_package_from_package_id(package_name), constraints.get(package_name, '')
+            )
+            for package_name in providers
+        ]
     )
 
 
@@ -1039,6 +1065,21 @@ def add_all_provider_packages() -> None:
         "devel_hadoop", ["apache.hdfs", "apache.hive", "presto", "trino"]
     )
     add_all_deprecated_provider_packages()
+    add_provider_packages_to_extra_requirements(
+        "composer",
+        [
+            "apache.beam",
+            "cncf.kubernetes",
+            "google",
+            "hashicorp",
+            "http",
+            "mysql",
+            "postgres",
+            "sendgrid",
+            "ssh",
+        ],
+        {},
+    )
 
 
 class Develop(develop_orig):

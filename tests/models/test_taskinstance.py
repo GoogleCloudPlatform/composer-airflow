@@ -1992,7 +1992,7 @@ class TestTaskInstance:
                 },
                 'labels': {
                     'airflow-worker': 'worker-config',
-                    'airflow_version': version,
+                    'airflow_version': version.replace('+', '-'),
                     'dag_id': 'test_render_k8s_pod_yaml',
                     'execution_date': '2016-01-01T00_00_00_plus_00_00',
                     'kubernetes_executor': 'True',
