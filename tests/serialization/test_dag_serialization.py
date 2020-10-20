@@ -35,7 +35,6 @@ from airflow.hooks.base_hook import BaseHook
 from airflow.models import DAG, Connection, DagBag, TaskInstance
 from airflow.models.baseoperator import BaseOperator
 from airflow.operators.bash_operator import BashOperator
-from airflow.operators.subdag_operator import SubDagOperator
 from airflow.serialization.json_schema import load_dag_schema_dict
 from airflow.serialization.serialized_objects import SerializedBaseOperator, SerializedDAG
 from airflow.utils.tests import CustomOperator, CustomOpLink, GoogleLink
@@ -296,8 +295,7 @@ class TestStringifiedDAGs(unittest.TestCase):
         example_skip_dag = stringified_dags['example_skip_dag']
         self.validate_deserialized_task(
             stringified_dags['example_skip_dag'].get_task('skip_operator_1'),
-            dags['example_skip_dag'].get_task('skip_operator_1'),
-            'DummySkipOperator', '#e8b7e4', '#000')
+            dags['example_skip_dag'].get_task('skip_operator_1'))
 
         # Verify that the DAG object has 'full_filepath' attribute
         # and is equal to fileloc
@@ -307,11 +305,7 @@ class TestStringifiedDAGs(unittest.TestCase):
         example_subdag_operator = stringified_dags['example_subdag_operator']
         self.validate_deserialized_task(
             stringified_dags['example_subdag_operator'].get_task('section-1'),
-            dags['example_subdag_operator'].get_task('section-1'),
-            SubDagOperator.__name__,
-            SubDagOperator.ui_color,
-            SubDagOperator.ui_fgcolor
-        )
+            dags['example_subdag_operator'].get_task('section-1'))
 
     def validate_deserialized_dag(self, serialized_dag, dag):
         """
@@ -347,18 +341,11 @@ class TestStringifiedDAGs(unittest.TestCase):
         # and is equal to fileloc
         assert serialized_dag.full_filepath == dag.fileloc
 
-    def validate_deserialized_task(
-        self, serialized_task, task, task_type, ui_color, ui_fgcolor
-    ):
+    def validate_deserialized_task(self, serialized_task, task,):
         """Verify non-airflow operators are casted to BaseOperator."""
         assert isinstance(serialized_task, SerializedBaseOperator)
         assert not isinstance(task, SerializedBaseOperator)
         assert isinstance(task, BaseOperator)
-
-        # Verify the original operator class is recorded for UI.
-        self.assertTrue(serialized_task.task_type == task_type)
-        self.assertTrue(serialized_task.ui_color == ui_color)
-        self.assertTrue(serialized_task.ui_fgcolor == ui_fgcolor)
 
         fields_to_check = task.get_serialized_fields() - {
             # Checked separately
@@ -384,8 +371,7 @@ class TestStringifiedDAGs(unittest.TestCase):
         assert serialized_task.downstream_task_ids == task.downstream_task_ids
 
         for field in fields_to_check:
-            assert getattr(serialized_task, field) == getattr(task, field), \
-                f'{task.dag.dag_id}.{task.task_id}.{field} does not match'
+            assert getattr(serialized_task, field) == getattr(task, field)
 
         if serialized_task.resources is None:
             assert task.resources is None or task.resources == []

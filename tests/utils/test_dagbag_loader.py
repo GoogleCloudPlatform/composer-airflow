@@ -32,5 +32,5 @@ class AsyncDagBagLoaderTest(unittest.TestCase):
 
     def test_async_dagbag_loader(self):
         dagbag = dagbag_loader.create_async_dagbag(settings.DAGS_FOLDER)
-        dag = dagbag.get_dag("example_bash_operator")
-        self.assertEqual(dag.dag_id, "example_bash_operator")
+        dag = dagbag.get_dag("test_example_bash_operator")
+        self.assertEqual(dag.dag_id, "test_example_bash_operator")
