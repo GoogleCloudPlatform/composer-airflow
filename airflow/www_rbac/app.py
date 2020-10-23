@@ -34,6 +34,7 @@ from six.moves.urllib.parse import urlparse
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.middleware.dispatcher import DispatcherMiddleware
 
+import airflow
 from airflow import settings, version
 from airflow.configuration import conf
 from airflow.logging_config import configure_logging
@@ -63,6 +64,11 @@ if os.path.isfile('/home/airflow/gcs/env_var.json') \
         except:
             log.warning('Using default Composer Environment Variables. Overrides '
                         'have not been applied.')
+
+if not conf.getboolean('core', 'unit_test_mode'):
+    airflow.plugins_manager = six.moves.reload_module(airflow.plugins_manager)
+    airflow.configuration = six.moves.reload_module(airflow.configuration)
+    airflow = six.moves.reload_module(airflow)
 
 def create_app(config=None, session=None, testing=False, app_name="Airflow"):
     global app, appbuilder
