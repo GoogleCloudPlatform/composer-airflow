@@ -809,8 +809,12 @@ class Airflow(AirflowViewMixin, BaseView):
         try:
             ti.render_templates()
         except Exception as e:
-            traceback.print_exc()
-            flash("Error rendering template: " + str(e), "error")
+            logging.warning("Rendering template failed: %s", e)
+            msg = "Error rendering template: " + escape(e)
+            if six.PY3:
+                if e.__cause__:
+                    msg += Markup("<br/><br/>OriginalError: ") + escape(e.__cause__)
+            flash(msg, "error")
         title = "Rendered Template"
         html_dict = {}
         for template_field in task.__class__.template_fields:

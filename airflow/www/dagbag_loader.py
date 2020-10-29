@@ -105,7 +105,7 @@ def _create_dagbag(dag_folder, queue):
                 return _stringify_object(x, _dag_fields_to_keep)
             elif isinstance(x, models.BaseOperator):
                 return _stringify_object(x, _task_fields_to_keep)
-            elif callable(x):
+            elif inspect.isfunction(x):
                 return get_python_source(x)
             elif isinstance(x, list):
                 return [_stringify(v) for v in x]
