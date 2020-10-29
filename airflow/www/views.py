@@ -3347,6 +3347,8 @@ class DagModelView(wwwutils.SuperUserMixin, ModelView):
         'owners': {'disabled': True},
         'description': {'disabled': True},
         'default_view': {'disabled': True},
+        'tags': {'disabled': True},
+        'root_dag_id': {'disabled': True},
     }
     column_formatters = dict(
         dag_id=dag_link,
