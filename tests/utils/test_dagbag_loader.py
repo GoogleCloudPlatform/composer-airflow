@@ -17,6 +17,7 @@
 # specific language governing permissions and limitations
 # under the License.
 import six
+from jinja2 import Undefined
 
 from airflow import settings
 from airflow.utils import dagbag_loader
@@ -34,3 +35,4 @@ class AsyncDagBagLoaderTest(unittest.TestCase):
         dagbag = dagbag_loader.create_async_dagbag(settings.DAGS_FOLDER)
         dag = dagbag.get_dag("example_bash_operator")
         self.assertEqual(dag.dag_id, "example_bash_operator")
+        self.assertEqual(dag.template_undefined, Undefined)
