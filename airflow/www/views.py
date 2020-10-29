@@ -837,6 +837,7 @@ class Airflow(AirflowViewMixin, BaseView):
         try:
             ti.get_rendered_template_fields()
         except Exception as e:
+            logging.warning("Rendering template failed: %s", e)
             msg = "Error rendering template: " + escape(e)
             if six.PY3:
                 if e.__cause__:
