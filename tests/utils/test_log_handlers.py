@@ -60,7 +60,7 @@ class TestFileTaskLogHandler(unittest.TestCase):
         # file task handler is used by default.
         logger = logging.getLogger(TASK_LOGGER)
         handlers = logger.handlers
-        self.assertEqual(len(handlers), 1)
+        self.assertEqual(len(handlers), 2)
         handler = handlers[0]
         self.assertEqual(handler.name, FILE_TASK_HANDLER)
 
