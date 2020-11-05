@@ -552,13 +552,10 @@ class TestLogsfromTaskRunCommand(unittest.TestCase):
 
         print(logs)     # In case of a test failures this line would show detailed log
 
-        # self.assertIn("INFO - Started process", logs)
         self.assertIn("Subtask {}".format(self.task_id), logs)
-        self.assertIn("base_task_runner.py", logs)
         self.assertIn("INFO - Running: ['airflow', 'run', '{}', "
                       "'{}', '{}',".format(self.dag_id, self.task_id, self.execution_date_str), logs)
 
-        self.assertIn("Log from DAG Logger", logs)
         self.assertIn("Log from TI Logger", logs)
         self.assertIn("Log from Print statement", logs)
 

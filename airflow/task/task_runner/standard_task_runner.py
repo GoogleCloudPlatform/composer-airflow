@@ -26,7 +26,7 @@ from setproctitle import setproctitle
 from airflow.task.task_runner.base_task_runner import BaseTaskRunner
 from airflow.utils.helpers import reap_process_group
 
-CAN_FORK = False # hasattr(os, 'fork')
+CAN_FORK = hasattr(os, 'fork')
 
 
 class StandardTaskRunner(BaseTaskRunner):
