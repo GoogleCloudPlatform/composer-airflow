@@ -72,7 +72,7 @@ DEFAULT_LOGGING_CONFIG = {
     },
     'handlers': {
         'console': {
-            'class': 'airflow.utils.log.file_task_handler.StreamTaskHandler',
+            'class': 'logging.StreamHandler',
             'formatter': 'airflow',
             'stream': 'ext://sys.__stdout__'
         },
