@@ -31,6 +31,14 @@ from airflow.utils.file import mkdirs
 from airflow.utils.helpers import parse_template_string
 
 
+def append_composer_suffix(record, info):
+    # @-@: special delimiter for appending workflow info.
+    delimiter = '@-@'
+    if info and delimiter not in str(record.args) and delimiter not in str(record.msg):
+        record.msg = str(record.msg) + delimiter + json.dumps(info)
+    return record
+
+
 class StreamTaskHandler(logging.StreamHandler):
     def __init__(self, *args, **kwargs):
         super(StreamTaskHandler, self).__init__(*args, **kwargs)
@@ -49,10 +57,7 @@ class StreamTaskHandler(logging.StreamHandler):
         }
 
     def emit(self, record):
-        # @-@: special delimiter for appending workflow info.
-        delimiter = '@-@'
-        if self.workflow_info and delimiter not in str(record.args):
-            record.msg = str(record.msg) + delimiter + json.dumps(self.workflow_info)
+        record = append_composer_suffix(record, self.workflow_info)
         super(StreamTaskHandler, self).emit(record)
 
 
@@ -92,10 +97,7 @@ class FileTaskHandler(logging.Handler):
         }
 
     def emit(self, record):
-        # @-@: special delimiter for appending workflow info.
-        delimiter = '@-@'
-        if delimiter not in str(record.args):
-            record.msg = str(record.msg) + delimiter + json.dumps(self.workflow_info)
+        record = append_composer_suffix(record, self.workflow_info)
         if self.handler:
             self.handler.emit(record)
 
