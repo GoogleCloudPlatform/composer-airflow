@@ -16,7 +16,6 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
 import datetime
 import unittest
 
@@ -26,9 +25,12 @@ from airflow.models import DAG, DagRun, clear_task_instances
 from airflow.models import TaskInstance as TI
 from airflow.operators.dummy_operator import DummyOperator
 from airflow.operators.python_operator import ShortCircuitOperator
+from airflow.settings import Stats
 from airflow.utils import timezone
+from airflow.utils.dates import days_ago
 from airflow.utils.state import State
 from airflow.utils.trigger_rule import TriggerRule
+from tests.compat import mock, call
 from tests.models import DEFAULT_DATE
 
 
@@ -560,3 +562,21 @@ class DagRunTest(unittest.TestCase):
         dagrun.verify_integrity()
         flaky_ti.refresh_from_db()
         self.assertEqual(State.NONE, flaky_ti.state)
+
+    @mock.patch.object(Stats, 'timing')
+    def test_no_scheduling_delay_for_nonscheduled_runs(self, stats_mock):
+        """
+        Tests that dag scheduling delay stat is not called if the dagrun is not a scheduled run.
+        This case is manual run. Simple test for sanity check.
+        """
+        dag = DAG(dag_id='test_dagrun_stats', start_date=days_ago(1))
+        dag_task = DummyOperator(task_id='dummy', dag=dag)
+
+        initial_task_states = {
+            dag_task.task_id: State.SUCCESS,
+        }
+
+        dag_run = self.create_dag_run(dag=dag, state=State.RUNNING, task_states=initial_task_states)
+        dag_run.update_state()
+        self.assertNotIn(call('dagrun.{}.first_task_scheduling_delay'.format(dag.dag_id)),
+                         stats_mock.mock_calls)

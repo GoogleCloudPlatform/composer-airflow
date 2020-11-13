@@ -267,23 +267,18 @@ class DagRun(Base, LoggingMixin):
 
         dag = self.get_dag()
 
-        tis = self.get_task_instances(session=session)
+        tis = [ti for ti in self.get_task_instances(session=session,
+                                                    state=State.task_states + (State.SHUTDOWN,))]
         self.log.debug("Updating state for %s considering %s task(s)", self, len(tis))
 
         for ti in list(tis):
-            # skip in db?
-            if ti.state == State.REMOVED:
-                tis.remove(ti)
-            else:
-                ti.task = dag.get_task(ti.task_id)
+            ti.task = dag.get_task(ti.task_id)
 
         # pre-calculate
         # db is faster
         start_dttm = timezone.utcnow()
-        unfinished_tasks = self.get_task_instances(
-            state=State.unfinished(),
-            session=session
-        )
+        unfinished_tasks = [t for t in tis if t.state in State.unfinished()]
+        finished_tasks = [t for t in tis if t.state in State.finished() + [State.UPSTREAM_FAILED]]
         none_depends_on_past = all(not t.task.depends_on_past for t in unfinished_tasks)
         none_task_concurrency = all(t.task.task_concurrency is None
                                     for t in unfinished_tasks)
@@ -339,6 +334,7 @@ class DagRun(Base, LoggingMixin):
         else:
             self.set_state(State.RUNNING)
 
+        self._emit_true_scheduling_delay_stats_for_finished_state(finished_tasks)
         self._emit_duration_stats_for_finished_state()
 
         # todo: determine we want to use with_for_update to make sure to lock the run
@@ -346,6 +342,47 @@ class DagRun(Base, LoggingMixin):
         session.commit()
 
         return self.state
+
+    def _emit_true_scheduling_delay_stats_for_finished_state(self, finished_tis):
+        """
+        This is a helper method to emit the true scheduling delay stats, which is defined as
+        the time when the first task in DAG starts minus the expected DAG run datetime.
+        This method will be used in the update_state method when the state of the DagRun
+        is updated to a completed status (either success or failure). The method will find the first
+        started task within the DAG and calculate the expected DagRun start time (based on
+        dag.execution_date & dag.schedule_interval), and minus these two values to get the delay.
+        The emitted data may contains outlier (e.g. when the first task was cleared, so
+        the second task's start_date will be used), but we can get rid of the the outliers
+        on the stats side through the dashboards tooling built.
+        Note, the stat will only be emitted if the DagRun is a scheduler triggered one
+        (i.e. external_trigger is False).
+        """
+        if self.state == State.RUNNING:
+            return
+        if self.external_trigger:
+            return
+        if not finished_tis:
+            return
+
+        try:
+            dag = self.get_dag()
+
+            if not self.dag.schedule_interval or self.dag.schedule_interval == "@once":
+                # We can't emit this metric if there is no following schedule to cacluate from!
+                return
+
+            ordered_tis_by_start_date = [ti for ti in finished_tis if ti.start_date]
+            ordered_tis_by_start_date.sort(key=lambda ti: ti.start_date, reverse=False)
+            first_start_date = ordered_tis_by_start_date[0].start_date
+            if first_start_date:
+                # dag.following_schedule calculates the expected start datetime for a scheduled dagrun
+                # i.e. a daily flow for execution date 1/1/20 actually runs on 1/2/20 hh:mm:ss,
+                # and ti.start_date will be 1/2/20 hh:mm:ss so the following schedule is comparison
+                true_delay = first_start_date - dag.following_schedule(self.execution_date)
+                if true_delay.total_seconds() > 0:
+                    Stats.timing('dagrun.{}.first_task_scheduling_delay'.format(dag.dag_id), true_delay)
+        except Exception as e:
+            self.log.warning('Failed to record first_task_scheduling_delay metric:\n', e)
 
     def _emit_duration_stats_for_finished_state(self):
         if self.state == State.RUNNING:
