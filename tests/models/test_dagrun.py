@@ -16,7 +16,6 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
 import datetime
 import unittest
 
@@ -24,15 +23,18 @@ from parameterized import parameterized
 
 from airflow import settings, models
 from airflow.jobs import BackfillJob
-from airflow.models import DAG, DagRun, clear_task_instances
+from airflow.models import DAG, DagRun, clear_task_instances, DagModel
 from airflow.models import TaskInstance as TI
 from airflow.operators.dummy_operator import DummyOperator
 from airflow.operators.python_operator import ShortCircuitOperator
+from airflow.settings import Stats
 from airflow.utils import timezone
+from airflow.utils.dates import days_ago
 from airflow.utils.state import State
 from airflow.utils.trigger_rule import TriggerRule
-from tests.compat import mock
+from tests.compat import mock, call
 from tests.models import DEFAULT_DATE
+from tests.test_utils import db
 
 
 class DagRunTest(unittest.TestCase):
@@ -608,3 +610,74 @@ class DagRunTest(unittest.TestCase):
         dagrun.verify_integrity()
         task = dagrun.get_task_instances()[0]
         assert task.queue == 'queue1'
+
+    @mock.patch.object(Stats, 'timing')
+    def test_no_scheduling_delay_for_nonscheduled_runs(self, stats_mock):
+        """
+        Tests that dag scheduling delay stat is not called if the dagrun is not a scheduled run.
+        This case is manual run. Simple test for sanity check.
+        """
+        dag = DAG(dag_id='test_dagrun_stats', start_date=days_ago(1))
+        dag_task = DummyOperator(task_id='dummy', dag=dag)
+
+        initial_task_states = {
+            dag_task.task_id: State.SUCCESS,
+        }
+
+        dag_run = self.create_dag_run(dag=dag, state=State.RUNNING, task_states=initial_task_states)
+        dag_run.update_state()
+        self.assertNotIn(call('dagrun.{}.first_task_scheduling_delay'.format(dag.dag_id)),
+                         stats_mock.mock_calls)
+
+    @parameterized.expand(
+        [
+            ("*/5 * * * *", True),
+            (None, False),
+            ("@once", False),
+        ]
+    )
+    def test_emit_scheduling_delay(self, schedule_interval, expected):
+        """
+        Tests that dag scheduling delay stat is set properly once running scheduled dag.
+        dag_run.update_state() invokes the _emit_true_scheduling_delay_stats_for_finished_state method.
+        """
+        # Cleanup
+        db.clear_db_runs()
+        db.clear_db_dags()
+
+        dag = DAG(dag_id='test_emit_dag_stats', start_date=days_ago(1), schedule_interval=schedule_interval)
+        dag_task = DummyOperator(task_id='dummy', dag=dag, owner='airflow')
+
+        session = settings.Session()
+        try:
+            orm_dag = DagModel(dag_id=dag.dag_id, is_active=True)
+            session.add(orm_dag)
+            session.flush()
+            dag_run = dag.create_dagrun(
+                run_id="test",
+                state=State.SUCCESS,
+                execution_date=dag.start_date,
+                start_date=dag.start_date,
+                session=session,
+            )
+            ti = dag_run.get_task_instance(dag_task.task_id, session)
+            ti.set_state(State.SUCCESS, session)
+            session.flush()
+
+            with mock.patch.object(Stats, 'timing') as stats_mock:
+                dag_run.update_state(session)
+
+            metric_name = 'dagrun.{}.first_task_scheduling_delay'.format(dag.dag_id)
+
+            if expected:
+                true_delay = (ti.start_date - dag.following_schedule(dag_run.execution_date))
+                sched_delay_stat_call = call(metric_name, true_delay)
+                assert sched_delay_stat_call in stats_mock.mock_calls
+            else:
+                # Assert that we never passed the metric
+                sched_delay_stat_call = call(metric_name, mock.ANY)
+                assert sched_delay_stat_call not in stats_mock.mock_calls
+        finally:
+            # Don't write anything to the DB
+            session.rollback()
+            session.close()
