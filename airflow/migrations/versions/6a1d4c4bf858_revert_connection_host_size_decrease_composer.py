@@ -16,11 +16,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
-"""Add has_import_errors column to DagModel
+"""Composer. Revert back length of connection.host column
 
-Revision ID: be2bfac3da23
-Revises: 7b2661a43ba3
-Create Date: 2021-11-04 20:33:11.009547
+The length of this column accidentally was reduced in 5962f262d786 custom
+Composer migration. Here we revert back length of it.
+
+Revision ID: 6a1d4c4bf858
+Revises: 31cbfc73ceed
+Create Date: 2021-10-20 07:44:05.123456
 
 """
 
@@ -28,19 +31,18 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision = 'be2bfac3da23'
-down_revision = '7b2661a43ba3'
+revision = '6a1d4c4bf858'
+down_revision = '31cbfc73ceed'
 branch_labels = None
-depends_on = '0979a47cb9bf'
-airflow_version = '2.2.3'
+depends_on = None
 
 
 def upgrade():
-    """Apply Add has_import_errors column to DagModel"""
-    op.add_column("dag", sa.Column("has_import_errors", sa.Boolean(), server_default='0'))
+    """Apply migration"""
+    with op.batch_alter_table('connection') as batch_op:
+        batch_op.alter_column(column_name='host', type_=sa.String(500))
 
 
 def downgrade():
-    """Unapply Add has_import_errors column to DagModel"""
-    with op.batch_alter_table('dag') as batch_op:
-        batch_op.drop_column('has_import_errors', mssql_drop_default=True)
+    """Unapply migration"""
+    pass

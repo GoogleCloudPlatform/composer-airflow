@@ -30,7 +30,8 @@ from alembic import context, op
 
 # revision identifiers, used by Alembic.
 revision = 'f5fcbda3e651'
-down_revision = '3c94c427fdf6'
+# merge Composer and community tree heads.
+down_revision = ('3c94c427fdf6', '0979a47cb9bf')
 branch_labels = None
 depends_on = None
 airflow_version = '2.3.3'

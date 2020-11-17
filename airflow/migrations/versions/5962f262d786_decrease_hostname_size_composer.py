@@ -16,11 +16,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
-"""Add has_import_errors column to DagModel
+"""Composer. Adjust length of hostname columns
 
-Revision ID: be2bfac3da23
-Revises: 7b2661a43ba3
-Create Date: 2021-11-04 20:33:11.009547
+As we use it in index and there's limit for index size in MySQL, we have to
+shorten length of this column.
+
+Revision ID: 5962f262d786
+Revises:
+Create Date: 2021-03-03 15:41:07.261119
 
 """
 
@@ -28,19 +31,22 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision = 'be2bfac3da23'
-down_revision = '7b2661a43ba3'
+revision = '5962f262d786'
+down_revision = None
 branch_labels = None
-depends_on = '0979a47cb9bf'
-airflow_version = '2.2.3'
+depends_on = 'e3a246e0dc1'
 
 
 def upgrade():
-    """Apply Add has_import_errors column to DagModel"""
-    op.add_column("dag", sa.Column("has_import_errors", sa.Boolean(), server_default='0'))
+    """Apply decrease_hostname_size"""
+    with op.batch_alter_table('connection') as batch_op:
+        batch_op.alter_column(column_name='host', type_=sa.String(100))
+    with op.batch_alter_table('job') as batch_op:
+        batch_op.alter_column(column_name='hostname', type_=sa.String(100))
+    with op.batch_alter_table('task_instance') as batch_op:
+        batch_op.alter_column(column_name='hostname', type_=sa.String(100))
 
 
 def downgrade():
-    """Unapply Add has_import_errors column to DagModel"""
-    with op.batch_alter_table('dag') as batch_op:
-        batch_op.drop_column('has_import_errors', mssql_drop_default=True)
+    """Unapply decrease_hostname_size"""
+    pass
