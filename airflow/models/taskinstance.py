@@ -293,6 +293,7 @@ class TaskInstance(Base, LoggingMixin):  # pylint: disable=R0902,R0904
         Index('ti_state_lkp', dag_id, task_id, execution_date, state),
         Index('ti_pool', pool, state, priority_weight),
         Index('ti_job_id', job_id),
+        Index('ti_worker_healthcheck', end_date, hostname, state),
     )
 
     dag_model = relationship(
