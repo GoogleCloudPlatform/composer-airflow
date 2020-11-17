@@ -40,7 +40,6 @@ import warnings
 
 from backports.configparser import ConfigParser, _UNSET, NoOptionError, NoSectionError
 import yaml
-from zope.deprecation import deprecated
 
 from airflow.exceptions import AirflowConfigException
 from airflow.utils.module_loading import import_string
@@ -732,8 +731,39 @@ if not os.path.isfile(AIRFLOW_CONFIG):
 
 log.info("Reading the config from %s", AIRFLOW_CONFIG)
 
-conf = AirflowConfigParser(default_config=parameterized_config(DEFAULT_CONFIG))
 
+def make_airflow_config_parser():
+    parser = AirflowConfigParser(
+        default_config=parameterized_config(DEFAULT_CONFIG))
+    parser.read(AIRFLOW_CONFIG)
+    return parser
+
+
+class AutoReloadableProxy(object):
+    # This is here to avoid max recursion error, read this, especially part about how copy works
+    # https://nedbatchelder.com/blog/201010/surprising_getattr_recursion.html
+    _delegate = make_airflow_config_parser()
+
+    def __init__(self):
+        self._delegate = make_airflow_config_parser()
+
+    def __getattr__(self, attribute):
+        attr = getattr(self._delegate, attribute)
+        if callable(attr):
+            def call_attr_and_maybe_reload(*args, **kwargs):
+                try:
+                    return attr(*args, **kwargs)
+                except TypeError:
+                    # We suspect that configuration module got reloaded. Let's
+                    # retry after recreating the delgate object.
+                    self._delegate = make_airflow_config_parser()
+                    return getattr(self._delegate, attribute)(*args, **kwargs)
+
+            return call_attr_and_maybe_reload
+        return attr
+
+
+conf = AutoReloadableProxy()
 conf.read(AIRFLOW_CONFIG)
 
 if conf.has_option('core', 'AIRFLOW_HOME'):
@@ -792,12 +822,3 @@ has_option = conf.has_option
 remove_option = conf.remove_option
 as_dict = conf.as_dict
 set = conf.set # noqa
-
-for func in [load_test_config, get, getboolean, getfloat, getint, has_option,
-             remove_option, as_dict, set]:
-    deprecated(
-        func.__name__,
-        "Accessing configuration method '{f.__name__}' directly from "
-        "the configuration module is deprecated. Please access the "
-        "configuration from the 'configuration.conf' object via "
-        "'conf.{f.__name__}'".format(f=func))

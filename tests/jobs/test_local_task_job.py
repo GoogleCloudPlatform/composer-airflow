@@ -163,7 +163,7 @@ class TestLocalTaskJob(unittest.TestCase):
                 time2 = heartbeat_records[i]
                 # Assert that difference small enough
                 delta = (time2 - time1).total_seconds()
-                self.assertAlmostEqual(delta, job.heartrate, delta=0.05)
+                self.assertAlmostEqual(delta, job.heartrate, delta=0.1)
 
     @pytest.mark.quarantined
     def test_mark_success_no_kill(self):
@@ -245,6 +245,7 @@ class TestLocalTaskJob(unittest.TestCase):
 
         session.close()
 
+    @pytest.mark.xfail(reason="This test works only when running task by fork, otherwise there's no DAG")
     def test_mark_failure_on_failure_callback(self):
         """
         Test that ensures that mark_failure in the UI fails
@@ -256,7 +257,8 @@ class TestLocalTaskJob(unittest.TestCase):
             self.assertEqual(context['dag_run'].dag_id, 'test_mark_failure')
             data['called'] = True
 
-        def task_function(ti, **context):
+        def task_function(**context):
+            ti = context["ti"]
             with create_session() as session:
                 self.assertEqual(State.RUNNING, ti.state)
                 ti.log.info("Marking TI as failed 'externally'")
@@ -270,7 +272,7 @@ class TestLocalTaskJob(unittest.TestCase):
 
         with DAG(dag_id='test_mark_failure', start_date=DEFAULT_DATE) as dag:
             task = PythonOperator(
-                task_id='test_state_succeeded1',
+                task_id='test_mark_failure_on_failure_callback',
                 python_callable=task_function,
                 provide_context=True,
                 on_failure_callback=check_failure)

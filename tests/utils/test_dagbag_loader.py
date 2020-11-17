@@ -16,10 +16,14 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-#
+import unittest
 
-version = '1.10.14+composer'
+from airflow import settings
+from airflow.utils import dagbag_loader
 
 
-def open_source_version():
-    return '1.10.14'
+class AsyncDagBagLoaderTest(unittest.TestCase):
+    def test_async_dagbag_loader(self):
+        dagbag = dagbag_loader.create_async_dagbag(settings.DAGS_FOLDER)
+        dag = dagbag.get_dag("test_example_bash_operator")
+        self.assertEqual(dag.dag_id, "test_example_bash_operator")
