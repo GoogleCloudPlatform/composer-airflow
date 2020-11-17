@@ -74,7 +74,8 @@ def configure_logging():
 
 def validate_logging_config(logging_config):
     # Now lets validate the other logging-related settings
-    task_log_reader = conf.get('core', 'task_log_reader')
+    # Patch to use fixed 'task' log reader in composer.
+    task_log_reader = 'task'
 
     logger = logging.getLogger('airflow.task')
 
