@@ -15,34 +15,38 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-"""Add ``queued_at`` column in ``dag_run`` table
 
-Revision ID: 97cdd93827b8
-Revises: a13f7613ad25
-Create Date: 2021-06-29 21:53:48.059438
+"""Composer. Adjust length of hostname columns
+
+As we use it in index and there's limit for index size in MySQL, we have to
+shorten length of this column.
+
+Revision ID: 5962f262d786
+Revises:
+Create Date: 2021-03-03 15:41:07.261119
 
 """
-from __future__ import annotations
 
 import sqlalchemy as sa
 from alembic import op
 
-from airflow.migrations.db_types import TIMESTAMP
-
 # revision identifiers, used by Alembic.
-revision = "97cdd93827b8"
-down_revision = "a13f7613ad25"
+revision = '5962f262d786'
+down_revision = None
 branch_labels = None
-depends_on = "6a1d4c4bf858"
-airflow_version = "2.1.3"
+depends_on = 'e3a246e0dc1'
 
 
 def upgrade():
-    """Apply Add ``queued_at`` column in ``dag_run`` table"""
-    op.add_column("dag_run", sa.Column("queued_at", TIMESTAMP, nullable=True))
+    """Apply decrease_hostname_size"""
+    with op.batch_alter_table('connection') as batch_op:
+        batch_op.alter_column(column_name='host', type_=sa.String(100))
+    with op.batch_alter_table('job') as batch_op:
+        batch_op.alter_column(column_name='hostname', type_=sa.String(100))
+    with op.batch_alter_table('task_instance') as batch_op:
+        batch_op.alter_column(column_name='hostname', type_=sa.String(100))
 
 
 def downgrade():
-    """Unapply Add ``queued_at`` column in ``dag_run`` table"""
-    with op.batch_alter_table("dag_run") as batch_op:
-        batch_op.drop_column("queued_at")
+    """Unapply decrease_hostname_size"""
+    pass

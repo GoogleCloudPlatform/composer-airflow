@@ -31,7 +31,7 @@ from alembic import op
 revision = "be2bfac3da23"
 down_revision = "7b2661a43ba3"
 branch_labels = None
-depends_on = None
+depends_on = "0979a47cb9bf"
 airflow_version = "2.2.3"
 
 

@@ -689,6 +689,10 @@ def _create_db_from_orm(session):
 @provide_session
 def initdb(session: Session = NEW_SESSION, load_connections: bool = True):
     """Initialize Airflow database."""
+    if session.connection().dialect.name == 'postgresql':
+        log.info('Acquiring lock on database')
+        session.connection().execute('select PG_ADVISORY_LOCK(20180501);')
+
     import_all_models()
 
     db_exists = _get_current_revision(session)
@@ -702,6 +706,10 @@ def initdb(session: Session = NEW_SESSION, load_connections: bool = True):
     # Add default pool & sync log_template
     add_default_pool_if_not_exists()
     synchronize_log_template()
+
+    if session.connection().dialect.name == 'postgresql':
+        log.info('Releasing lock on database')
+        session.connection().execute('select PG_ADVISORY_UNLOCK(20180501);')
 
 
 def _get_alembic_config():
