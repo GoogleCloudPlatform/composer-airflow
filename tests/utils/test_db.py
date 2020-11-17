@@ -79,9 +79,9 @@ class TestDb(unittest.TestCase):
         config.set_main_option("script_location", "airflow:migrations")
         script = ScriptDirectory.from_config(config)
 
-        # This will raise if there are multiple heads
-        # To resolve, use the command `alembic merge`
-        script.get_current_head()
+        # Check that there are exactly two heads (one from community tree and
+        # one from Composer tree).
+        assert len(script.get_heads()) == 2
 
     def test_default_connections_sort(self):
         pattern = re.compile('conn_id=[\"|\'](.*?)[\"|\']', re.DOTALL)
