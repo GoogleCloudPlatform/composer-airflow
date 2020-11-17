@@ -67,7 +67,7 @@ class TaskInstance(Base):
     state = Column(String(20))
     _try_number = Column('try_number', Integer, default=0)
     max_tries = Column(Integer)
-    hostname = Column(String(1000))
+    hostname = Column(String(100))
     unixname = Column(String(1000))
     job_id = Column(Integer)
     pool = Column(String(50), nullable=False)
