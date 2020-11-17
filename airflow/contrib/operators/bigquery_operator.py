@@ -258,7 +258,8 @@ class BigQueryOperator(BaseOperator):
             )
             conn = hook.get_conn()
             self.bq_cursor = conn.cursor()
-        if isinstance(self.sql, str):
+        from six import string_types
+        if isinstance(self.sql, string_types):
             job_id = self.bq_cursor.run_query(
                 sql=self.sql,
                 destination_dataset_table=self.destination_dataset_table,
