@@ -77,7 +77,7 @@ from airflow.models.dagcode import DagCode
 from airflow.settings import STATE_COLORS, STORE_SERIALIZED_DAGS
 from airflow.operators.subdag_operator import SubDagOperator
 from airflow.ti_deps.dep_context import RUNNING_DEPS, SCHEDULER_QUEUED_DEPS, DepContext
-from airflow.utils import timezone
+from airflow.utils import dagbag_loader, timezone
 from airflow.utils.dates import infer_time_unit, scale_time_units, parse_execution_date
 from airflow.utils.db import create_session, provide_session
 from airflow.utils.helpers import alchemy_to_dict, render_log_filename
@@ -95,7 +95,21 @@ CHART_LIMIT = 200000
 
 UTF8_READER = codecs.getreader('utf-8')
 
-dagbag = models.DagBag(settings.DAGS_FOLDER, store_serialized_dags=STORE_SERIALIZED_DAGS)
+try:
+    async_dagbag_loader = conf.getboolean('webserver', 'async_dagbag_loader')
+except Exception:
+    async_dagbag_loader = False
+
+# File serialized_dags_env contains an env var representing Airflow config store_serialized_dags.
+wwwutils.make_serialized_dags_env_var_file(
+    STORE_SERIALIZED_DAGS,
+    os.getenv('AIRFLOW_SERIALIZED_DAGS_ENV_FILE', '/home/airflow/serialized_dags_env')
+)
+
+if not async_dagbag_loader:
+    dagbag = models.DagBag(settings.DAGS_FOLDER, store_serialized_dags=STORE_SERIALIZED_DAGS)
+else:
+    dagbag = dagbag_loader.create_async_dagbag(settings.DAGS_FOLDER)
 
 login_required = airflow.login.login_required
 current_user = airflow.login.current_user
@@ -176,8 +190,8 @@ def task_instance_link(v, c, m, p):
 def state_token(state):
     color = State.color(state)
     return Markup(
-        '<span class="label" style="background-color:{color};">'
-        '{state}</span>').format(**locals())
+        "<span class='label' style='background-color:{color};'>"
+        "{state}</span>").format(**locals())
 
 
 def parse_datetime_f(value):
@@ -837,6 +851,7 @@ class Airflow(AirflowViewMixin, BaseView):
         try:
             ti.get_rendered_template_fields()
         except Exception as e:
+            logging.warning("Rendering template failed: %s", e)
             msg = "Error rendering template: " + escape(e)
             if six.PY3:
                 if e.__cause__:
@@ -897,7 +912,7 @@ class Airflow(AirflowViewMixin, BaseView):
             return response
 
         logger = logging.getLogger('airflow.task')
-        task_log_reader = conf.get('core', 'task_log_reader')
+        task_log_reader = 'task'
         handler = next((handler for handler in logger.handlers
                         if handler.name == task_log_reader), None)
 
@@ -1174,7 +1189,9 @@ class Airflow(AirflowViewMixin, BaseView):
         if not valid_celery_config and not valid_kubernetes_config:
             flash("Only works with the Celery or Kubernetes executors, sorry", "error")
             return redirect(origin)
-
+        flash("The Run operation is currently not supported in Composer, but "
+              "you can clear the task instance which will be executed automatically.")
+        return redirect(origin)
         ti = models.TaskInstance(task=task, execution_date=execution_date)
         ti.refresh_from_db()
 
@@ -3323,7 +3340,7 @@ class ConfigurationView(wwwutils.SuperUserMixin, AirflowViewMixin, BaseView):
 
 class DagModelView(wwwutils.SuperUserMixin, ModelView):
     column_list = ('dag_id', 'owners')
-    column_editable_list = ('is_paused', 'description', 'default_view')
+    column_editable_list = ()
     form_excluded_columns = ('is_subdag', 'is_active')
     column_searchable_list = ('dag_id',)
     column_filters = (
@@ -3341,6 +3358,10 @@ class DagModelView(wwwutils.SuperUserMixin, ModelView):
         'pickle_size': {'disabled': True},
         'scheduler_lock': {'disabled': True},
         'owners': {'disabled': True},
+        'description': {'disabled': True},
+        'default_view': {'disabled': True},
+        'tags': {'disabled': True},
+        'root_dag_id': {'disabled': True},
     }
     column_formatters = dict(
         dag_id=dag_link,

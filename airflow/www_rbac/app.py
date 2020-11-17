@@ -17,7 +17,9 @@
 # specific language governing permissions and limitations
 # under the License.
 #
+import json
 import logging
+import os
 import socket
 import os
 from datetime import timedelta
@@ -35,6 +37,7 @@ from six.moves.urllib.parse import urlparse
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.middleware.dispatcher import DispatcherMiddleware
 
+import airflow
 from airflow import settings, version
 from airflow.configuration import conf
 from airflow.logging_config import configure_logging
@@ -47,6 +50,28 @@ csrf = CSRFProtect()
 
 log = logging.getLogger(__name__)
 
+if os.path.isfile('/home/airflow/gcs/env_var.json') \
+  or os.path.isfile('/home/airflow/gcs/env_var.json.bkp'):
+    try:
+        with open('/home/airflow/gcs/env_var.json', 'r') as env_var_json:
+            env_var_content = json.load(env_var_json)
+            os.environ.update(env_var_content)
+        with open('/home/airflow/gcs/env_var.json.bkp', 'w') as env_var_backup:
+            json.dump(env_var_content, env_var_backup)
+    except:
+        try:
+            with open('/home/airflow/gcs/env_var.json.bkp', 'r') as env_var_json:
+                env_var_content = json.load(env_var_json)
+                os.environ.update(env_var_content)
+            log.info('Composer Environment Variables were loaded from backup.')
+        except:
+            log.warning('Using default Composer Environment Variables. Overrides '
+                        'have not been applied.')
+
+if not conf.getboolean('core', 'unit_test_mode'):
+    airflow.plugins_manager = six.moves.reload_module(airflow.plugins_manager)
+    airflow.configuration = six.moves.reload_module(airflow.configuration)
+    airflow = six.moves.reload_module(airflow)
 
 def create_app(config=None, session=None, testing=False, app_name="Airflow"):
     global app, appbuilder
@@ -69,6 +94,11 @@ def create_app(config=None, session=None, testing=False, app_name="Airflow"):
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['APP_NAME'] = app_name
     app.config['TESTING'] = testing
+
+    try:
+        app.config['WEB_SERVER_NAME'] = conf.get('webserver', 'WEB_SERVER_NAME')
+    except:
+        app.config['WEB_SERVER_NAME'] = ''
 
     app.config['SESSION_COOKIE_HTTPONLY'] = True
     app.config['SESSION_COOKIE_SECURE'] = conf.getboolean('webserver', 'COOKIE_SECURE')
@@ -162,7 +192,8 @@ def create_app(config=None, session=None, testing=False, app_name="Airflow"):
             if "dev" in version.version:
                 airflow_doc_site = "https://s.apache.org/airflow-docs"
             else:
-                airflow_doc_site = 'https://airflow.apache.org/docs/apache-airflow/{}'.format(version.version)
+                airflow_doc_site = 'https://airflow.apache.org/docs/apache-airflow/{}'.format(
+                    version.open_source_version())
 
             appbuilder.add_link("Documentation",
                                 href=airflow_doc_site,
