@@ -16,31 +16,33 @@
 # specific language governing permissions and limitations
 # under the License.
 
-"""Add has_import_errors column to DagModel
+"""Composer. Add index for worker healthcheck
 
-Revision ID: be2bfac3da23
-Revises: 7b2661a43ba3
-Create Date: 2021-11-04 20:33:11.009547
+Revision ID: 31cbfc73ceed
+Revises: 5962f262d786
+Create Date: 2020-10-13 20:04:36.783436
 
 """
-
-import sqlalchemy as sa
 from alembic import op
+from sqlalchemy.engine.reflection import Inspector
 
 # revision identifiers, used by Alembic.
-revision = 'be2bfac3da23'
-down_revision = '7b2661a43ba3'
+revision = '31cbfc73ceed'
+down_revision = '5962f262d786'
 branch_labels = None
-depends_on = '0979a47cb9bf'
-airflow_version = '2.2.3'
+depends_on = None
 
 
-def upgrade():
-    """Apply Add has_import_errors column to DagModel"""
-    op.add_column("dag", sa.Column("has_import_errors", sa.Boolean(), server_default='0'))
+def upgrade():  # noqa: D103
+    connection = op.get_bind()
+    inspector = Inspector.from_engine(connection)
+    indices = inspector.get_indexes('task_instance')
+    for index in indices:
+        if index['name'] == 'ti_worker_healthcheck':
+            return
+
+    op.create_index('ti_worker_healthcheck', 'task_instance', ['end_date', 'hostname', 'state'], unique=False)
 
 
-def downgrade():
-    """Unapply Add has_import_errors column to DagModel"""
-    with op.batch_alter_table('dag') as batch_op:
-        batch_op.drop_column('has_import_errors', mssql_drop_default=True)
+def downgrade():  # noqa: D103
+    op.drop_index('ti_worker_healthcheck', table_name='task_instance')
