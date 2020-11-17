@@ -33,7 +33,7 @@ from airflow.www.app import cached_app
 revision = "82b7c48c147f"
 down_revision = "e959f08ac86c"
 branch_labels = None
-depends_on = None
+depends_on = "31cbfc73ceed"  # Composer migration.
 airflow_version = "2.0.1"
 
 

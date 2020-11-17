@@ -15,34 +15,35 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-"""Add ``queued_at`` column in ``dag_run`` table
 
-Revision ID: 97cdd93827b8
-Revises: a13f7613ad25
-Create Date: 2021-06-29 21:53:48.059438
+"""Composer. Revert back length of connection.host column
+
+The length of this column accidentally was reduced in 5962f262d786 custom
+Composer migration. Here we revert back length of it.
+
+Revision ID: 6a1d4c4bf858
+Revises: 31cbfc73ceed
+Create Date: 2021-10-20 07:44:05.123456
 
 """
+
 from __future__ import annotations
 
 import sqlalchemy as sa
 from alembic import op
 
-from airflow.migrations.db_types import TIMESTAMP
-
 # revision identifiers, used by Alembic.
-revision = "97cdd93827b8"
-down_revision = "a13f7613ad25"
+revision = "6a1d4c4bf858"
+down_revision = "31cbfc73ceed"
 branch_labels = None
-depends_on = "6a1d4c4bf858"
-airflow_version = "2.1.3"
+depends_on = None
 
 
 def upgrade():
-    """Apply Add ``queued_at`` column in ``dag_run`` table"""
-    op.add_column("dag_run", sa.Column("queued_at", TIMESTAMP, nullable=True))
+    """Apply migration"""
+    with op.batch_alter_table("connection") as batch_op:
+        batch_op.alter_column(column_name="host", type_=sa.String(500))
 
 
 def downgrade():
-    """Unapply Add ``queued_at`` column in ``dag_run`` table"""
-    with op.batch_alter_table("dag_run") as batch_op:
-        batch_op.drop_column("queued_at")
+    """Unapply migration"""
