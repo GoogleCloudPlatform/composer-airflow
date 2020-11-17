@@ -17,6 +17,8 @@
 # specific language governing permissions and limitations
 # under the License.
 """File logging handler for tasks."""
+
+import json
 import logging
 import os
 from typing import Optional
@@ -27,6 +29,31 @@ from airflow.configuration import conf
 from airflow.configuration import AirflowConfigException
 from airflow.utils.file import mkdirs
 from airflow.utils.helpers import parse_template_string
+
+
+class StreamTaskHandler(logging.StreamHandler):
+    def __init__(self, *args, **kwargs):
+        super(StreamTaskHandler, self).__init__(*args, **kwargs)
+        self.workflow_info = {}
+
+    def set_context(self, ti):
+        """
+        Provide task_instance context to airflow task handler.
+
+        :param ti: task instance object
+        """
+        self.workflow_info = {
+            'workflow': ti.dag_id,
+            'task-id': ti.task_id,
+            'execution-date': ti.execution_date.isoformat()
+        }
+
+    def emit(self, record):
+        # @-@: special delimiter for appending workflow info.
+        delimiter = '@-@'
+        if self.workflow_info and delimiter not in str(record.args):
+            record.msg = str(record.msg) + delimiter + json.dumps(self.workflow_info)
+        super(StreamTaskHandler, self).emit(record)
 
 
 class FileTaskHandler(logging.Handler):
@@ -45,6 +72,7 @@ class FileTaskHandler(logging.Handler):
         self.local_base = base_log_folder
         self.filename_template, self.filename_jinja_template = \
             parse_template_string(filename_template)
+        self.workflow_info = {}
 
     def set_context(self, ti):
         """
@@ -57,8 +85,17 @@ class FileTaskHandler(logging.Handler):
         if self.formatter:
             self.handler.setFormatter(self.formatter)
         self.handler.setLevel(self.level)
+        self.workflow_info = {
+            'workflow': ti.dag_id,
+            'task-id': ti.task_id,
+            'execution-date': ti.execution_date.isoformat()
+        }
 
     def emit(self, record):
+        # @-@: special delimiter for appending workflow info.
+        delimiter = '@-@'
+        if delimiter not in str(record.args):
+            record.msg = str(record.msg) + delimiter + json.dumps(self.workflow_info)
         if self.handler:
             self.handler.emit(record)
 

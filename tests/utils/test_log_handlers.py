@@ -60,7 +60,7 @@ class TestFileTaskLogHandler(unittest.TestCase):
         # file task handler is used by default.
         logger = logging.getLogger(TASK_LOGGER)
         handlers = logger.handlers
-        self.assertEqual(len(handlers), 1)
+        self.assertEqual(len(handlers), 2)
         handler = handlers[0]
         self.assertEqual(handler.name, FILE_TASK_HANDLER)
 
@@ -103,7 +103,7 @@ class TestFileTaskLogHandler(unittest.TestCase):
         self.assertEqual(len(logs), 1)
         self.assertEqual(len(logs), len(metadatas))
         self.assertTrue(isinstance(metadatas[0], dict))
-        target_re = r'\n\[[^\]]+\] {test_log_handlers.py:\d+} INFO - test\n'
+        target_re = r'\n\[[^\]]+\] {test_log_handlers.py:\d+} INFO - test'
 
         # We should expect our log line from the callable above to appear in
         # the logs we read back

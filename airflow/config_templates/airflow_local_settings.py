@@ -72,9 +72,14 @@ DEFAULT_LOGGING_CONFIG = {
     },
     'handlers': {
         'console': {
-            'class': 'airflow.utils.log.logging_mixin.RedirectStdHandler',
-            'formatter': 'airflow_coloured',
-            'stream': 'sys.stdout'
+            'class': 'airflow.utils.log.file_task_handler.StreamTaskHandler',
+            'formatter': 'airflow',
+            'stream': 'ext://sys.__stdout__'
+        },
+        'task_console': {
+            'class': 'airflow.utils.log.file_task_handler.StreamTaskHandler',
+            'formatter': 'airflow',
+            'stream': 'ext://sys.__stdout__'
         },
         'task': {
             'class': 'airflow.utils.log.file_task_handler.FileTaskHandler',
@@ -96,7 +101,7 @@ DEFAULT_LOGGING_CONFIG = {
             'propagate': False,
         },
         'airflow.task': {
-            'handlers': ['task'],
+            'handlers': ['task', 'task_console'],
             'level': LOG_LEVEL,
             'propagate': False,
         },
@@ -148,9 +153,6 @@ if os.environ.get('CONFIG_PROCESSOR_MANAGER_LOGGER') == 'True':
     directory = os.path.dirname(processor_manager_handler_config['filename'])
     mkdirs(directory, 0o755)
 
-##################
-# Remote logging #
-##################
 
 REMOTE_LOGGING = conf.getboolean('core', 'remote_logging')
 
@@ -178,17 +180,7 @@ if REMOTE_LOGGING:
 
         DEFAULT_LOGGING_CONFIG['handlers'].update(S3_REMOTE_HANDLERS)
     elif REMOTE_BASE_LOG_FOLDER.startswith('gs://'):
-        GCS_REMOTE_HANDLERS = {
-            'task': {
-                'class': 'airflow.utils.log.gcs_task_handler.GCSTaskHandler',
-                'formatter': 'airflow',
-                'base_log_folder': os.path.expanduser(BASE_LOG_FOLDER),
-                'gcs_log_folder': REMOTE_BASE_LOG_FOLDER,
-                'filename_template': FILENAME_TEMPLATE,
-            },
-        }
-
-        DEFAULT_LOGGING_CONFIG['handlers'].update(GCS_REMOTE_HANDLERS)
+        pass
     elif REMOTE_BASE_LOG_FOLDER.startswith('wasb'):
         WASB_REMOTE_HANDLERS = {
             'task': {

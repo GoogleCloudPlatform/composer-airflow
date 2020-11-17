@@ -572,17 +572,13 @@ class TestLogsfromTaskRunCommand(unittest.TestCase):
             logs = l_file.read()
 
         print(logs)     # In case of a test failures this line would show detailed log
-        logs_list = logs.splitlines()
 
-        self.assertIn("INFO - Started process", logs)
         self.assertIn("Subtask {}".format(self.task_id), logs)
-        self.assertIn("standard_task_runner.py", logs)
         self.assertIn("INFO - Running: ['airflow', 'run', '{}', "
                       "'{}', '{}',".format(self.dag_id, self.task_id, self.execution_date_str), logs)
 
-        self.assert_log_line("Log from DAG Logger", logs_list)
-        self.assert_log_line("Log from TI Logger", logs_list)
-        self.assert_log_line("Log from Print statement", logs_list, expect_from_logging_mixin=True)
+        self.assertIn("Log from TI Logger", logs)
+        self.assertIn("Log from Print statement", logs)
 
         self.assertIn("INFO - Marking task as SUCCESS.dag_id={}, task_id={}, "
                       "execution_date=20170101T000000".format(self.dag_id, self.task_id), logs)
@@ -599,13 +595,12 @@ class TestLogsfromTaskRunCommand(unittest.TestCase):
             logs = l_file.read()
 
         print(logs)     # In case of a test failures this line would show detailed log
-        logs_list = logs.splitlines()
 
         self.assertIn("Subtask {}".format(self.task_id), logs)
         self.assertIn("base_task_runner.py", logs)
-        self.assert_log_line("Log from DAG Logger", logs_list)
-        self.assert_log_line("Log from TI Logger", logs_list)
-        self.assert_log_line("Log from Print statement", logs_list, expect_from_logging_mixin=True)
+        self.assertIn("Log from DAG Logger", logs)
+        self.assertIn("Log from TI Logger", logs)
+        self.assertIn("Log from Print statement", logs)
 
         self.assertIn("INFO - Running: ['airflow', 'run', '{}', "
                       "'{}', '{}',".format(self.dag_id, self.task_id, self.execution_date_str), logs)
@@ -681,7 +676,6 @@ class TestWorkerStart(unittest.TestCase):
             concurrency=int(concurrency),
             autoscale=autoscale,
             hostname=celery_hostname,
-            loglevel=mock.ANY,
         )
 
 

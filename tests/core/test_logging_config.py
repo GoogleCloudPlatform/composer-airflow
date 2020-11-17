@@ -240,10 +240,11 @@ class TestLoggingSettings(unittest.TestCase):
 
     def test_1_9_config(self):
         from airflow.logging_config import configure_logging
-        with conf_vars({('core', 'task_log_reader'): 'file.task'}):
-            with self.assertWarnsRegex(DeprecationWarning, r'file.task'):
-                configure_logging()
-            self.assertEqual(conf.get('core', 'task_log_reader'), 'task')
+        conf.set('core', 'task_log_reader', 'file.task')
+        try:
+            configure_logging()
+        finally:
+            conf.remove_option('core', 'task_log_reader', remove_default=False)
 
     def test_loading_remote_logging_with_wasb_handler(self):
         """Test if logging can be configured successfully for Azure Blob Storage"""

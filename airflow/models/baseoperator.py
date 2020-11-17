@@ -21,7 +21,6 @@ Base operator for all operators.
 """
 import copy
 import functools
-import logging
 import sys
 import warnings
 
@@ -426,8 +425,6 @@ class BaseOperator(LoggingMixin):
         # Setting it to None by default as other Operators do not have that field
         self.subdag = None   # type: Optional[DAG]
 
-        self._log = logging.getLogger("airflow.task.operators")
-
         # lineage
         self.inlets = []   # type: List[DataSet]
         self.outlets = []  # type: List[DataSet]
@@ -691,16 +688,6 @@ class BaseOperator(LoggingMixin):
             else:
                 setattr(result, k, copy.copy(v))
         return result
-
-    def __getstate__(self):
-        state = dict(self.__dict__)
-        del state['_log']
-
-        return state
-
-    def __setstate__(self, state):
-        self.__dict__ = state
-        self._log = logging.getLogger("airflow.task.operators")
 
     def render_template_fields(self, context, jinja_env=None):
         # type: (Dict, Optional[jinja2.Environment]) -> None
