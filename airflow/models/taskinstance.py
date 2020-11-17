@@ -375,7 +375,7 @@ class TaskInstance(Base, LoggingMixin):
     state = Column(String(20))
     _try_number = Column("try_number", Integer, default=0)
     max_tries = Column(Integer, server_default=text("-1"))
-    hostname = Column(String(1000))
+    hostname = Column(String(100))
     unixname = Column(String(1000))
     job_id = Column(Integer)
     pool = Column(String(256), nullable=False)
@@ -415,6 +415,7 @@ class TaskInstance(Base, LoggingMixin):
         Index("ti_state_lkp", dag_id, task_id, run_id, state),
         Index("ti_pool", pool, state, priority_weight),
         Index("ti_job_id", job_id),
+        Index("ti_worker_healthcheck", end_date, hostname, state),
         Index("ti_trigger_id", trigger_id),
         PrimaryKeyConstraint(
             "dag_id", "task_id", "run_id", "map_index", name="task_instance_pkey", mssql_clustered=True
