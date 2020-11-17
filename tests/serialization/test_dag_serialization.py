@@ -105,7 +105,12 @@ serialized_simple_dag_ground_truth = {
                     ]
                 }
             }
-        }
+        },
+        '_concurrency': 16,
+        '_default_view': 'tree',
+        'catchup': True,
+        'max_active_runs': 16,
+        'orientation': 'LR',
     },
 }
 
@@ -287,16 +292,19 @@ class TestStringifiedDAGs(unittest.TestCase):
         for dag_id in stringified_dags:
             self.validate_deserialized_dag(stringified_dags[dag_id], dags[dag_id])
 
-    def test_roundtrip_provider_example_dags(self):
-        dags = collect_dags([
-            "airflow/providers/*/example_dags",
-            "airflow/providers/*/*/example_dags",
-        ])
+        example_skip_dag = stringified_dags['example_skip_dag']
+        self.validate_deserialized_task(
+            stringified_dags['example_skip_dag'].get_task('skip_operator_1'),
+            dags['example_skip_dag'].get_task('skip_operator_1'))
 
-        # Verify deserialized DAGs.
-        for dag in dags.values():
-            serialized_dag = SerializedDAG.from_json(SerializedDAG.to_json(dag))
-            self.validate_deserialized_dag(serialized_dag, dag)
+        # Verify that the DAG object has 'full_filepath' attribute
+        # and is equal to fileloc
+        self.assertTrue(hasattr(example_skip_dag, 'full_filepath'))
+        self.assertEqual(example_skip_dag.full_filepath, example_skip_dag.fileloc)
+
+        self.validate_deserialized_task(
+            stringified_dags['example_subdag_operator'].get_task('section-1'),
+            dags['example_subdag_operator'].get_task('section-1'))
 
     def validate_deserialized_dag(self, serialized_dag, dag):
         """
@@ -362,8 +370,7 @@ class TestStringifiedDAGs(unittest.TestCase):
         assert serialized_task.downstream_task_ids == task.downstream_task_ids
 
         for field in fields_to_check:
-            assert getattr(serialized_task, field) == getattr(task, field), \
-                '{}.{}.{} does not match'.format(task.dag.dag_id, task.task_id, field)
+            assert getattr(serialized_task, field) == getattr(task, field)
 
         if serialized_task.resources is None:
             assert task.resources is None or task.resources == []

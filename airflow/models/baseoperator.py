@@ -251,8 +251,7 @@ class BaseOperator(LoggingMixin):
     # base list which includes all the attrs that don't need deep copy.
     _base_operator_shallow_copy_attrs = ('user_defined_macros',
                                          'user_defined_filters',
-                                         'params',
-                                         '_log',)  # type: Iterable[str]
+                                         'params')  # type: Iterable[str]
 
     # each operator should override this class attr for shallow copy attrs.
     shallow_copy_attrs = ()  # type: Iterable[str]
