@@ -15,35 +15,41 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-"""add pool_slots field to task_instance
 
-Revision ID: a4c2fd67d16b
-Revises: 7939bcff74ba
-Create Date: 2020-01-14 03:35:01.161519
+"""Change type of DagCode.source_code column
+
+Revision ID: 7624214387e4
+Revises: da3f683c3a5a
+Create Date: 2020-10-19 21:14:50.537315
 
 """
 
-import sqlalchemy as sa
-from alembic import op
-from sqlalchemy.engine.reflection import Inspector
-
 # revision identifiers, used by Alembic.
-revision = 'a4c2fd67d16b'
-down_revision = '7939bcff74ba'
+revision = '7624214387e4'
+down_revision = 'da3f683c3a5a'
 branch_labels = None
 depends_on = None
+
+from alembic import op  # noqa
+import sqlalchemy as sa  # noqa
+from sqlalchemy.dialects import mysql  # noqa
 
 
 def upgrade():
     conn = op.get_bind()
-    inspector = Inspector.from_engine(conn)
-
-    task_instance_column_names = [
-        column['name'] for column in inspector.get_columns('task_instance')
-    ]
-    if 'pool_slots' not in task_instance_column_names:
-        op.add_column('task_instance', sa.Column('pool_slots', sa.Integer, default=1))
+    if conn.dialect.name == 'mysql':
+        conn.execute('truncate table dag_code')
+        op.drop_column(table_name='dag_code', column_name='source_code')
+        op.add_column(
+            table_name='dag_code',
+            column=sa.Column(
+                'source_code', mysql.MEDIUMTEXT(unicode=True), nullable=False))
 
 
 def downgrade():
-    op.drop_column('task_instance', 'pool_slots')
+    conn = op.get_bind()
+    if conn.dialect.name == 'mysql':
+        op.drop_column(table_name='dag_code', column_name='source_code')
+        op.add_column(
+            table_name='dag_code',
+            column=sa.Column('source_code', sa.UnicodeText(), nullable=False))

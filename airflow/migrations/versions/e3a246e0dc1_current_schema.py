@@ -48,7 +48,7 @@ def upgrade():
             sa.Column('id', sa.Integer(), nullable=False),
             sa.Column('conn_id', sa.String(length=250), nullable=True),
             sa.Column('conn_type', sa.String(length=500), nullable=True),
-            sa.Column('host', sa.String(length=500), nullable=True),
+            sa.Column('host', sa.String(length=100), nullable=True),
             sa.Column('schema', sa.String(length=500), nullable=True),
             sa.Column('login', sa.String(length=500), nullable=True),
             sa.Column('password', sa.String(length=500), nullable=True),
@@ -101,7 +101,7 @@ def upgrade():
             sa.Column('end_date', sa.DateTime(), nullable=True),
             sa.Column('latest_heartbeat', sa.DateTime(), nullable=True),
             sa.Column('executor_class', sa.String(length=500), nullable=True),
-            sa.Column('hostname', sa.String(length=500), nullable=True),
+            sa.Column('hostname', sa.String(length=100), nullable=True),
             sa.Column('unixname', sa.String(length=1000), nullable=True),
             sa.PrimaryKeyConstraint('id')
         )
@@ -162,7 +162,7 @@ def upgrade():
             sa.Column('duration', sa.Integer(), nullable=True),
             sa.Column('state', sa.String(length=20), nullable=True),
             sa.Column('try_number', sa.Integer(), nullable=True),
-            sa.Column('hostname', sa.String(length=1000), nullable=True),
+            sa.Column('hostname', sa.String(length=100), nullable=True),
             sa.Column('unixname', sa.String(length=1000), nullable=True),
             sa.Column('job_id', sa.Integer(), nullable=True),
             sa.Column('pool', sa.String(length=50), nullable=True),

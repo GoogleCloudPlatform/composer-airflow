@@ -15,35 +15,38 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-"""add pool_slots field to task_instance
 
-Revision ID: a4c2fd67d16b
-Revises: 7939bcff74ba
-Create Date: 2020-01-14 03:35:01.161519
+"""Add index for worker healthcheck
+
+Revision ID: 31cbfc73ceed
+Revises: 7624214387e4
+Create Date: 2020-10-13 20:04:36.783436
 
 """
-
-import sqlalchemy as sa
 from alembic import op
+
 from sqlalchemy.engine.reflection import Inspector
 
 # revision identifiers, used by Alembic.
-revision = 'a4c2fd67d16b'
-down_revision = '7939bcff74ba'
+revision = '31cbfc73ceed'
+down_revision = '7624214387e4'
 branch_labels = None
 depends_on = None
 
 
 def upgrade():
-    conn = op.get_bind()
-    inspector = Inspector.from_engine(conn)
+    connection = op.get_bind()
+    inspector = Inspector.from_engine(connection)
+    indices = inspector.get_indexes('task_instance')
+    if any(i['name'] == 'ti_worker_healthcheck' for i in indices):
+        return
 
-    task_instance_column_names = [
-        column['name'] for column in inspector.get_columns('task_instance')
-    ]
-    if 'pool_slots' not in task_instance_column_names:
-        op.add_column('task_instance', sa.Column('pool_slots', sa.Integer, default=1))
+    op.create_index(
+        'ti_worker_healthcheck', 'task_instance',
+        ['end_date', 'hostname', 'state'],
+        unique=False
+    )
 
 
 def downgrade():
-    op.drop_column('task_instance', 'pool_slots')
+    op.drop_index('ti_worker_healthcheck', table_name='task_instance')
