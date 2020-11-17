@@ -140,12 +140,18 @@ class _Dataflow(LoggingMixin):
 
     @staticmethod
     def _extract_job(line):
-        # Job id info: https://goo.gl/SE29y9.
+        # The pattern changed in 2.20 version of the apache-beam.
+        # Old job id info: https://goo.gl/SE29y9
+        # New job id info: http://shortn/_nzhJ40427C
+        old_job_id_pattern = re.compile(
+            b'.*console.cloud.google.com/dataflow/jobsDetail/locations/.*/jobs/([a-z|0-9|A-Z|\-|_]+).*')  # noqa
         job_id_pattern = re.compile(
-            br'.*console.cloud.google.com/dataflow.*/jobs/([a-z|0-9|A-Z|\-|\_]+).*')
-        matched_job = job_id_pattern.search(line or '')
-        if matched_job:
-            return matched_job.group(1).decode()
+            b'.*console.cloud.google.com/dataflow/jobs/.*/([a-z|0-9|A-Z|\-|_]+).*')  # noqa
+
+        for pattern in (old_job_id_pattern, job_id_pattern):
+            matched_job = pattern.search(line or '')
+            if matched_job:
+                return matched_job.group(1).decode()
 
     def wait_for_done(self):
         reads = [self._proc.stderr.fileno(), self._proc.stdout.fileno()]
@@ -236,7 +242,7 @@ class DataFlowHook(GoogleCloudBaseHook):
         def label_formatter(labels_dict):
             return ['--labels={}={}'.format(key, value)
                     for key, value in labels_dict.items()]
-        self._start_dataflow(variables, name, ["python2"] + py_options + [dataflow],
+        self._start_dataflow(variables, name, ["python"] + py_options + [dataflow],
                              label_formatter)
 
     @staticmethod
