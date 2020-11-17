@@ -589,6 +589,10 @@ def create_default_connections(session=None):
 @provide_session
 def initdb(session=None):
     """Initialize Airflow database."""
+    if session.connection().dialect.name == 'postgresql':
+        log.info('Acquiring lock on database')
+        session.connection().execute('select PG_ADVISORY_LOCK(20180501);')
+
     upgradedb(session=session)
 
     if conf.getboolean('core', 'LOAD_DEFAULT_CONNECTIONS'):
@@ -606,6 +610,10 @@ def initdb(session=None):
         from flask_appbuilder.models.sqla import Base
 
         Base.metadata.create_all(settings.engine)
+
+    if session.connection().dialect.name == 'postgresql':
+        log.info('Releasing lock on database')
+        session.connection().execute('select PG_ADVISORY_UNLOCK(20180501);')
 
 
 def _get_alembic_config():

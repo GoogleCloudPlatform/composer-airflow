@@ -32,7 +32,7 @@ from sqlalchemy.dialects import mssql
 revision = '97cdd93827b8'
 down_revision = 'a13f7613ad25'
 branch_labels = None
-depends_on = None
+depends_on = '6a1d4c4bf858'
 
 
 def upgrade():
