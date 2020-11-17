@@ -15,34 +15,40 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-"""Add ``queued_at`` column in ``dag_run`` table
 
-Revision ID: 97cdd93827b8
-Revises: a13f7613ad25
-Create Date: 2021-06-29 21:53:48.059438
+"""Composer. Add index for worker healthcheck second time
+
+This index was already added in 31cbfc73ceed Composer migration, but after
+7b2661a43ba3 community migration this index is removed and here we add it back.
+
+Revision ID: 0979a47cb9bf
+Revises: 6a1d4c4bf858
+Create Date: 2021-12-23 11:56:05.123456
 
 """
+
 from __future__ import annotations
 
-import sqlalchemy as sa
 from alembic import op
-
-from airflow.migrations.db_types import TIMESTAMP
+from sqlalchemy.engine.reflection import Inspector
 
 # revision identifiers, used by Alembic.
-revision = "97cdd93827b8"
-down_revision = "a13f7613ad25"
+revision = "0979a47cb9bf"
+down_revision = "6a1d4c4bf858"
 branch_labels = None
-depends_on = "6a1d4c4bf858"
-airflow_version = "2.1.3"
+depends_on = "7b2661a43ba3"
 
 
 def upgrade():
-    """Apply Add ``queued_at`` column in ``dag_run`` table"""
-    op.add_column("dag_run", sa.Column("queued_at", TIMESTAMP, nullable=True))
+    connection = op.get_bind()
+    inspector = Inspector.from_engine(connection)
+    indices = inspector.get_indexes("task_instance")
+    for index in indices:
+        if index["name"] == "ti_worker_healthcheck":
+            return
+
+    op.create_index("ti_worker_healthcheck", "task_instance", ["end_date", "hostname", "state"], unique=False)
 
 
 def downgrade():
-    """Unapply Add ``queued_at`` column in ``dag_run`` table"""
-    with op.batch_alter_table("dag_run") as batch_op:
-        batch_op.drop_column("queued_at")
+    op.drop_index("ti_worker_healthcheck", table_name="task_instance")
