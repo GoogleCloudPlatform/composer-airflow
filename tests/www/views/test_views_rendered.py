@@ -33,7 +33,6 @@ from airflow.utils import timezone
 from airflow.utils.session import create_session
 from airflow.utils.state import DagRunState, TaskInstanceState
 from airflow.utils.types import DagRunType
-from tests.conftest import initial_db_init
 from tests.test_utils.db import clear_db_dags, clear_db_runs, clear_rendered_ti_fields
 from tests.test_utils.www import check_content_in_response, check_content_not_in_response
 
@@ -255,8 +254,8 @@ def test_rendered_template_secret(admin_client, create_dag_run, task_secret):
 if os.environ.get("_AIRFLOW_SKIP_DB_TESTS") == "true":
     # Handle collection of the test by non-db case
     Variable = mock.MagicMock()  # type: ignore[misc] # noqa: F811
-else:
-    initial_db_init()
+# Db initialization is done two times, here and in conftest,
+# which is causing problems with db lock.
 
 
 @pytest.mark.parametrize(

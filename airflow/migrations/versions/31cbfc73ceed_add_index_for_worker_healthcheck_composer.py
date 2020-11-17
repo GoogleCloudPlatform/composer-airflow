@@ -15,34 +15,36 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-"""Add ``queued_at`` column in ``dag_run`` table
 
-Revision ID: 97cdd93827b8
-Revises: a13f7613ad25
-Create Date: 2021-06-29 21:53:48.059438
+"""Composer. Add index for worker healthcheck
+
+Revision ID: 31cbfc73ceed
+Revises: 5962f262d786
+Create Date: 2020-10-13 20:04:36.783436
 
 """
 from __future__ import annotations
 
-import sqlalchemy as sa
 from alembic import op
-
-from airflow.migrations.db_types import TIMESTAMP
+from sqlalchemy.engine.reflection import Inspector
 
 # revision identifiers, used by Alembic.
-revision = "97cdd93827b8"
-down_revision = "a13f7613ad25"
+revision = "31cbfc73ceed"
+down_revision = "5962f262d786"
 branch_labels = None
-depends_on = "6a1d4c4bf858"
-airflow_version = "2.1.3"
+depends_on = None
 
 
 def upgrade():
-    """Apply Add ``queued_at`` column in ``dag_run`` table"""
-    op.add_column("dag_run", sa.Column("queued_at", TIMESTAMP, nullable=True))
+    connection = op.get_bind()
+    inspector = Inspector.from_engine(connection)
+    indices = inspector.get_indexes("task_instance")
+    for index in indices:
+        if index["name"] == "ti_worker_healthcheck":
+            return
+
+    op.create_index("ti_worker_healthcheck", "task_instance", ["end_date", "hostname", "state"], unique=False)
 
 
 def downgrade():
-    """Unapply Add ``queued_at`` column in ``dag_run`` table"""
-    with op.batch_alter_table("dag_run") as batch_op:
-        batch_op.drop_column("queued_at")
+    op.drop_index("ti_worker_healthcheck", table_name="task_instance")

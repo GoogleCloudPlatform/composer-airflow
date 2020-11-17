@@ -70,7 +70,7 @@ class Job(Base, LoggingMixin):
     end_date = Column(UtcDateTime())
     latest_heartbeat = Column(UtcDateTime())
     executor_class = Column(String(500))
-    hostname = Column(String(500))
+    hostname = Column(String(100))
     unixname = Column(String(1000))
 
     __table_args__ = (
