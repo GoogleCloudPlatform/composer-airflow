@@ -35,7 +35,6 @@ import six
 from flask._compat import PY2
 
 from airflow.operators.bash_operator import BashOperator
-from airflow.utils import timezone
 from airflow.utils.db import create_session
 from parameterized import parameterized
 from tests.compat import mock
@@ -54,6 +53,7 @@ from airflow.models.renderedtifields import RenderedTaskInstanceFields as RTIF
 from airflow.models.serialized_dag import SerializedDagModel
 from airflow.operators.dummy_operator import DummyOperator
 from airflow.settings import Session
+from airflow.utils import timezone
 from airflow.utils.timezone import datetime
 from airflow.www import app as application
 
@@ -587,7 +587,7 @@ class TestMountPoint(unittest.TestCase):
 
     def test_mount(self):
         # Test an endpoint that doesn't need auth!
-        resp = self.client.get('/test/health')
+        resp = self.client.get('/test/_ah/health')
         self.assertEqual(resp.status_code, 200)
         self.assertIn(b"healthy", resp.data)
 
@@ -624,6 +624,7 @@ class ViewWithDateTimeAndNumRunsAndDagRunsFormTester:
             run = dag.create_dagrun(
                 run_id=rd[0],
                 execution_date=rd[1],
+                start_date=timezone.utcnow(),
                 state=State.SUCCESS,
                 external_trigger=True
             )
@@ -1303,7 +1304,6 @@ class TestDagModelView(unittest.TestCase):
             self.EDIT_URL,
             data={
                 "fileloc": "/etc/passwd",
-                "description": "Set in tests",
             },
             follow_redirects=True,
         )
@@ -1313,7 +1313,6 @@ class TestDagModelView(unittest.TestCase):
         dm = session.query(DM).filter(DM.dag_id == 'example_bash_operator').one()
         session.close()
 
-        self.assertEqual(dm.description, "Set in tests")
         self.assertNotEqual(dm.fileloc, "/etc/passwd", "Disabled fields shouldn't be updated")
 
 

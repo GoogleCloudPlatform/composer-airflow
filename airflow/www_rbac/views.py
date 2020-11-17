@@ -63,9 +63,9 @@ from airflow.api.common.experimental.mark_tasks import (set_dag_run_state_to_suc
 from airflow.models import Connection, DagModel, DagRun, DagTag, Log, SlaMiss, TaskFail, XCom, errors
 from airflow.exceptions import AirflowException
 from airflow.models.dagcode import DagCode
-from airflow.settings import STATE_COLORS, STORE_SERIALIZED_DAGS
+from airflow.settings import STATE_COLORS
 from airflow.ti_deps.dep_context import RUNNING_DEPS, SCHEDULER_QUEUED_DEPS, DepContext
-from airflow.utils import timezone
+from airflow.utils import dagbag_loader, timezone
 from airflow.utils.dates import infer_time_unit, scale_time_units
 from airflow.utils.db import provide_session, create_session
 from airflow.utils.helpers import alchemy_to_dict, render_log_filename
@@ -83,10 +83,29 @@ PAGE_SIZE = conf.getint('webserver', 'page_size')
 FILTER_TAGS_COOKIE = 'tags_filter'
 FILTER_STATUS_COOKIE = 'dag_status_filter'
 
-if os.environ.get('SKIP_DAGS_PARSING') != 'True':
-    dagbag = models.DagBag(settings.DAGS_FOLDER, store_serialized_dags=STORE_SERIALIZED_DAGS)
-else:
+try:
+    async_dagbag_loader = conf.getboolean('webserver', 'async_dagbag_loader')
+except Exception:
+    async_dagbag_loader = False
+
+# If store_serialized_dags is True, scheduler writes serialized DAGs to DB, and webserver
+# reads DAGs from DB instead of importing from files.
+try:
+    STORE_SERIALIZED_DAGS = conf.getboolean('core', 'store_serialized_dags')
+except Exception:
+    STORE_SERIALIZED_DAGS = False
+
+# File serialized_dags_env contains an env var representing Airflow config store_serialized_dags.
+wwwutils.make_serialized_dags_env_var_file(STORE_SERIALIZED_DAGS,
+                                           os.getenv('AIRFLOW_SERIALIZED_DAGS_ENV_FILE',
+                                                     '/home/airflow/serialized_dags_env'))
+
+if os.environ.get('SKIP_DAGS_PARSING') == 'True':
     dagbag = models.DagBag(os.devnull, include_examples=False)
+elif async_dagbag_loader:
+    dagbag = dagbag_loader.create_async_dagbag(settings.DAGS_FOLDER)
+else:
+    dagbag = models.DagBag(settings.DAGS_FOLDER, store_serialized_dags=STORE_SERIALIZED_DAGS)
 
 
 def get_safe_url(url):
@@ -210,7 +229,7 @@ class AirflowBaseView(BaseView):
 
 
 class Airflow(AirflowBaseView):
-    @expose('/health')
+    @expose('/_ah/health')
     def health(self):
         """
         An endpoint helping check the health status of the Airflow instance,
@@ -563,8 +582,8 @@ class Airflow(AirflowBaseView):
         return wwwutils.json_response(resp)
 
     @expose('/code')
-    @has_dag_access(can_dag_read=True)
     @has_access
+    @has_dag_access(can_dag_read=True)
     @provide_session
     def code(self, session=None):
         all_errors = ""
@@ -591,8 +610,8 @@ class Airflow(AirflowBaseView):
             wrapped=conf.getboolean('webserver', 'default_wrap'))
 
     @expose('/dag_details')
-    @has_dag_access(can_dag_read=True)
     @has_access
+    @has_dag_access(can_dag_read=True)
     @provide_session
     def dag_details(self, session=None):
         dag_id = request.args.get('dag_id')
@@ -634,8 +653,8 @@ class Airflow(AirflowBaseView):
         return wwwutils.json_response(d)
 
     @expose('/rendered')
-    @has_dag_access(can_dag_read=True)
     @has_access
+    @has_dag_access(can_dag_read=True)
     @action_logging
     @provide_session
     def rendered(self, session=None):
@@ -681,8 +700,8 @@ class Airflow(AirflowBaseView):
             title=title)
 
     @expose('/get_logs_with_metadata')
-    @has_dag_access(can_dag_read=True)
     @has_access
+    @has_dag_access(can_dag_read=True)
     @action_logging
     @provide_session
     def get_logs_with_metadata(self, session=None):
@@ -774,8 +793,8 @@ class Airflow(AirflowBaseView):
             return jsonify(message=error_message, error=True, metadata=metadata)
 
     @expose('/log')
-    @has_dag_access(can_dag_read=True)
     @has_access
+    @has_dag_access(can_dag_read=True)
     @action_logging
     @provide_session
     def log(self, session=None):
@@ -807,8 +826,8 @@ class Airflow(AirflowBaseView):
             root=root, wrapped=conf.getboolean('webserver', 'default_wrap'))
 
     @expose('/elasticsearch')
-    @has_dag_access(can_dag_read=True)
     @has_access
+    @has_dag_access(can_dag_read=True)
     @action_logging
     @provide_session
     def elasticsearch(self, session=None):
@@ -825,8 +844,8 @@ class Airflow(AirflowBaseView):
         return redirect(url)
 
     @expose('/task')
-    @has_dag_access(can_dag_read=True)
     @has_access
+    @has_dag_access(can_dag_read=True)
     @action_logging
     def task(self):
         TI = models.TaskInstance
@@ -905,8 +924,8 @@ class Airflow(AirflowBaseView):
             dag=dag, title=title)
 
     @expose('/xcom')
-    @has_dag_access(can_dag_read=True)
     @has_access
+    @has_dag_access(can_dag_read=True)
     @action_logging
     @provide_session
     def xcom(self, session=None):
@@ -950,8 +969,8 @@ class Airflow(AirflowBaseView):
             dag=dag, title=title)
 
     @expose('/run', methods=['POST'])
-    @has_dag_access(can_dag_edit=True)
     @has_access
+    @has_dag_access(can_dag_edit=True)
     @action_logging
     def run(self):
         dag_id = request.form.get('dag_id')
@@ -987,6 +1006,10 @@ class Airflow(AirflowBaseView):
             flash("Only works with the Celery or Kubernetes executors, sorry", "error")
             return redirect(origin)
 
+        flash("The Run operation is currently not supported in Composer, but you can "
+              "clear the task instance which will be executed automatically.")
+        return redirect(origin)
+
         ti = models.TaskInstance(task=task, execution_date=execution_date)
         ti.refresh_from_db()
 
@@ -1018,8 +1041,8 @@ class Airflow(AirflowBaseView):
         return redirect(origin)
 
     @expose('/delete', methods=['POST'])
-    @has_dag_access(can_dag_edit=True)
     @has_access
+    @has_dag_access(can_dag_edit=True)
     @action_logging
     def delete(self):
         from airflow.api.common.experimental import delete_dag
@@ -1046,8 +1069,8 @@ class Airflow(AirflowBaseView):
         return redirect(origin)
 
     @expose('/trigger', methods=['POST', 'GET'])
-    @has_dag_access(can_dag_edit=True)
     @has_access
+    @has_dag_access(can_dag_edit=True)
     @action_logging
     @provide_session
     def trigger(self, session=None):
@@ -1148,8 +1171,8 @@ class Airflow(AirflowBaseView):
         return response
 
     @expose('/clear', methods=['POST'])
-    @has_dag_access(can_dag_edit=True)
     @has_access
+    @has_dag_access(can_dag_edit=True)
     @action_logging
     def clear(self):
         dag_id = request.form.get('dag_id')
@@ -1179,8 +1202,8 @@ class Airflow(AirflowBaseView):
                                    recursive=recursive, confirmed=confirmed, only_failed=only_failed)
 
     @expose('/dagrun_clear', methods=['POST'])
-    @has_dag_access(can_dag_edit=True)
     @has_access
+    @has_dag_access(can_dag_edit=True)
     @action_logging
     def dagrun_clear(self):
         dag_id = request.form.get('dag_id')
@@ -1299,8 +1322,8 @@ class Airflow(AirflowBaseView):
             return response
 
     @expose('/dagrun_failed', methods=['POST'])
-    @has_dag_access(can_dag_edit=True)
     @has_access
+    @has_dag_access(can_dag_edit=True)
     @action_logging
     def dagrun_failed(self):
         dag_id = request.form.get('dag_id')
@@ -1311,8 +1334,8 @@ class Airflow(AirflowBaseView):
                                                  confirmed, origin)
 
     @expose('/dagrun_success', methods=['POST'])
-    @has_dag_access(can_dag_edit=True)
     @has_access
+    @has_dag_access(can_dag_edit=True)
     @action_logging
     def dagrun_success(self):
         dag_id = request.form.get('dag_id')
@@ -1365,8 +1388,8 @@ class Airflow(AirflowBaseView):
         return response
 
     @expose('/failed', methods=['POST'])
-    @has_dag_access(can_dag_edit=True)
     @has_access
+    @has_dag_access(can_dag_edit=True)
     @action_logging
     def failed(self):
         dag_id = request.form.get('dag_id')
@@ -1385,8 +1408,8 @@ class Airflow(AirflowBaseView):
                                               future, past, State.FAILED)
 
     @expose('/success', methods=['POST'])
-    @has_dag_access(can_dag_edit=True)
     @has_access
+    @has_dag_access(can_dag_edit=True)
     @action_logging
     def success(self):
         dag_id = request.form.get('dag_id')
@@ -1405,8 +1428,8 @@ class Airflow(AirflowBaseView):
                                               future, past, State.SUCCESS)
 
     @expose('/tree')
-    @has_dag_access(can_dag_read=True)
     @has_access
+    @has_dag_access(can_dag_read=True)
     @gzipped
     @action_logging
     @provide_session
@@ -1574,8 +1597,8 @@ class Airflow(AirflowBaseView):
             show_external_logs=bool(external_logs))
 
     @expose('/graph')
-    @has_dag_access(can_dag_read=True)
     @has_access
+    @has_dag_access(can_dag_read=True)
     @gzipped
     @action_logging
     @provide_session
@@ -1675,8 +1698,8 @@ class Airflow(AirflowBaseView):
             show_external_logs=bool(external_logs))
 
     @expose('/duration')
-    @has_dag_access(can_dag_read=True)
     @has_access
+    @has_dag_access(can_dag_read=True)
     @action_logging
     @provide_session
     def duration(self, session=None):
@@ -1788,8 +1811,8 @@ class Airflow(AirflowBaseView):
         )
 
     @expose('/tries')
-    @has_dag_access(can_dag_read=True)
     @has_access
+    @has_dag_access(can_dag_read=True)
     @action_logging
     @provide_session
     def tries(self, session=None):
@@ -1855,8 +1878,8 @@ class Airflow(AirflowBaseView):
         )
 
     @expose('/landing_times')
-    @has_dag_access(can_dag_read=True)
     @has_access
+    @has_dag_access(can_dag_read=True)
     @action_logging
     @provide_session
     def landing_times(self, session=None):
@@ -1934,8 +1957,8 @@ class Airflow(AirflowBaseView):
         )
 
     @expose('/paused', methods=['POST'])
-    @has_dag_access(can_dag_edit=True)
     @has_access
+    @has_dag_access(can_dag_edit=True)
     @action_logging
     @provide_session
     def paused(self, session=None):
@@ -1947,8 +1970,8 @@ class Airflow(AirflowBaseView):
         return "OK"
 
     @expose('/refresh', methods=['POST'])
-    @has_dag_access(can_dag_edit=True)
     @has_access
+    @has_dag_access(can_dag_edit=True)
     @action_logging
     @provide_session
     def refresh(self, session=None):
@@ -1970,8 +1993,8 @@ class Airflow(AirflowBaseView):
         return redirect(request.referrer)
 
     @expose('/gantt')
-    @has_dag_access(can_dag_read=True)
     @has_access
+    @has_dag_access(can_dag_read=True)
     @action_logging
     @provide_session
     def gantt(self, session=None):
@@ -2059,8 +2082,8 @@ class Airflow(AirflowBaseView):
         )
 
     @expose('/extra_links')
-    @has_dag_access(can_dag_read=True)
     @has_access
+    @has_dag_access(can_dag_read=True)
     @action_logging
     def extra_links(self):
         """
@@ -2118,8 +2141,8 @@ class Airflow(AirflowBaseView):
             return response
 
     @expose('/object/task_instances')
-    @has_dag_access(can_dag_read=True)
     @has_access
+    @has_dag_access(can_dag_read=True)
     @action_logging
     @provide_session
     def task_instances(self, session=None):

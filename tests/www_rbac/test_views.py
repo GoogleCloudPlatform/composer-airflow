@@ -355,7 +355,7 @@ class TestMountPoint(unittest.TestCase):
 
     def test_mount(self):
         # Test an endpoint that doesn't need auth!
-        resp = self.client.get('/test/health')
+        resp = self.client.get('/test/_ah/health')
         self.assertEqual(resp.status_code, 200)
         self.assertIn(b"healthy", resp.data)
 
@@ -419,7 +419,8 @@ class TestAirflowBaseViews(TestBase):
         if "dev" in version.version:
             airflow_doc_site = "https://airflow.readthedocs.io/en/latest"
         else:
-            airflow_doc_site = 'https://airflow.apache.org/docs/{}'.format(version.version)
+            airflow_doc_site = 'https://airflow.apache.org/docs/{}'.format(
+                version.open_source_version())
 
         self.check_content_in_response(airflow_doc_site, resp)
 
@@ -432,7 +433,7 @@ class TestAirflowBaseViews(TestBase):
                                  latest_heartbeat=last_scheduler_heartbeat_for_testing_1))
         self.session.commit()
 
-        resp_json = json.loads(self.client.get('health', follow_redirects=True).data.decode('utf-8'))
+        resp_json = json.loads(self.client.get('_ah/health', follow_redirects=True).data.decode('utf-8'))
 
         self.assertEqual('healthy', resp_json['metadatabase']['status'])
         self.assertEqual('healthy', resp_json['scheduler']['status'])
@@ -457,7 +458,7 @@ class TestAirflowBaseViews(TestBase):
                                  latest_heartbeat=last_scheduler_heartbeat_for_testing_2))
         self.session.commit()
 
-        resp_json = json.loads(self.client.get('health', follow_redirects=True).data.decode('utf-8'))
+        resp_json = json.loads(self.client.get('_ah/health', follow_redirects=True).data.decode('utf-8'))
 
         self.assertEqual('healthy', resp_json['metadatabase']['status'])
         self.assertEqual('unhealthy', resp_json['scheduler']['status'])
@@ -478,7 +479,7 @@ class TestAirflowBaseViews(TestBase):
             delete()
         self.session.commit()
 
-        resp_json = json.loads(self.client.get('health', follow_redirects=True).data.decode('utf-8'))
+        resp_json = json.loads(self.client.get('_ah/health', follow_redirects=True).data.decode('utf-8'))
 
         self.assertEqual('healthy', resp_json['metadatabase']['status'])
         self.assertEqual('unhealthy', resp_json['scheduler']['status'])
@@ -814,9 +815,9 @@ class TestAirflowBaseViews(TestBase):
 
             self.check_content_in_response('', resp, resp_code=200)
 
-            msg = "Task is in the &#39;{}&#39; state which is not a valid state for execution. " \
-                  .format(state) + "The task must be cleared in order to be run"
-            self.assertFalse(re.search(msg, resp.get_data(as_text=True)))
+            msg = "The Run operation is currently not supported in Composer, but " \
+                  "you can clear the task instance which will be executed automatically"
+            self.assertTrue(re.search(msg, resp.get_data(as_text=True)))
 
     @mock.patch('airflow.executors.get_default_executor')
     def test_run_with_not_runnable_states(self, get_default_executor_function):
@@ -844,8 +845,8 @@ class TestAirflowBaseViews(TestBase):
 
             self.check_content_in_response('', resp, resp_code=200)
 
-            msg = "Task is in the &#39;{}&#39; state which is not a valid state for execution. " \
-                  .format(state) + "The task must be cleared in order to be run"
+            msg = "The Run operation is currently not supported in Composer, but you " \
+                  "can clear the task instance which will be executed automatically"
             self.assertTrue(re.search(msg, resp.get_data(as_text=True)))
 
     def test_refresh(self):
@@ -1106,6 +1107,7 @@ class ViewWithDateTimeAndNumRunsAndDagRunsFormTester:
             run = dag.create_dagrun(
                 run_id=rd[0],
                 execution_date=rd[1],
+                start_date=timezone.utcnow(),
                 state=State.SUCCESS,
                 external_trigger=True
             )
