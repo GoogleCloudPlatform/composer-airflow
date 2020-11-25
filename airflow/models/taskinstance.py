@@ -2574,6 +2574,7 @@ class TaskInstance(Base, LoggingMixin):
                         previous_state=TaskInstanceState.RUNNING, task_instance=self, session=session
                     )
 
+            self.write_metrics()
             return None
 
     def _register_dataset_changes(self, *, session: Session) -> None:
@@ -3009,6 +3010,7 @@ class TaskInstance(Base, LoggingMixin):
             context=context,
             force_fail=force_fail,
         )
+        self.write_metrics()
 
     def is_eligible_to_retry(self):
         """Is task instance is eligible for retry."""
@@ -3631,6 +3633,53 @@ class TaskInstance(Base, LoggingMixin):
                     table.run_id == self.run_id,
                     table.map_index == self.map_index,
                 )
+            )
+
+    def write_metrics(self) -> None:
+        """
+        Write Statsd metrics of task instances for monitoring.
+
+        TODO(zhoufang): sometimes state is set after set_duration, sometimes
+            before. So we have to place this prober at multiple places.
+            It is better to change state, set duration using one method anywhere,
+            and add a prober in that method.
+        """
+        from airflow.composer.utils import get_composer_version
+        from airflow.utils.log.file_task_handler import FileTaskHandler
+
+        def _get_file_size(file_path) -> int:
+            """Get file size in bytes of a file by path."""
+            file_size = 0
+            if os.path.exists(file_path):
+                with open(file_path, "rb") as log_file:
+                    file_size = os.fstat(log_file.fileno()).st_size
+            return file_size
+
+        if get_composer_version() is not None:
+            handlers = logging.getLogger("airflow.task").handlers
+            for handler in handlers:
+                if not isinstance(handler, FileTaskHandler):
+                    continue
+
+                # self.try_number indicates the next try number so -1 is used to get the last try number
+                relative_path = handler._render_filename(self, self.try_number - 1)
+                full_path = os.path.join(handler.local_base, relative_path)
+                current_log_file_size = _get_file_size(full_path)
+                self.log.debug("Task run log file size is %s bytes.", str(current_log_file_size))
+                Stats.gauge(
+                    f"task.log_file_size.{self.dag_id}@-@{self.task_id}@-@{self.operator}@-@{self.state}",
+                    current_log_file_size,
+                )
+                break
+
+        if self.duration is not None and self.state in State.finished:
+            Stats.incr(
+                f"task.count.{self.dag_id}@-@{self.task_id}@-@{self.operator}@-@{self.state}@-@{self.queue}",
+                1,
+            )
+            Stats.gauge(
+                f"task.duration.{self.dag_id}@-@{self.task_id}@-@{self.operator}@-@{self.state}",
+                self.duration,
             )
 
 
