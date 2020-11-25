@@ -75,6 +75,10 @@ DEFAULT_LOGGING_CONFIG: dict[str, Any] = {
             "format": LOG_FORMAT,
             "class": LOG_FORMATTER_CLASS,
         },
+        "airflow_dag_processor_manager": {
+            "format": LOG_FORMAT,
+            "class": "airflow.composer.dag_processor_manager_formatter.DagProcessorManagerFormatter",
+        },
         "airflow_coloured": {
             "format": COLORED_LOG_FORMAT if COLORED_LOG else LOG_FORMAT,
             "class": COLORED_FORMATTER_CLASS if COLORED_LOG else LOG_FORMATTER_CLASS,
@@ -83,24 +87,36 @@ DEFAULT_LOGGING_CONFIG: dict[str, Any] = {
             "format": DAG_PROCESSOR_LOG_FORMAT,
             "class": LOG_FORMATTER_CLASS,
         },
+        "composer_airflow_task": {
+            "format": LOG_FORMAT,
+            "class": "airflow.composer.task_formatter.TaskFormatter",
+        },
     },
     "filters": {
         "mask_secrets": {
             "()": "airflow.utils.log.secrets_masker.SecretsMasker",
         },
+        "composer_filter": {
+            "()": "airflow.composer.custom_log_filter.ComposerFilter",
+        },
     },
     "handlers": {
         "console": {
             "class": "airflow.utils.log.logging_mixin.RedirectStdHandler",
-            "formatter": "airflow_coloured",
-            "stream": "sys.stdout",
-            "filters": ["mask_secrets"],
+            "formatter": "airflow",
+            "stream": "stdout",
+            "filters": ["mask_secrets", "composer_filter"],
         },
         "task": {
             "class": "airflow.utils.log.file_task_handler.FileTaskHandler",
             "formatter": "airflow",
             "base_log_folder": os.path.expanduser(BASE_LOG_FOLDER),
             "filters": ["mask_secrets"],
+        },
+        "task_console": {
+            "class": "airflow.utils.log.file_task_handler.StreamTaskHandler",
+            "formatter": "composer_airflow_task",
+            "stream": "ext://sys.__stdout__",
         },
         "processor": {
             "class": "airflow.utils.log.file_processor_handler.FileProcessorHandler",
@@ -119,12 +135,12 @@ DEFAULT_LOGGING_CONFIG: dict[str, Any] = {
     "loggers": {
         "airflow.processor": {
             "handlers": ["processor_to_stdout" if DAG_PROCESSOR_LOG_TARGET == "stdout" else "processor"],
-            "level": LOG_LEVEL,
+            "level": 99,  # Set higher than CRITICAL to not write logs of processing DAG files anywhere.
             # Set to true here (and reset via set_context) so that if no file is configured we still get logs!
             "propagate": True,
         },
         "airflow.task": {
-            "handlers": ["task"],
+            "handlers": ["task", "task_console"],
             "level": LOG_LEVEL,
             # Set to true here (and reset via set_context) so that if no file is configured we still get logs!
             "propagate": True,
@@ -164,16 +180,50 @@ DEFAULT_DAG_PARSING_LOGGING_CONFIG: dict[str, dict[str, dict[str, Any]]] = {
             "mode": "a",
             "maxBytes": 104857600,  # 100MB
             "backupCount": 5,
-        }
+        },
+        "processor_manager_console": {
+            "class": "airflow.utils.log.logging_mixin.RedirectStdHandler",
+            "formatter": "airflow_dag_processor_manager",
+            "stream": "stdout",
+        },
     },
     "loggers": {
         "airflow.processor_manager": {
-            "handlers": ["processor_manager"],
+            "handlers": ["processor_manager_console"],
             "level": LOG_LEVEL,
             "propagate": False,
         }
     },
 }
+
+# EXPERIMENTAL_CLOUD_LOGGING_ONLY is for the workaround solution for Private Preview release of logs in Cloud
+# Logging only for go/cc2-gcsfuse-ooms.
+# CLOUD_LOGGING_ONLY sets ComposerTaskHandler to stop writing logs and reading them from the Cloud Storage
+# mounted bucket.
+# go/composer-store-task-logs-in-cloud-logging-only-design-doc
+# TODO: When Cloud Logging Only is launched in Public Preview,
+# remove EXPERIMENTAL_CLOUD_LOGGING_ONLY environment variable.
+if (
+    os.environ.get("EXPERIMENTAL_CLOUD_LOGGING_ONLY") == "True"
+    or os.environ.get("CLOUD_LOGGING_ONLY") == "True"
+):
+    COMPOSER_TASK_HANDLER: dict[str, dict[str, str]] = {
+        "task": {
+            "class": "airflow.composer.composer_task_handler.ComposerTaskHandler",
+            "formatter": "composer_airflow_task",
+            "stream": "ext://sys.__stdout__",
+        },
+    }
+    AIRFLOW_TASK_LOGGER: dict[str, dict[str, Any]] = {
+        "airflow.task": {
+            "handlers": ["task"],
+            "level": LOG_LEVEL,
+            "propagate": False,
+            "filters": ["mask_secrets"],
+        },
+    }
+    DEFAULT_LOGGING_CONFIG["loggers"].update(AIRFLOW_TASK_LOGGER)
+    DEFAULT_LOGGING_CONFIG["handlers"].update(COMPOSER_TASK_HANDLER)
 
 # Only update the handlers and loggers when CONFIG_PROCESSOR_MANAGER_LOGGER is set.
 # This is to avoid exceptions when initializing RotatingFileHandler multiple times
@@ -196,7 +246,11 @@ if os.environ.get("CONFIG_PROCESSOR_MANAGER_LOGGER") == "True":
 
 REMOTE_LOGGING: bool = conf.getboolean("logging", "remote_logging")
 
-if REMOTE_LOGGING:
+if (
+    REMOTE_LOGGING
+    and os.environ.get("EXPERIMENTAL_CLOUD_LOGGING_ONLY") != "True"
+    and os.environ.get("CLOUD_LOGGING_ONLY") != "True"
+):
 
     ELASTICSEARCH_HOST: str | None = conf.get("elasticsearch", "HOST")
 
@@ -234,19 +288,20 @@ if REMOTE_LOGGING:
 
         DEFAULT_LOGGING_CONFIG["handlers"].update(CLOUDWATCH_REMOTE_HANDLERS)
     elif REMOTE_BASE_LOG_FOLDER.startswith("gs://"):
-        key_path = conf.get_mandatory_value("logging", "GOOGLE_KEY_PATH", fallback=None)
-        GCS_REMOTE_HANDLERS: dict[str, dict[str, str | None]] = {
-            "task": {
-                "class": "airflow.providers.google.cloud.log.gcs_task_handler.GCSTaskHandler",
-                "formatter": "airflow",
-                "base_log_folder": str(os.path.expanduser(BASE_LOG_FOLDER)),
-                "gcs_log_folder": REMOTE_BASE_LOG_FOLDER,
-                "filename_template": FILENAME_TEMPLATE,
-                "gcp_key_path": key_path,
-            },
-        }
-
-        DEFAULT_LOGGING_CONFIG["handlers"].update(GCS_REMOTE_HANDLERS)
+        if os.environ.get("AIRFLOW_WEBSERVER", None) == "True":
+            # We need to configure this logger only for webserver.
+            # Logs from worker/scheduler are synced using gcsfuse
+            key_path = conf.get("logging", "GOOGLE_KEY_PATH", fallback=None)
+            GCS_REMOTE_HANDLERS: dict[str, dict[str, str | None]] = {
+                "task": {
+                    "class": "airflow.composer.gcs_task_handler.GCSTaskHandler",
+                    "formatter": "airflow",
+                    "base_log_folder": str(os.path.expanduser(BASE_LOG_FOLDER)),
+                    "gcs_log_folder": REMOTE_BASE_LOG_FOLDER,
+                    "gcp_key_path": key_path,
+                },
+            }
+            DEFAULT_LOGGING_CONFIG["handlers"].update(GCS_REMOTE_HANDLERS)
     elif REMOTE_BASE_LOG_FOLDER.startswith("wasb"):
         WASB_REMOTE_HANDLERS: dict[str, dict[str, str | bool | None]] = {
             "task": {
