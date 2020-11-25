@@ -59,22 +59,33 @@ DEFAULT_LOGGING_CONFIG: Dict[str, Any] = {
     'disable_existing_loggers': False,
     'formatters': {
         'airflow': {'format': LOG_FORMAT},
+        'airflow_dag_processor_manager': {
+            'format': LOG_FORMAT,
+            'class': 'airflow.composer.dag_processor_manager_formatter.DagProcessorManagerFormatter',
+        },
         'airflow_coloured': {
             'format': COLORED_LOG_FORMAT if COLORED_LOG else LOG_FORMAT,
             'class': COLORED_FORMATTER_CLASS if COLORED_LOG else 'logging.Formatter',
+        },
+        'composer_airflow_task': {
+            'format': LOG_FORMAT,
+            'class': 'airflow.composer.task_formatter.TaskFormatter',
         },
     },
     'filters': {
         'mask_secrets': {
             '()': 'airflow.utils.log.secrets_masker.SecretsMasker',
         },
+        'composer_filter': {
+            '()': 'airflow.composer.custom_log_filter.ComposerFilter',
+        },
     },
     'handlers': {
         'console': {
             'class': 'airflow.utils.log.logging_mixin.RedirectStdHandler',
-            'formatter': 'airflow_coloured',
-            'stream': 'sys.stdout',
-            'filters': ['mask_secrets'],
+            'formatter': 'airflow',
+            'stream': 'stdout',
+            'filters': ['mask_secrets', 'composer_filter'],
         },
         'task': {
             'class': 'airflow.utils.log.file_task_handler.FileTaskHandler',
@@ -82,6 +93,11 @@ DEFAULT_LOGGING_CONFIG: Dict[str, Any] = {
             'base_log_folder': os.path.expanduser(BASE_LOG_FOLDER),
             'filename_template': FILENAME_TEMPLATE,
             'filters': ['mask_secrets'],
+        },
+        'task_console': {
+            'class': 'airflow.utils.log.file_task_handler.StreamTaskHandler',
+            'formatter': 'composer_airflow_task',
+            'stream': 'ext://sys.__stdout__',
         },
         'processor': {
             'class': 'airflow.utils.log.file_processor_handler.FileProcessorHandler',
@@ -98,7 +114,7 @@ DEFAULT_LOGGING_CONFIG: Dict[str, Any] = {
             'propagate': False,
         },
         'airflow.task': {
-            'handlers': ['task'],
+            'handlers': ['task', 'task_console'],
             'level': LOG_LEVEL,
             'propagate': False,
             'filters': ['mask_secrets'],
@@ -137,11 +153,16 @@ DEFAULT_DAG_PARSING_LOGGING_CONFIG: Dict[str, Dict[str, Dict[str, Any]]] = {
             'mode': 'a',
             'maxBytes': 104857600,  # 100MB
             'backupCount': 5,
-        }
+        },
+        'processor_manager_console': {
+            'class': 'airflow.utils.log.logging_mixin.RedirectStdHandler',
+            'formatter': 'airflow_dag_processor_manager',
+            'stream': 'stdout',
+        },
     },
     'loggers': {
         'airflow.processor_manager': {
-            'handlers': ['processor_manager'],
+            'handlers': ['processor_manager_console'],
             'level': LOG_LEVEL,
             'propagate': False,
         }
@@ -206,19 +227,21 @@ if REMOTE_LOGGING:
 
         DEFAULT_LOGGING_CONFIG['handlers'].update(CLOUDWATCH_REMOTE_HANDLERS)
     elif REMOTE_BASE_LOG_FOLDER.startswith('gs://'):
-        key_path = conf.get('logging', 'GOOGLE_KEY_PATH', fallback=None)
-        GCS_REMOTE_HANDLERS: Dict[str, Dict[str, str]] = {
-            'task': {
-                'class': 'airflow.providers.google.cloud.log.gcs_task_handler.GCSTaskHandler',
-                'formatter': 'airflow',
-                'base_log_folder': str(os.path.expanduser(BASE_LOG_FOLDER)),
-                'gcs_log_folder': REMOTE_BASE_LOG_FOLDER,
-                'filename_template': FILENAME_TEMPLATE,
-                'gcp_key_path': key_path,
-            },
-        }
-
-        DEFAULT_LOGGING_CONFIG['handlers'].update(GCS_REMOTE_HANDLERS)
+        if os.environ.get("AIRFLOW_WEBSERVER", None) == "True":
+            # We need to configure this logger only for webserver.
+            # Logs from worker/scheduler are synced using gcsfuse
+            key_path = conf.get('logging', 'GOOGLE_KEY_PATH', fallback=None)
+            GCS_REMOTE_HANDLERS: Dict[str, Dict[str, str]] = {
+                'task': {
+                    'class': 'airflow.composer.gcs_task_handler.GCSTaskHandler',
+                    'formatter': 'airflow',
+                    'base_log_folder': str(os.path.expanduser(BASE_LOG_FOLDER)),
+                    'gcs_log_folder': REMOTE_BASE_LOG_FOLDER,
+                    'filename_template': FILENAME_TEMPLATE,
+                    'gcp_key_path': key_path,
+                },
+            }
+            DEFAULT_LOGGING_CONFIG['handlers'].update(GCS_REMOTE_HANDLERS)
     elif REMOTE_BASE_LOG_FOLDER.startswith('wasb'):
         WASB_REMOTE_HANDLERS: Dict[str, Dict[str, Union[str, bool]]] = {
             'task': {

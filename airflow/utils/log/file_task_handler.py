@@ -20,11 +20,12 @@ import logging
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional, Tuple
+from typing import TYPE_CHECKING, Dict, Optional, Tuple
 
 import httpx
 from itsdangerous import TimedJSONWebSignatureSerializer
 
+from airflow.composer.task_formatter import set_task_log_info, strip_separator_from_log
 from airflow.configuration import AirflowConfigException, conf
 from airflow.utils.context import Context
 from airflow.utils.helpers import parse_template_string, render_template_to_string
@@ -32,6 +33,53 @@ from airflow.utils.log.non_caching_file_handler import NonCachingFileHandler
 
 if TYPE_CHECKING:
     from airflow.models import TaskInstance
+
+
+class WorkflowContextProcessor:
+    """Helper processor for adding workflow information to log records."""
+
+    def __init__(self):
+        self.workflow_info: Dict[str, str] = {}
+
+    def set_context(self, ti: "TaskInstance"):
+        """
+        Provide task_instance context.
+        :param ti: task instance object
+        """
+        self.workflow_info = {
+            'workflow': ti.dag_id,
+            'task-id': ti.task_id,
+            'execution-date': ti.execution_date.isoformat(),
+            'try-number': str(ti.try_number),
+        }
+
+    def add_context_to_record(self, record: logging.LogRecord):
+        """Add workflow context to log record."""
+        if self.workflow_info:
+            set_task_log_info(record, self.workflow_info)
+
+
+class StreamTaskHandler(logging.StreamHandler):
+    """
+    StreamTaskHandler is a log handler used by Composer to expose task logs in
+    worker logs. This is required because fluentd is reading those logs to expose
+    them in cloud monitoring.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.workflow_context_processor = WorkflowContextProcessor()
+
+    def set_context(self, ti):
+        """
+        Provide task_instance context to airflow task handler.
+        :param ti: task instance object
+        """
+        self.workflow_context_processor.set_context(ti)
+
+    def emit(self, record):
+        self.workflow_context_processor.add_context_to_record(record)
+        super().emit(record)
 
 
 class FileTaskHandler(logging.Handler):
@@ -50,6 +98,7 @@ class FileTaskHandler(logging.Handler):
         self.handler = None  # type: Optional[logging.FileHandler]
         self.local_base = base_log_folder
         self.filename_template, self.filename_jinja_template = parse_template_string(filename_template)
+        self.workflow_context_processor = WorkflowContextProcessor()
 
     def set_context(self, ti: "TaskInstance"):
         """
@@ -62,8 +111,10 @@ class FileTaskHandler(logging.Handler):
         if self.formatter:
             self.handler.setFormatter(self.formatter)
         self.handler.setLevel(self.level)
+        self.workflow_context_processor.set_context(ti)
 
     def emit(self, record):
+        self.workflow_context_processor.add_context_to_record(record)
         if self.handler:
             self.handler.emit(record)
 
@@ -135,7 +186,9 @@ class FileTaskHandler(logging.Handler):
             try:
                 with open(location, encoding="utf-8", errors="surrogateescape") as file:
                     log += f"*** Reading local file: {location}\n"
-                    log += "".join(file.readlines())
+                    # We do not use this handler to read logs in Composer, but
+                    # we apply this logic in order to pass community tests.
+                    log += strip_separator_from_log(file.read())
             except Exception as e:
                 log = f"*** Failed to load local log file: {location}\n"
                 log += f"*** {str(e)}\n"
