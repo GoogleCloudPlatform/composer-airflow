@@ -23,11 +23,12 @@ import warnings
 
 import pytest
 
+from airflow.composer.custom_log_filter import ComposerFilter
 from airflow.config_templates import airflow_local_settings
 from airflow.jobs import triggerer_job_runner
 from airflow.logging_config import configure_logging
 from airflow.providers.amazon.aws.log.s3_task_handler import S3TaskHandler
-from airflow.utils.log.file_task_handler import FileTaskHandler
+from airflow.utils.log.file_task_handler import FileTaskHandler, StreamTaskHandler
 from airflow.utils.log.logging_mixin import RedirectStdHandler
 from airflow.utils.log.trigger_handler import DropTriggerLogsFilter, TriggererHandlerWrapper
 from tests.test_utils.config import conf_vars
@@ -71,7 +72,7 @@ def test_configure_trigger_log_handler_file():
 
     # default task logger
     task_logger = logging.getLogger("airflow.task")
-    task_handlers = assert_handlers(task_logger, FileTaskHandler)
+    task_handlers = assert_handlers(task_logger, FileTaskHandler, StreamTaskHandler)
 
     # not yet configured to use wrapper
     assert triggerer_job_runner.HANDLER_SUPPORTS_TRIGGERER is False
@@ -82,7 +83,8 @@ def test_configure_trigger_log_handler_file():
     root_handlers = assert_handlers(root_logger, RedirectStdHandler, TriggererHandlerWrapper)
     assert root_handlers[1].base_handler == task_handlers[0]
     # other handlers have DropTriggerLogsFilter
-    assert root_handlers[0].filters[1].__class__ == DropTriggerLogsFilter
+    assert root_handlers[0].filters[1].__class__ == ComposerFilter
+    assert root_handlers[0].filters[2].__class__ == DropTriggerLogsFilter
     # no filters on wrapper handler
     assert root_handlers[1].filters == []
     # wrapper handler uses handler from airflow.task
@@ -110,7 +112,7 @@ def test_configure_trigger_log_handler_s3():
     assert_handlers(root_logger, RedirectStdHandler)
     # default task logger
     task_logger = logging.getLogger("airflow.task")
-    task_handlers = assert_handlers(task_logger, S3TaskHandler)
+    task_handlers = assert_handlers(task_logger, S3TaskHandler, StreamTaskHandler)
     # not yet configured to use wrapper
     assert triggerer_job_runner.HANDLER_SUPPORTS_TRIGGERER is False
 
@@ -120,7 +122,8 @@ def test_configure_trigger_log_handler_s3():
     handlers = assert_handlers(root_logger, RedirectStdHandler, TriggererHandlerWrapper)
     assert handlers[1].base_handler == task_handlers[0]
     # other handlers have DropTriggerLogsFilter
-    assert handlers[0].filters[1].__class__ == DropTriggerLogsFilter
+    assert handlers[0].filters[1].__class__ == ComposerFilter
+    assert handlers[0].filters[2].__class__ == DropTriggerLogsFilter
     # no filters on wrapper handler
     assert handlers[1].filters == []
     # wrapper handler uses handler from airflow.task

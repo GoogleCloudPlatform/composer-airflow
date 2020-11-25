@@ -44,7 +44,9 @@ class MetricNameLengthExemptionWarning(Warning):
 
 # Only characters in the character set are considered valid
 # for the stat_name if stat_name_default_handler is used.
-ALLOWED_CHARACTERS = frozenset(string.ascii_letters + string.digits + "_.-")
+ALLOWED_CHARACTERS = set(string.ascii_letters + string.digits + "_.-")
+# We use `@` in Composer `workflow.*` stats metrics.
+ALLOWED_CHARACTERS.update({"@"})
 
 # The following set contains existing metrics whose names are too long for
 # OpenTelemetry and should be deprecated over time. This is implemented to

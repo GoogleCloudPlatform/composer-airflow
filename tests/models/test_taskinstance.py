@@ -2237,7 +2237,29 @@ class TestTaskInstance:
         assert ti.duration is None
 
     @pytest.mark.skip_if_database_isolation_mode  # Does not work in db isolation mode
-    def test_success_callback_no_race_condition(self, create_task_instance):
+    @patch.dict("os.environ", {"COMPOSER_VERSION": "2.0.0"}, clear=False)
+    @patch.object(Stats, "incr")
+    @patch.object(Stats, "gauge")
+    @patch("airflow.utils.log.file_task_handler.FileTaskHandler._render_filename")
+    def test_success_callback_no_race_condition(
+        self, render_filename_mock, gauge_mock, incr_mock, create_task_instance
+    ):
+        import importlib
+        import tempfile
+
+        from airflow.config_templates import airflow_local_settings
+        from airflow.logging_config import configure_logging
+
+        _, temp_file_path = tempfile.mkstemp()
+        temp_dir, temp_file = temp_file_path.rsplit("/", 1)
+        with open(temp_file_path, "w+") as f:
+            temp_file_size = f.write("Populating file with some content")
+
+        with conf_vars({("logging", "base_log_folder"): temp_dir}):
+            importlib.reload(airflow_local_settings)
+            configure_logging()
+        render_filename_mock.return_value = str(temp_file)
+
         callback_wrapper = CallbackWrapper()
         ti = create_task_instance(
             on_success_callback=callback_wrapper.success_handler,
@@ -2245,6 +2267,7 @@ class TestTaskInstance:
             execution_date=timezone.utcnow(),
             state=State.RUNNING,
         )
+        ti.start_date = timezone.utcnow()
 
         session = settings.Session()
         session.merge(ti)
@@ -2256,6 +2279,18 @@ class TestTaskInstance:
         assert callback_wrapper.task_state_in_callback == State.SUCCESS
         ti.refresh_from_db()
         assert ti.state == State.SUCCESS
+        incr_mock.assert_called_with(
+            "task.count.dag@-@op1@-@EmptyOperator@-@success@-@default",
+            1,
+        )
+        gauge_mock.assert_has_calls(
+            [
+                mock.call("task.duration.dag@-@op1@-@EmptyOperator@-@success", ti.duration),
+                mock.call("task.log_file_size.dag@-@op1@-@EmptyOperator@-@success", temp_file_size),
+            ],
+            any_order=True,
+        )
+        render_filename_mock.assert_called_with(ti, 0)
 
     @pytest.mark.skip_if_database_isolation_mode  # Does not work in db isolation mode
     def test_outlet_datasets(self, create_task_instance):
@@ -3469,7 +3504,29 @@ class TestTaskInstance:
 
     @pytest.mark.skip_if_database_isolation_mode  # Does not work in db isolation mode
     @provide_session
-    def test_handle_failure(self, create_dummy_dag, session=None):
+    @patch.dict("os.environ", {"COMPOSER_VERSION": "2.0.0"}, clear=False)
+    @patch.object(Stats, "incr")
+    @patch.object(Stats, "gauge")
+    @patch("airflow.utils.log.file_task_handler.FileTaskHandler._render_filename")
+    def test_handle_failure(
+        self, render_filename_mock, gauge_mock, incr_mock, create_dummy_dag, session=None
+    ):
+        import importlib
+        import tempfile
+
+        from airflow.config_templates import airflow_local_settings
+        from airflow.logging_config import configure_logging
+
+        _, temp_file_path = tempfile.mkstemp()
+        temp_dir, temp_file = temp_file_path.rsplit("/", 1)
+        with open(temp_file_path, "w+") as f:
+            temp_file_size = f.write("Populating file with some content")
+
+        with conf_vars({("logging", "base_log_folder"): temp_dir}):
+            importlib.reload(airflow_local_settings)
+            configure_logging()
+        render_filename_mock.return_value = str(temp_file)
+
         start_date = timezone.datetime(2016, 6, 1)
         clear_db_runs()
 
@@ -3555,6 +3612,7 @@ class TestTaskInstance:
             dag=dag,
         )
         ti3 = TI(task=task3, run_id=dr.run_id)
+        ti3.start_date = start_date
         session.add(ti3)
         session.flush()
         ti3.state = State.FAILED
@@ -3564,6 +3622,31 @@ class TestTaskInstance:
         assert context_arg_3
         assert "task_instance" in context_arg_3
         mock_on_retry_3.assert_not_called()
+        incr_mock.assert_called_with(
+            "task.count.test_handle_failure@-@test_handle_failure_on_force_fail@-@EmptyOperator@-@failed@-@default",
+            1,
+        )
+
+        gauge_mock.assert_has_calls(
+            [
+                mock.call(
+                    (
+                        "task.duration.test_handle_failure@-@"
+                        "test_handle_failure_on_force_fail@-@EmptyOperator@-@failed"
+                    ),
+                    ti3.duration,
+                ),
+                mock.call(
+                    (
+                        "task.log_file_size.test_handle_failure"
+                        "@-@test_handle_failure_on_force_fail@-@EmptyOperator@-@failed"
+                    ),
+                    temp_file_size,
+                ),
+            ],
+            any_order=True,
+        )
+        render_filename_mock.assert_called_with(ti3, 0)
 
     @pytest.mark.skip_if_database_isolation_mode  # Does not work in db isolation mode
     def test_handle_failure_updates_queued_task_updates_state(self, dag_maker):

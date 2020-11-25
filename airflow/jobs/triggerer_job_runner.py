@@ -604,8 +604,9 @@ class TriggerRunner(threading.Thread, LoggingMixin):
             if time_elapsed > 0.2:
                 self.log.info(
                     "Triggerer's async thread was blocked for %.2f seconds, "
-                    "likely by a badly-written trigger. Set PYTHONASYNCIODEBUG=1 "
-                    "to get more information on overrunning coroutines.",
+                    "likely due to the highly utilized environment. In case of "
+                    "Warnings informing you about slow callback consider visiting "
+                    "https://cloud.google.com/composer/docs/composer-2/troubleshooting-triggerer.",
                     time_elapsed,
                 )
                 Stats.incr("triggers.blocked_main_thread")

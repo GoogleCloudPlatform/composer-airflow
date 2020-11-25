@@ -24,6 +24,7 @@ from airflow.composer.utils import (
     COMPOSER_DEFAULT_CELERY_CONFIG,
     get_component_hostname,
     get_composer_version,
+    initialize,
     is_composer_v1,
     is_serverless_composer,
     is_triggerer_enabled,
@@ -93,3 +94,10 @@ class TestUtils:
         assert DEFAULT_CELERY_CONFIG.items() <= COMPOSER_DEFAULT_CELERY_CONFIG.items()
         assert "redis_backend_health_check_interval" in COMPOSER_DEFAULT_CELERY_CONFIG
         assert COMPOSER_DEFAULT_CELERY_CONFIG["redis_backend_health_check_interval"] == 30
+
+    @mock.patch("aiodebug.log_slow_callbacks", autospec=True)
+    @mock.patch("sys.argv", ["triggerer"])
+    def test_is_aiodebug_called(self, aiodebug_log_slow_callbacks_mock):
+        initialize()
+
+        aiodebug_log_slow_callbacks_mock.enable.assert_called_once()
