@@ -373,7 +373,8 @@ def _move_task_handlers_to_root(ti: TaskInstance | TaskInstancePydantic) -> Gene
     with LoggerMutationHelper(root_logger), LoggerMutationHelper(ti.log) as task_helper:
         task_helper.move(root_logger)
         if IS_K8S_EXECUTOR_POD or IS_EXECUTOR_CONTAINER:
-            if console_handler and console_handler not in root_logger.handlers:
+            # In Composer task logs always go to stdout, configured in DEFAULT_LOGGING_CONFIG.
+            if False and console_handler and console_handler not in root_logger.handlers:
                 root_logger.addHandler(console_handler)
         yield
 
