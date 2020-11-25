@@ -1198,6 +1198,7 @@ class TaskInstance(Base, LoggingMixin):  # pylint: disable=R0902,R0904
             session.merge(self)
 
         session.commit()
+        self.write_metrics()
 
         if not test_mode:
             self._run_mini_scheduler_on_child_tasks(session)
@@ -1542,6 +1543,7 @@ class TaskInstance(Base, LoggingMixin):  # pylint: disable=R0902,R0904
         if not test_mode:
             session.merge(self)
         session.commit()
+        self.write_metrics()
 
     @provide_session
     def handle_failure_with_callback(
@@ -2050,6 +2052,23 @@ class TaskInstance(Base, LoggingMixin):  # pylint: disable=R0902,R0904
             )
             for ti in tis
         )
+
+    def write_metrics(self) -> None:
+        """
+        Write Statsd metrics of task instances for monitoring.
+
+        TODO(zhoufang): sometimes state is set after set_duration, sometimes
+            before. So we have to place this prober at multiple places.
+            It is better to change state, set duration using one method anywhere,
+            and add a prober in that method.
+        """
+        if self.duration is not None and self.state in State.finished:
+            Stats.incr(
+                f'task.count.{self.dag_id}@-@{self.task_id}@-@{self.operator}@-@{self.state}', 1)
+            Stats.gauge(
+                f'task.duration.{self.dag_id}@-@{self.task_id}@-@{self.operator}@-@{self.state}',
+                self.duration
+            )
 
 
 # State of the task instance.

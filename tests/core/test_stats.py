@@ -320,3 +320,9 @@ class TestCustomStatsName(unittest.TestCase):
     def tearDown(self) -> None:
         # To avoid side-effect
         importlib.reload(airflow.stats)
+
+
+def test_composer_allowed_characters():
+    from airflow.stats import ALLOWED_CHARACTERS
+
+    assert '@' in ALLOWED_CHARACTERS

@@ -1361,7 +1361,9 @@ class TestTaskInstance(unittest.TestCase):
         ti.set_duration()
         assert ti.duration is None
 
-    def test_success_callback_no_race_condition(self):
+    @patch.object(Stats, 'incr')
+    @patch.object(Stats, 'gauge')
+    def test_success_callback_no_race_condition(self, gauge_mock, incr_mock):
         callback_wrapper = CallbackWrapper()
         dag = DAG(
             'test_success_callback_no_race_condition',
@@ -1375,7 +1377,7 @@ class TestTaskInstance(unittest.TestCase):
             dag=dag,
         )
         ti = TI(task=task, execution_date=datetime.datetime.now())
-        ti.state = State.RUNNING
+        ti.set_state(State.RUNNING)
         session = settings.Session()
         session.merge(ti)
 
@@ -1394,6 +1396,14 @@ class TestTaskInstance(unittest.TestCase):
         assert callback_wrapper.task_state_in_callback == State.SUCCESS
         ti.refresh_from_db()
         assert ti.state == State.SUCCESS
+        incr_mock.assert_called_with(
+            'task.count.test_success_callback_no_race_condition@-@op@-@DummyOperator@-@success',
+            1,
+        )
+        gauge_mock.assert_called_with(
+            'task.duration.test_success_callback_no_race_condition@-@op@-@DummyOperator@-@success',
+            ti.duration,
+        )
 
     @staticmethod
     def _test_previous_dates_setup(
@@ -1637,7 +1647,9 @@ class TestTaskInstance(unittest.TestCase):
         ti.refresh_from_db()
         assert ti.state == State.SUCCESS
 
-    def test_handle_failure(self):
+    @patch.object(Stats, 'incr')
+    @patch.object(Stats, 'gauge')
+    def test_handle_failure(self, gauge_mock, incr_mock):
         start_date = timezone.datetime(2016, 6, 1)
         dag = models.DAG(dag_id="test_handle_failure", schedule_interval=None, start_date=start_date)
 
@@ -1688,13 +1700,21 @@ class TestTaskInstance(unittest.TestCase):
             dag=dag,
         )
         ti3 = TI(task=task3, execution_date=start_date)
-        ti3.state = State.FAILED
+        ti3.set_state(State.FAILED)
         ti3.handle_failure("test force_fail handling", force_fail=True)
         ti3._run_finished_callback()
 
         context_arg_3 = mock_on_failure_3.call_args[0][0]
         assert context_arg_3 and "task_instance" in context_arg_3
         mock_on_retry_3.assert_not_called()
+        incr_mock.assert_called_with(
+            'task.count.test_handle_failure@-@test_handle_failure_on_force_fail@-@DummyOperator@-@failed',
+            1,
+        )
+        gauge_mock.assert_called_with(
+            'task.duration.test_handle_failure@-@test_handle_failure_on_force_fail@-@DummyOperator@-@failed',
+            ti3.duration,
+        )
 
     def test_does_not_retry_on_airflow_fail_exception(self):
         def fail():

@@ -352,7 +352,7 @@ class TestLogsfromTaskRunCommand(unittest.TestCase):
         except OSError:
             pass
 
-    def assert_log_line(self, text, logs_list, expect_from_logging_mixin=False):
+    def assert_log_line(self, text, logs_list, expect_from_logging_mixin=False, count=1):
         """
         Get Log Line and assert only 1 Entry exists with the given text. Also check that
         "logging_mixin" line does not appear in that log line to avoid duplicate loggigng as below:
@@ -360,7 +360,7 @@ class TestLogsfromTaskRunCommand(unittest.TestCase):
         [2020-06-24 16:47:23,537] {logging_mixin.py:91} INFO - [2020-06-24 16:47:23,536] {python.py:135}
         """
         log_lines = [log for log in logs_list if text in log]
-        assert len(log_lines) == 1
+        assert len(log_lines) == count
         log_line = log_lines[0]
         if not expect_from_logging_mixin:
             # Logs from print statement still show with logging_mixing as filename
@@ -414,9 +414,19 @@ class TestLogsfromTaskRunCommand(unittest.TestCase):
 
         assert f"Subtask {self.task_id}" in logs
         assert "base_task_runner.py" in logs
-        self.assert_log_line("Log from DAG Logger", logs_list)
-        self.assert_log_line("Log from TI Logger", logs_list)
-        self.assert_log_line("Log from Print statement", logs_list, expect_from_logging_mixin=True)
+        workflow_info = {
+            "workflow": "test_logging_dag",
+            "task-id": "test_task",
+            "execution-date": "2017-01-01T00:00:00+00:00",
+        }
+        self.assert_log_line("Log from DAG Logger@-@{}".format(json.dumps(workflow_info)), logs_list, count=2)
+        self.assert_log_line("Log from TI Logger@-@{}".format(json.dumps(workflow_info)), logs_list, count=2)
+        self.assert_log_line(
+            "Log from Print statement@-@{}".format(json.dumps(workflow_info)),
+            logs_list,
+            expect_from_logging_mixin=True,
+            count=2,
+        )
 
         assert (
             f"INFO - Running: ['airflow', 'tasks', 'run', '{self.dag_id}', "
