@@ -642,7 +642,7 @@ class TestLogsfromTaskRunCommand:
         except OSError:
             pass
 
-    def assert_log_line(self, text, logs_list, expect_from_logging_mixin=False):
+    def assert_log_line(self, text, logs_list, expect_from_logging_mixin=False, count=1):
         """
         Get Log Line and assert only 1 Entry exists with the given text. Also check that
         "logging_mixin" line does not appear in that log line to avoid duplicate logging as below:
@@ -650,7 +650,7 @@ class TestLogsfromTaskRunCommand:
         [2020-06-24 16:47:23,537] {logging_mixin.py:91} INFO - [2020-06-24 16:47:23,536] {python.py:135}
         """
         log_lines = [log for log in logs_list if text in log]
-        assert len(log_lines) == 1
+        assert len(log_lines) == count
         log_line = log_lines[0]
         if not expect_from_logging_mixin:
             # Logs from print statement still show with logging_mixing as filename
@@ -733,15 +733,22 @@ class TestLogsfromTaskRunCommand:
         if is_k8s:
             # 10 is arbitrary, but, with enough padding to hopefully not be flakey
             assert len(lines) > 10
+            self.assert_log_line("Starting attempt 1 of 1", lines, count=2)
+            self.assert_log_line("Exporting env vars", lines, count=2)
+            self.assert_log_line("Log from DAG Logger", lines, count=2)
+            self.assert_log_line("Log from TI Logger", lines, count=2)
+            self.assert_log_line("Log from Print statement", lines, expect_from_logging_mixin=True, count=2)
+            self.assert_log_line("Task exited with return code 0", lines, count=2)
+        else:
+            # when not k8s executor pod, most output is redirected to logs
+            # composer: custom handler still prints to stdout
             self.assert_log_line("Starting attempt 1 of 1", lines)
             self.assert_log_line("Exporting env vars", lines)
             self.assert_log_line("Log from DAG Logger", lines)
             self.assert_log_line("Log from TI Logger", lines)
             self.assert_log_line("Log from Print statement", lines, expect_from_logging_mixin=True)
             self.assert_log_line("Task exited with return code 0", lines)
-        else:
-            # when not k8s executor pod, most output is redirected to logs
-            assert len(lines) == 1
+            assert len(lines) == 16
 
     @unittest.skipIf(not hasattr(os, "fork"), "Forking not available")
     def test_logging_with_run_task(self):
@@ -801,9 +808,23 @@ class TestLogsfromTaskRunCommand:
 
         assert f"Subtask {self.task_id}" in logs
         assert "base_task_runner.py" in logs
-        self.assert_log_line("Log from DAG Logger", logs_list)
-        self.assert_log_line("Log from TI Logger", logs_list)
-        self.assert_log_line("Log from Print statement", logs_list, expect_from_logging_mixin=True)
+        self.assert_log_line("Log from DAG Logger", logs_list, count=2)
+        self.assert_log_line("Log from TI Logger", logs_list, count=2)
+        self.assert_log_line("Log from Print statement", logs_list, expect_from_logging_mixin=True, count=2)
+        workflow_info = {
+            "workflow": "test_logging_dag",
+            "task-id": "test_task",
+            "execution-date": "2017-01-01T00:00:00+00:00",
+            "map-index": "-1",
+            "try-number": "1",
+        }
+        self.assert_log_line(f"Log from DAG Logger@-@{json.dumps(workflow_info)}", logs_list)
+        self.assert_log_line(f"Log from TI Logger@-@{json.dumps(workflow_info)}", logs_list)
+        self.assert_log_line(
+            f"Log from Print statement@-@{json.dumps(workflow_info)}",
+            logs_list,
+            expect_from_logging_mixin=True,
+        )
 
         assert f"INFO - Running: ['airflow', 'tasks', 'run', '{self.dag_id}', '{self.task_id}'," in logs
         assert (

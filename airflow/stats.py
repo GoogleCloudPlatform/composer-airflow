@@ -189,7 +189,9 @@ class Timer(TimerProtocol):
 
 # Only characters in the character set are considered valid
 # for the stat_name if stat_name_default_handler is used.
-ALLOWED_CHARACTERS = frozenset(string.ascii_letters + string.digits + "_.-")
+ALLOWED_CHARACTERS = set(string.ascii_letters + string.digits + "_.-")
+# We use `@` in Composer `workflow.*` stats metrics.
+ALLOWED_CHARACTERS.update({"@"})
 
 
 def stat_name_default_handler(

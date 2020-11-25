@@ -532,7 +532,17 @@ class DagFileProcessor(LoggingMixin):
                 for callback in callbacks:
                     cls.logger().info("Calling SLA miss callback %s", callback)
                     try:
-                        callback(dag, task_list, blocking_task_list, slas, blocking_tis)
+                        from airflow.composer.redirect_callback_logs_utils import handle_callback
+
+                        handle_callback(
+                            callback,
+                            logging.getLogger("airflow.processor_manager"),
+                            dag,
+                            task_list,
+                            blocking_task_list,
+                            slas,
+                            blocking_tis,
+                        )
                         notification_sent = True
                     except Exception:
                         Stats.incr(
@@ -542,7 +552,7 @@ class DagFileProcessor(LoggingMixin):
                                 "func_name": callback.__name__,
                             },
                         )
-                        cls.logger().exception(
+                        logging.getLogger("airflow.processor_manager").exception(
                             "Could not call sla_miss_callback(%s) for DAG %s",
                             callback.__name__,
                             dag.dag_id,

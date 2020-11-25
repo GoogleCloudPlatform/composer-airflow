@@ -29,7 +29,7 @@ from unittest import mock
 import celery.contrib.testing.tasks  # noqa: F401
 import pytest
 import time_machine
-from celery import Celery
+from celery import Celery, signals
 from celery.result import AsyncResult
 from kombu.asynchronous import set_event_loop
 
@@ -297,3 +297,13 @@ def test_send_tasks_to_celery_hang(register_signals):
         # multiprocessing.
         results = executor._send_tasks_to_celery(task_tuples_to_send)
         assert results == [(None, None, 1) for _ in task_tuples_to_send]
+
+
+def test_setup_log_format():
+    conf_mock = mock.Mock()
+    signals.celeryd_init.send(
+        sender=None,
+        conf=conf_mock,
+    )
+
+    assert conf_mock.worker_log_format == conf.get("logging", "LOG_FORMAT")

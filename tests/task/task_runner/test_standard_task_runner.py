@@ -97,6 +97,11 @@ class TestStandardTaskRunner:
         Job = mock.Mock()
         Job.job_type = None
         Job.task_instance = mock.MagicMock()
+        Job.task_instance.task_id = "task_id"
+        Job.task_instance.dag_id = "dag_id"
+        Job.task_instance.map_index = "map_index"
+        Job.task_instance.try_number = "try_number"
+        Job.task_instance.execution_date.isoformat.return_value = "2018-12-04"
         Job.task_instance.run_as_user = None
         Job.task_instance.command_as_list.return_value = [
             "airflow",
@@ -223,6 +228,9 @@ class TestStandardTaskRunner:
         Job.task_instance = mock.MagicMock()
         Job.task_instance.task_id = "task_id"
         Job.task_instance.dag_id = "dag_id"
+        Job.task_instance.map_index = "map_index"
+        Job.task_instance.try_number = "try_number"
+        Job.task_instance.execution_date.isoformat.return_value = "2018-12-04"
         Job.task_instance.run_as_user = getuser()
         Job.task_instance.command_as_list.return_value = [
             "airflow",
@@ -254,7 +262,7 @@ class TestStandardTaskRunner:
 
     @propagate_task_logger()
     @patch("airflow.utils.log.file_task_handler.FileTaskHandler._init_file")
-    def test_early_reap_exit(self, mock_init, caplog):
+    def test_early_reap_exit(self, mock_init, capfd):
         """
         Tests that when a child process running a task is killed externally
         (e.g. by an OOM error, which we fake here), then we get return code
@@ -266,6 +274,9 @@ class TestStandardTaskRunner:
         Job.task_instance = mock.MagicMock()
         Job.task_instance.task_id = "task_id"
         Job.task_instance.dag_id = "dag_id"
+        Job.task_instance.map_index = "map_index"
+        Job.task_instance.try_number = "try_number"
+        Job.task_instance.execution_date.isoformat.return_value = "2018-12-04"
         Job.task_instance.run_as_user = getuser()
         Job.task_instance.command_as_list.return_value = [
             "airflow",
@@ -293,7 +304,7 @@ class TestStandardTaskRunner:
         task_runner.terminate()
 
         assert task_runner.return_code() == -9
-        assert "running out of memory" in caplog.text
+        assert "running out of memory" in capfd.readouterr().out
 
     def test_on_kill(self):
         """
