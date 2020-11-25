@@ -59,7 +59,7 @@ class TestFileTaskLogHandler(unittest.TestCase):
         # file task handler is used by default.
         logger = logging.getLogger(TASK_LOGGER)
         handlers = logger.handlers
-        assert len(handlers) == 1
+        assert len(handlers) == 2
         handler = handlers[0]
         assert handler.name == FILE_TASK_HANDLER
 
