@@ -239,9 +239,18 @@ class DagRun(Base, LoggingMixin):
             raise ValueError(f"invalid DagRun state: {state}")
         if self._state != state:
             self._state = state
-            self.end_date = timezone.utcnow() if self._state in State.finished else None
             if state == State.QUEUED:
                 self.queued_at = timezone.utcnow()
+            if state in State.finished:
+                self.end_date = timezone.utcnow()
+                Stats.incr(f'workflow.count.{self.dag_id}@-@{state}', 1)
+                if self.start_date:
+                    Stats.gauge(
+                        f'workflow.duration.{self.dag_id}@-@{state}',
+                        (self.end_date - self.start_date).total_seconds(),
+                    )
+            else:
+                self.end_date = None
 
     @declared_attr
     def state(self):

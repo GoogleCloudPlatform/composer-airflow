@@ -1781,7 +1781,9 @@ class TestTaskInstance:
         ti.set_duration()
         assert ti.duration is None
 
-    def test_success_callback_no_race_condition(self, create_task_instance):
+    @patch.object(Stats, 'incr')
+    @patch.object(Stats, 'gauge')
+    def test_success_callback_no_race_condition(self, gauge_mock, incr_mock, create_task_instance):
         callback_wrapper = CallbackWrapper()
         ti = create_task_instance(
             on_success_callback=callback_wrapper.success_handler,
@@ -1789,6 +1791,7 @@ class TestTaskInstance:
             execution_date=timezone.utcnow(),
             state=State.RUNNING,
         )
+        ti.start_date = timezone.utcnow()
 
         session = settings.Session()
         session.merge(ti)
@@ -1800,6 +1803,14 @@ class TestTaskInstance:
         assert callback_wrapper.task_state_in_callback == State.SUCCESS
         ti.refresh_from_db()
         assert ti.state == State.SUCCESS
+        incr_mock.assert_called_with(
+            'task.count.dag@-@op1@-@EmptyOperator@-@success',
+            1,
+        )
+        gauge_mock.assert_called_with(
+            'task.duration.dag@-@op1@-@EmptyOperator@-@success',
+            ti.duration,
+        )
 
     def test_outlet_datasets(self, create_task_instance):
         """
@@ -2378,7 +2389,9 @@ class TestTaskInstance:
         ti.log.exception.assert_called_once_with(expected_message)
 
     @provide_session
-    def test_handle_failure(self, create_dummy_dag, session=None):
+    @patch.object(Stats, 'incr')
+    @patch.object(Stats, 'gauge')
+    def test_handle_failure(self, gauge_mock, incr_mock, create_dummy_dag, session=None):
         start_date = timezone.datetime(2016, 6, 1)
         clear_db_runs()
 
@@ -2442,6 +2455,7 @@ class TestTaskInstance:
             dag=dag,
         )
         ti3 = TI(task=task3, run_id=dr.run_id)
+        ti3.start_date = start_date
         session.add(ti3)
         session.flush()
         ti3.state = State.FAILED
@@ -2450,6 +2464,14 @@ class TestTaskInstance:
         context_arg_3 = mock_on_failure_3.call_args[0][0]
         assert context_arg_3 and "task_instance" in context_arg_3
         mock_on_retry_3.assert_not_called()
+        incr_mock.assert_called_with(
+            'task.count.test_handle_failure@-@test_handle_failure_on_force_fail@-@EmptyOperator@-@failed',
+            1,
+        )
+        gauge_mock.assert_called_with(
+            'task.duration.test_handle_failure@-@test_handle_failure_on_force_fail@-@EmptyOperator@-@failed',
+            ti3.duration,
+        )
 
     def test_handle_failure_updates_queued_task_try_number(self, dag_maker):
         session = settings.Session()
