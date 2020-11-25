@@ -21,6 +21,7 @@ import pytest
 from airflow import settings
 from airflow.composer.utils import (
     get_composer_version,
+    initialize,
     is_composer_v1,
     is_serverless_composer,
     is_triggerer_enabled,
@@ -70,3 +71,10 @@ class TestUtils:
         settings.initialize()
 
         initialize_mock.assert_called_once()
+
+    @mock.patch("aiodebug.log_slow_callbacks", autospec=True)
+    @mock.patch("sys.argv", ["triggerer"])
+    def test_is_aiodebug_called(self, aiodebug_log_slow_callbacks_mock):
+        initialize()
+
+        aiodebug_log_slow_callbacks_mock.enable.assert_called_once()

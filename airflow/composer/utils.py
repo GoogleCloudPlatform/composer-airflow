@@ -15,6 +15,9 @@
 from __future__ import annotations
 
 import os
+import sys
+
+import aiodebug.log_slow_callbacks
 
 from airflow.configuration import conf
 
@@ -52,3 +55,6 @@ def is_serverless_composer():
 
 def initialize():
     """This method acts as a hook to do Composer related setup for Airflow."""
+    if "triggerer" in sys.argv[0]:
+        # This line enables logging slow callbacks in triggers.
+        aiodebug.log_slow_callbacks.enable(0.05)

@@ -65,6 +65,23 @@ if not sys.warnoptions:
     # Temporarily suppress warnings from pydantic until we upgrade minimum version of pydantic to v2
     # Which should happen in Airflow 2.8.0
     warnings.filterwarnings(action="ignore", category=UserWarning, module=r"pydantic._internal._config")
+# In Composer default Airflow configuration properties we continue to use
+# [core]dag_concurrency and [api]auth_backend properties, because if we update them to the new Airflow
+# properties it will take precedence over custom [core]dag_concurrency or [api]auth_backend set by customer.
+# Here, we silence these warning messages as these messages are expected and don't
+# require any action items.
+warnings.filterwarnings(
+    "ignore", r".*The dag_concurrency option in \[core\] has been renamed to max_active_tasks_per_dag.*"
+)
+warnings.filterwarnings("ignore", r".*The auth_backend option in \[api\] has been renamed to auth_backends.*")
+# This warning message comes from sqlalchemy. It is useful for the developers (in this case as sqlalchemy
+# is used by Airflow ORM, for Airflow developers), but not meaningful for Airflow users (Composer customers)
+# and doesn't imply any action items to be done by them. Giving this reason we silence this message.
+warnings.filterwarnings(
+    "ignore",
+    r".*TypeDecorator .* will not produce a cache key because the ``cache_ok`` flag is not set to True.*",
+)
+
 
 _SQLITE3_VERSION_PATTERN = re2.compile(r"(?P<version>^\d+(?:\.\d+)*)\D?.*$")
 
