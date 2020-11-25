@@ -1458,6 +1458,7 @@ class TaskInstance(Base, LoggingMixin):
             if self.state == TaskInstanceState.SUCCESS:
                 self._register_dataset_changes(session=session)
             session.commit()
+        self.write_metrics()
 
     def _register_dataset_changes(self, *, session: Session) -> None:
         for obj in self.task.outlets or []:
@@ -1845,6 +1846,7 @@ class TaskInstance(Base, LoggingMixin):
         if not test_mode:
             session.merge(self)
             session.flush()
+        self.write_metrics()
 
     def is_eligible_to_retry(self):
         """Is task instance is eligible for retry"""
@@ -2703,6 +2705,22 @@ class TaskInstance(Base, LoggingMixin):
                 table.run_id == self.run_id,
                 table.map_index == self.map_index,
             ).delete()
+
+    def write_metrics(self) -> None:
+        """
+        Write Statsd metrics of task instances for monitoring.
+
+        TODO(zhoufang): sometimes state is set after set_duration, sometimes
+            before. So we have to place this prober at multiple places.
+            It is better to change state, set duration using one method anywhere,
+            and add a prober in that method.
+        """
+        if self.duration is not None and self.state in State.finished:
+            Stats.incr(f"task.count.{self.dag_id}@-@{self.task_id}@-@{self.operator}@-@{self.state}", 1)
+            Stats.gauge(
+                f"task.duration.{self.dag_id}@-@{self.task_id}@-@{self.operator}@-@{self.state}",
+                self.duration,
+            )
 
 
 def _find_common_ancestor_mapped_group(node1: Operator, node2: Operator) -> MappedTaskGroup | None:

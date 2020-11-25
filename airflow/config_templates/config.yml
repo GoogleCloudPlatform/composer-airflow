@@ -757,6 +757,17 @@
       type: string
       example: ~
       default: "8793"
+    - name: celery_stdout_stderr_separation
+      description: |
+        By default Celery sends all logs into stderr.
+        If enabled any previous logging handlers will get *removed*.
+        With this option AirFlow will create new handlers
+        and send low level logs like INFO and WARNING to stdout,
+        while sending higher severity logs to stderr.
+      version_added: 2.5.4
+      type: boolean
+      example: ~
+      default: "False"
 - name: metrics
   description: |
     StatsD (https://github.com/etsy/statsd) integration settings.
