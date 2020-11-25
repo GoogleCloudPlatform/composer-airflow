@@ -411,7 +411,9 @@ class TestDagRun(unittest.TestCase):
             msg="task_failure",
         )
 
-    def test_dagrun_set_state_end_date(self):
+    @mock.patch.object(Stats, 'incr')
+    @mock.patch.object(Stats, 'gauge')
+    def test_dagrun_set_state_end_date(self, gauge_mock, incr_mock):
         session = settings.Session()
 
         dag = DAG('test_dagrun_set_state_end_date', start_date=DEFAULT_DATE, default_args={'owner': 'owner1'})
@@ -429,6 +431,8 @@ class TestDagRun(unittest.TestCase):
         session.add(dr)
         session.commit()
         assert dr.end_date is None
+        incr_mock.assert_not_called()
+        gauge_mock.assert_not_called()
 
         dr.set_state(State.SUCCESS)
         session.merge(dr)
@@ -437,6 +441,14 @@ class TestDagRun(unittest.TestCase):
         dr_database = session.query(DagRun).filter(DagRun.run_id == 'test_dagrun_set_state_end_date').one()
         assert dr_database.end_date is not None
         assert dr.end_date == dr_database.end_date
+        incr_mock.assert_called_with(
+            'workflow.count.test_dagrun_set_state_end_date@-@success',
+            1,
+        )
+        gauge_mock.assert_called_with(
+            'workflow.duration.test_dagrun_set_state_end_date@-@success',
+            (dr.end_date - dr.start_date).total_seconds(),
+        )
 
         dr.set_state(State.RUNNING)
         session.merge(dr)
