@@ -1534,6 +1534,7 @@ class TaskInstance(Base, LoggingMixin):
             session.merge(self)
 
             session.commit()
+        self.write_metrics()
 
     def _execute_task_with_callbacks(self, context, test_mode=False):
         """Prepare Task for Execution"""
@@ -1960,6 +1961,7 @@ class TaskInstance(Base, LoggingMixin):
         if not test_mode:
             session.merge(self)
             session.flush()
+        self.write_metrics()
 
     @provide_session
     def handle_failure_with_callback(
@@ -2592,6 +2594,22 @@ class TaskInstance(Base, LoggingMixin):
         if len(filters) == 1:
             return filters[0]
         return or_(*filters)
+
+    def write_metrics(self) -> None:
+        """
+        Write Statsd metrics of task instances for monitoring.
+
+        TODO(zhoufang): sometimes state is set after set_duration, sometimes
+            before. So we have to place this prober at multiple places.
+            It is better to change state, set duration using one method anywhere,
+            and add a prober in that method.
+        """
+        if self.duration is not None and self.state in State.finished:
+            Stats.incr(f'task.count.{self.dag_id}@-@{self.task_id}@-@{self.operator}@-@{self.state}', 1)
+            Stats.gauge(
+                f'task.duration.{self.dag_id}@-@{self.task_id}@-@{self.operator}@-@{self.state}',
+                self.duration,
+            )
 
 
 # State of the task instance.
