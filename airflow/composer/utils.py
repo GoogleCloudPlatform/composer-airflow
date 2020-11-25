@@ -16,6 +16,9 @@ from __future__ import annotations
 
 import copy
 import os
+import sys
+
+import aiodebug.log_slow_callbacks
 
 from airflow.configuration import conf
 from airflow.providers.celery.executors.default_celery import DEFAULT_CELERY_CONFIG
@@ -73,3 +76,6 @@ def get_component_hostname():
 
 def initialize():
     """Act as a hook to do Composer related setup for Airflow."""
+    if "triggerer" in sys.argv[0]:
+        # This line enables logging slow callbacks in triggers.
+        aiodebug.log_slow_callbacks.enable(0.05)
