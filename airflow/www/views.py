@@ -776,7 +776,7 @@ class AirflowBaseView(BaseView):
 class Airflow(AirflowBaseView):
     """Main Airflow application."""
 
-    @expose("/health")
+    @expose("/_ah/health")
     def health(self):
         """
         Check the health status of the Airflow instance.

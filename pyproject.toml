@@ -65,6 +65,9 @@ classifiers = [
 
 dynamic = ["version", "optional-dependencies", "dependencies"]
 
+[project.entry-points."airflow.plugins"]
+composer_menu_plugin = "airflow.composer.plugins.composer_menu_plugin:ComposerMenuPlugin"
+
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 # !!! YOU MIGHT BE SURPRISED NOT SEEING THE DEPENDENCIES AS `project.dependencies`     !!!!!!!!!
 # !!! AND EXTRAS AS `project.optional-dependencies`                                    !!!!!!!!!
