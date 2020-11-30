@@ -404,7 +404,7 @@ class AirflowBaseView(BaseView):  # noqa: D101
 class Airflow(AirflowBaseView):  # noqa: D101  pylint: disable=too-many-public-methods
     """Main Airflow application."""
 
-    @expose('/health')
+    @expose('/_ah/health')
     def health(self):
         """
         An endpoint helping check the health status of the Airflow instance,
@@ -1320,6 +1320,13 @@ class Airflow(AirflowBaseView):  # noqa: D101  pylint: disable=too-many-public-m
         ignore_all_deps = request.form.get('ignore_all_deps') == "true"
         ignore_task_deps = request.form.get('ignore_task_deps') == "true"
         ignore_ti_state = request.form.get('ignore_ti_state') == "true"
+
+        if "composer" in version:
+            flash(
+                "The Run operation is currently not supported in Composer, but "
+                "you can clear the task instance and scheduler will executed it automatically."
+            )
+            return redirect(origin)
 
         executor = ExecutorLoader.get_default_executor()
         valid_celery_config = False
