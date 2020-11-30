@@ -31,7 +31,8 @@ def get_docs_url(page: str | None = None) -> str:
             "http://apache-airflow-docs.s3-website.eu-central-1.amazonaws.com/docs/apache-airflow/latest/"
         )
     else:
-        result = f"https://airflow.apache.org/docs/apache-airflow/{version}/"
+        version_str = version.replace("+composer", "")
+        result = f"https://airflow.apache.org/docs/apache-airflow/{version_str}/"
     if page:
         result = result + page
     return result
@@ -39,6 +40,9 @@ def get_docs_url(page: str | None = None) -> str:
 
 def get_doc_url_for_provider(provider_name: str, provider_version: str) -> str:
     """Prepare link to Airflow Provider documentation."""
+    if provider_name == "apache-airflow-providers-google" and "composer" in provider_version:
+        return f"https://github.com/GoogleCloudPlatform/composer-airflow/blob/providers-google-{provider_version}/airflow/providers/google/CHANGELOG.rst"  # noqa: E501
+
     try:
         metadata_items = importlib_metadata.metadata(provider_name).get_all("Project-URL")
         if isinstance(metadata_items, str):

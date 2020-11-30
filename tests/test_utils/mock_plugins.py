@@ -71,6 +71,10 @@ def mock_plugin_manager(plugins=None, **kwargs):
             )
         )
 
+        exit_stack.enter_context(
+            mock.patch("airflow.plugins_manager.load_entrypoint_plugins", return_value=[])
+        )
+
         for attr in PLUGINS_MANAGER_NULLABLE_ATTRIBUTES:
             exit_stack.enter_context(mock.patch(f"airflow.plugins_manager.{attr}", kwargs.get(attr)))
 

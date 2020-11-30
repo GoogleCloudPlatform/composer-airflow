@@ -460,6 +460,8 @@ repos:
         exclude: >
           (?x)
           ^airflow/api_connexion/openapi/v1.yaml$|
+          ^airflow/composer/connections/connection_field_behaviours.dill$|
+          ^airflow/composer/connections/connection_field_behaviours.pprint$|
           ^tests/cli/commands/test_webserver_command.py$|
           ^airflow/cli/commands/webserver_command.py$|
           ^airflow/config_templates/|
