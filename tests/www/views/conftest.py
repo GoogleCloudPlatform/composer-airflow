@@ -64,6 +64,16 @@ def app(examples_dag_bag):
     def factory():
         return create_app(testing=True)
 
+    # Create env_var.json file for test_composer_load_environment_variables test.
+    import json
+    import os
+
+    gcs_directory = "/home/airflow/gcs/"
+    if not os.path.exists(gcs_directory):
+        os.makedirs(gcs_directory)
+    with open(os.path.join(gcs_directory, "env_var.json"), "w+") as f:
+        json.dump({"COMPOSER_ENV_TEST": "TEST_VAR"}, f)
+
     app = factory()
     app.config["WTF_CSRF_ENABLED"] = False
     app.dag_bag = examples_dag_bag
