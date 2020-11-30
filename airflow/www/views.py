@@ -535,7 +535,7 @@ before_render_template.connect(add_user_permissions_to_dag)
 class Airflow(AirflowBaseView):
     """Main Airflow application."""
 
-    @expose('/health')
+    @expose('/_ah/health')
     def health(self):
         """
         An endpoint helping check the health status of the Airflow instance,
@@ -1566,6 +1566,13 @@ class Airflow(AirflowBaseView):
         ignore_all_deps = request.form.get('ignore_all_deps') == "true"
         ignore_task_deps = request.form.get('ignore_task_deps') == "true"
         ignore_ti_state = request.form.get('ignore_ti_state') == "true"
+
+        if "composer" in version:
+            flash(
+                "The Run operation is currently not supported in Composer, but "
+                "you can clear the task instance and scheduler will executed it automatically."
+            )
+            return redirect(origin)
 
         executor = ExecutorLoader.get_default_executor()
         valid_celery_config = False
@@ -3367,9 +3374,7 @@ def lazy_add_provider_discovered_options_to_connection_form():
             ('email', 'Email'),
         ]
         providers_manager = ProvidersManager()
-        for connection_type, provider_info in providers_manager.hooks.items():
-            if provider_info:
-                _connection_types.append((connection_type, provider_info.hook_name))
+        _connection_types.extend(providers_manager.connection_types)
         return _connection_types
 
     ConnectionForm.conn_type = SelectField(
@@ -4712,6 +4717,22 @@ class MultiResourceUserMixin:
         permissions.ACTION_CAN_DELETE,
     ]
 
+    @property
+    def class_permission_name(self):
+        """Returns appropriate permission name depending on request method name."""
+        if request:
+            action_name = request.view_args.get("name")
+            _, method_name = request.url_rule.endpoint.rsplit(".", 1)
+            if method_name == 'action' and action_name:
+                return self.class_permission_name_mapping.get(action_name, self._class_permission_name)
+            if method_name:
+                return self.class_permission_name_mapping.get(method_name, self._class_permission_name)
+        return self._class_permission_name
+
+    @class_permission_name.setter
+    def class_permission_name(self, name):
+        self._class_permission_name = name
+
     @expose("/show/<pk>", methods=["GET"])
     @has_access
     def show(self, pk):
@@ -4758,22 +4779,6 @@ class CustomUserDBModelView(MultiResourceUserMixin, UserDBModelView):
         permissions.ACTION_CAN_EDIT,
         permissions.ACTION_CAN_DELETE,
     ]
-
-    @property
-    def class_permission_name(self):
-        """Returns appropriate permission name depending on request method name."""
-        if request:
-            action_name = request.view_args.get("name")
-            _, method_name = request.url_rule.endpoint.rsplit(".", 1)
-            if method_name == 'action' and action_name:
-                return self.class_permission_name_mapping.get(action_name, self._class_permission_name)
-            if method_name:
-                return self.class_permission_name_mapping.get(method_name, self._class_permission_name)
-        return self._class_permission_name
-
-    @class_permission_name.setter
-    def class_permission_name(self, name):
-        self._class_permission_name = name
 
 
 class CustomUserLDAPModelView(MultiResourceUserMixin, UserLDAPModelView):
