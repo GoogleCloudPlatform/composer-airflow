@@ -42,10 +42,27 @@ def test_doc_urls(admin_client):
             "http://apache-airflow-docs.s3-website.eu-central-1.amazonaws.com/docs/apache-airflow/"
         )
     else:
-        airflow_doc_site = f'https://airflow.apache.org/docs/apache-airflow/{version.version}'
+        version_str = version.version.replace("+composer", "")
+        airflow_doc_site = f'https://airflow.apache.org/docs/apache-airflow/{version_str}'
 
     check_content_in_response(airflow_doc_site, resp)
     check_content_in_response("/api/v1/ui", resp)
+
+
+def test_composer_web_server_name(admin_client):
+    resp = admin_client.get('/', follow_redirects=True)
+    check_content_in_response('Environment Name: COMPOSER_TEST_WEB_SERVER_NAME', resp)
+
+
+def test_composer_load_environment_variables(admin_client):
+    import os
+
+    assert os.environ.get('COMPOSER_ENV_TEST') == 'TEST_VAR'
+
+
+def test_composer_no_logout_menu_item(admin_client):
+    resp = admin_client.get('/', follow_redirects=True)
+    check_content_not_in_response('Log Out', resp)
 
 
 @pytest.fixture()
@@ -109,7 +126,7 @@ def heartbeat_not_running():
 def test_health(request, admin_client, heartbeat):
     # Load the corresponding fixture by name.
     scheduler_status, last_scheduler_heartbeat = request.getfixturevalue(heartbeat)
-    resp = admin_client.get('health', follow_redirects=True)
+    resp = admin_client.get('_ah/health', follow_redirects=True)
     resp_json = json.loads(resp.data.decode('utf-8'))
     assert 'healthy' == resp_json['metadatabase']['status']
     assert scheduler_status == resp_json['scheduler']['status']
