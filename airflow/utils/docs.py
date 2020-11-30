@@ -27,7 +27,8 @@ def get_docs_url(page: Optional[str] = None) -> str:
             "http://apache-airflow-docs.s3-website.eu-central-1.amazonaws.com/docs/apache-airflow/latest/"
         )
     else:
-        result = f'https://airflow.apache.org/docs/apache-airflow/{version.version}/'
+        version_str = version.version.replace("+composer", "")
+        result = f'https://airflow.apache.org/docs/apache-airflow/{version_str}/'
     if page:
         result = result + page
     return result
