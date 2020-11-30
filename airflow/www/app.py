@@ -16,6 +16,9 @@
 # specific language governing permissions and limitations
 # under the License.
 #
+import json
+import logging
+import os
 import warnings
 from datetime import timedelta
 from typing import Optional
@@ -54,6 +57,35 @@ app: Optional[Flask] = None
 csrf = CSRFProtect()
 
 
+def load_environment_variables(gcs_path: str = "/home/airflow/gcs"):
+    """Loads custom Composer configuration"""
+    log = logging.getLogger(__name__)
+
+    def _load_env_from_file(filename: str) -> dict:
+        with open(filename) as env_var_json:
+            content = json.load(env_var_json)
+            os.environ.update(content)
+        return content
+
+    var_json = os.path.join(gcs_path, "env_var.json")
+    var_json_bkp = os.path.join(gcs_path, "env_var.json.bkp")
+    if os.path.isfile(var_json) or os.path.isfile(var_json_bkp):
+        try:
+            # First try to read environment config from `env_var.json`
+            # and create a backup file
+            env_var_content = _load_env_from_file(var_json)
+            with open(var_json_bkp, 'w') as env_var_backup:
+                json.dump(env_var_content, env_var_backup)
+        except:  # noqa pylint: disable=bare-except
+            # If reading `env_var.json` fails try to read a backup file
+            # if it fails too then dispatch warning
+            try:
+                _load_env_from_file(var_json_bkp)
+                log.info('Composer Environment Variables were loaded from backup.')
+            except:  # noqa pylint: disable=bare-except
+                log.warning('Using default Composer Environment Variables. Overrides have not been applied.')
+
+
 def sync_appbuilder_roles(flask_app):
     """Sync appbuilder roles to DB"""
     # Garbage collect old permissions/views after they have been modified.
@@ -68,6 +100,8 @@ def sync_appbuilder_roles(flask_app):
 
 def create_app(config=None, testing=False, app_name="Airflow"):
     """Create a new instance of Airflow WWW app"""
+    load_environment_variables()
+
     flask_app = Flask(__name__)
     flask_app.secret_key = conf.get('webserver', 'SECRET_KEY')
 
@@ -90,6 +124,8 @@ def create_app(config=None, testing=False, app_name="Airflow"):
         )
         cookie_samesite_config = "Lax"
     flask_app.config['SESSION_COOKIE_SAMESITE'] = cookie_samesite_config
+
+    flask_app.config['WEB_SERVER_NAME'] = conf.get('webserver', 'WEB_SERVER_NAME', fallback='')
 
     if config:
         flask_app.config.from_mapping(config)

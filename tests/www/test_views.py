@@ -436,7 +436,7 @@ class TestMountPoint(unittest.TestCase):
 
     def test_mount(self):
         # Test an endpoint that doesn't need auth!
-        resp = self.client.get('/test/health')
+        resp = self.client.get('/test/_ah/health')
         assert resp.status_code == 200
         assert b"healthy" in resp.data
 
@@ -455,6 +455,13 @@ class TestAirflowBaseViews(TestBase):
 
     @classmethod
     def setUpClass(cls):
+        # Create env_var.json file for test_composer_load_environment_variables test.
+        gcs_directory = '/home/airflow/gcs/'
+        if not os.path.exists(gcs_directory):
+            os.makedirs(gcs_directory)
+        with open(os.path.join(gcs_directory, 'env_var.json'), 'w+') as f:
+            json.dump({'COMPOSER_ENV_TEST': 'TEST_VAR'}, f)
+
         super().setUpClass()
         models.DagBag(include_examples=True).sync_to_db()
         cls.dagbag = models.DagBag(include_examples=True, read_dags_from_db=True)
@@ -505,10 +512,18 @@ class TestAirflowBaseViews(TestBase):
                 "http://apache-airflow-docs.s3-website.eu-central-1.amazonaws.com/docs/apache-airflow/"
             )
         else:
-            airflow_doc_site = f'https://airflow.apache.org/docs/apache-airflow/{version.version}'
+            version_str = version.version.replace("+composer", "")
+            airflow_doc_site = f'https://airflow.apache.org/docs/apache-airflow/{version_str}'
 
         self.check_content_in_response(airflow_doc_site, resp)
         self.check_content_in_response("/api/v1/ui", resp)
+
+    def test_composer_web_server_name(self):
+        resp = self.client.get('/', follow_redirects=True)
+        self.check_content_in_response('Webserver: COMPOSER_TEST_WEB_SERVER_NAME', resp)
+
+    def test_composer_load_environment_variables(self):
+        assert os.environ.get('COMPOSER_ENV_TEST') == 'TEST_VAR'
 
     def test_health(self):
 
@@ -523,7 +538,7 @@ class TestAirflowBaseViews(TestBase):
         )
         self.session.commit()
 
-        resp_json = json.loads(self.client.get('health', follow_redirects=True).data.decode('utf-8'))
+        resp_json = json.loads(self.client.get('_ah/health', follow_redirects=True).data.decode('utf-8'))
 
         assert 'healthy' == resp_json['metadatabase']['status']
         assert 'healthy' == resp_json['scheduler']['status']
@@ -555,7 +570,7 @@ class TestAirflowBaseViews(TestBase):
         )
         self.session.commit()
 
-        resp_json = json.loads(self.client.get('health', follow_redirects=True).data.decode('utf-8'))
+        resp_json = json.loads(self.client.get('_ah/health', follow_redirects=True).data.decode('utf-8'))
 
         assert 'healthy' == resp_json['metadatabase']['status']
         assert 'unhealthy' == resp_json['scheduler']['status']
@@ -577,7 +592,7 @@ class TestAirflowBaseViews(TestBase):
         ).delete()
         self.session.commit()
 
-        resp_json = json.loads(self.client.get('health', follow_redirects=True).data.decode('utf-8'))
+        resp_json = json.loads(self.client.get('_ah/health', follow_redirects=True).data.decode('utf-8'))
 
         assert 'healthy' == resp_json['metadatabase']['status']
         assert 'unhealthy' == resp_json['scheduler']['status']
@@ -1069,8 +1084,8 @@ class TestAirflowBaseViews(TestBase):
             self.check_content_in_response('', resp)
 
             msg = (
-                f"Task is in the &#39;{state}&#39; state which is not a valid state for execution. "
-                + "The task must be cleared in order to be run"
+                "The Run operation is currently not supported in Composer, but "
+                "you can clear the task instance and scheduler will executed it automatically."
             )
             assert re.search(msg, resp.get_data(as_text=True))
 

@@ -414,13 +414,40 @@ class ProvidersManager:
         return sorted(self._extra_link_class_name_set)
 
     @property
+    def connection_types(self):
+        """Returns connection types for connection forms."""
+        from airflow.composer.connections.loader import get_connection_types
+        from airflow.composer.utils import is_composer_v1
+
+        if is_composer_v1():
+            return get_connection_types()
+
+        self.initialize_providers_manager()
+        _connection_types = []
+        for connection_type, (_, _, _, hook_name) in self.hooks.items():
+            _connection_types.append((connection_type, hook_name))
+        return _connection_types
+
+    @property
     def connection_form_widgets(self) -> Dict[str, ConnectionFormWidgetInfo]:
         """Returns widgets for connection forms."""
+        from airflow.composer.connections.loader import get_connection_form_widgets
+        from airflow.composer.utils import is_composer_v1
+
+        if is_composer_v1():
+            return get_connection_form_widgets()
+
         self.initialize_providers_manager()
         return self._connection_form_widgets
 
     @property
     def field_behaviours(self) -> Dict[str, Dict]:
         """Returns dictionary with field behaviours for connection types."""
+        from airflow.composer.connections.loader import get_connection_field_behaviours
+        from airflow.composer.utils import is_composer_v1
+
+        if is_composer_v1():
+            return get_connection_field_behaviours()
+
         self.initialize_providers_manager()
         return self._field_behaviours

@@ -65,8 +65,9 @@
     <footer class="footer">
       <div class="container">
         <div>
-          {{ version_label }}: {% if airflow_version %}<a href="https://pypi.python.org/pypi/apache-airflow/{{ airflow_version }}" target="_blank">v{{ airflow_version }}</a>{% else %} N/A{% endif %}
+          {{ version_label }}: {{ airflow_version }}
           {% if git_version %}<br>Git Version:<strong>{{ git_version }}</strong>{% endif %}
+          {% if config.WEB_SERVER_NAME %}<br>Webserver: {{ config.WEB_SERVER_NAME }}{% endif %}
         </div>
         <div></div>
       </div>

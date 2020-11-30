@@ -418,7 +418,7 @@ class AirflowBaseView(BaseView):  # noqa: D101
 class Airflow(AirflowBaseView):  # noqa: D101  pylint: disable=too-many-public-methods
     """Main Airflow application."""
 
-    @expose('/health')
+    @expose('/_ah/health')
     def health(self):
         """
         An endpoint helping check the health status of the Airflow instance,
@@ -1334,6 +1334,13 @@ class Airflow(AirflowBaseView):  # noqa: D101  pylint: disable=too-many-public-m
         ignore_all_deps = request.form.get('ignore_all_deps') == "true"
         ignore_task_deps = request.form.get('ignore_task_deps') == "true"
         ignore_ti_state = request.form.get('ignore_ti_state') == "true"
+
+        if "composer" in version:
+            flash(
+                "The Run operation is currently not supported in Composer, but "
+                "you can clear the task instance and scheduler will executed it automatically."
+            )
+            return redirect(origin)
 
         executor = ExecutorLoader.get_default_executor()
         valid_celery_config = False
@@ -2825,8 +2832,7 @@ def lazy_add_provider_discovered_options_to_connection_form():
             ('mesos_framework-id', 'Mesos Framework ID'),
         ]
         providers_manager = ProvidersManager()
-        for connection_type, (_, _, _, hook_name) in providers_manager.hooks.items():
-            _connection_types.append((connection_type, hook_name))
+        _connection_types.extend(providers_manager.connection_types)
         return _connection_types
 
     ConnectionForm.conn_type = SelectField(

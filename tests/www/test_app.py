@@ -15,7 +15,10 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+import json
+import os
 import subprocess
+import tempfile
 import unittest
 from datetime import timedelta
 from unittest import mock
@@ -26,6 +29,7 @@ from werkzeug.test import create_environ
 from werkzeug.wrappers import Response
 
 from airflow.www import app as application
+from airflow.www.app import load_environment_variables
 from tests.test_utils.config import conf_vars
 
 
@@ -245,3 +249,29 @@ class TestFlaskCli(unittest.TestCase):
         with mock.patch.dict("os.environ", FLASK_APP="airflow.www.app:create_app"):
             output = subprocess.check_output(["flask", "routes"])
             assert "/api/v1/version" in output.decode()
+
+
+@mock.patch('os.environ', {})
+def test_composer_load_environment_variables():
+    env = {"a": 1, "b": 2}
+    with tempfile.TemporaryDirectory() as temp_dir:
+        with open(f"{temp_dir}/env_var.json", "w+") as f:
+            json.dump(env, f)
+
+        load_environment_variables(gcs_path=temp_dir)
+        assert os.environ == env
+
+        with open(f"{temp_dir}/env_var.json.bkp") as f:
+            assert json.load(f) == env
+
+
+@mock.patch('os.environ', {})
+def test_composer_load_environment_variables_from_backup():
+    env = {"a": 1, "b": 2}
+    with tempfile.TemporaryDirectory() as temp_dir:
+        assert os.path.isfile(f"{temp_dir}/env_var.json") is False
+        with open(f"{temp_dir}/env_var.json.bkp", "w+") as f:
+            json.dump(env, f)
+
+        load_environment_variables(gcs_path=temp_dir)
+        assert os.environ == env
