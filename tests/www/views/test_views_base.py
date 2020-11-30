@@ -56,6 +56,22 @@ def test_doc_urls(admin_client, monkeypatch):
     check_content_in_response("/api/v1/ui", resp)
 
 
+def test_composer_web_server_name(admin_client):
+    resp = admin_client.get("/", follow_redirects=True)
+    check_content_in_response("Environment Name: COMPOSER_TEST_WEB_SERVER_NAME", resp)
+
+
+def test_composer_load_environment_variables(admin_client):
+    import os
+
+    assert os.environ.get("COMPOSER_ENV_TEST") == "TEST_VAR"
+
+
+def test_composer_no_logout_menu_item(admin_client):
+    resp = admin_client.get("/", follow_redirects=True)
+    check_content_not_in_response("Log Out", resp)
+
+
 @pytest.fixture()
 def heartbeat_healthy():
     # case-1: healthy scheduler status
@@ -117,7 +133,7 @@ def heartbeat_not_running():
 def test_health(request, admin_client, heartbeat):
     # Load the corresponding fixture by name.
     scheduler_status, last_scheduler_heartbeat = request.getfixturevalue(heartbeat)
-    resp = admin_client.get("health", follow_redirects=True)
+    resp = admin_client.get("_ah/health", follow_redirects=True)
     resp_json = json.loads(resp.data.decode("utf-8"))
     assert "healthy" == resp_json["metadatabase"]["status"]
     assert scheduler_status == resp_json["scheduler"]["status"]

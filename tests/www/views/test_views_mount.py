@@ -43,7 +43,7 @@ def client(app):
 
 def test_mount(client):
     # Test an endpoint that doesn't need auth!
-    resp = client.get("/test/health")
+    resp = client.get("/test/_ah/health")
     assert resp.status_code == 200
     assert b"healthy" in resp.data
 
