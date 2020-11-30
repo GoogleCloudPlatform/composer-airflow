@@ -17,6 +17,9 @@
 # under the License.
 import re
 import unittest
+from unittest import mock
+
+from parameterized import parameterized
 
 from airflow.providers_manager import ProvidersManager
 
@@ -40,15 +43,27 @@ class TestProviderManager(unittest.TestCase):
         connections_list = list(provider_manager.hooks.keys())
         assert len(connections_list) > 60
 
-    def test_connection_form_widgets(self):
-        provider_manager = ProvidersManager()
-        connections_form_widgets = list(provider_manager.connection_form_widgets.keys())
-        assert len(connections_form_widgets) > 29
+    @parameterized.expand([("1.16.5",), ("2.0.0-preview.0",)])
+    def test_connection_types(self, composer_version):
+        with mock.patch.dict("os.environ", COMPOSER_VERSION=composer_version):
+            provider_manager = ProvidersManager()
+            assert ("aws", "Amazon Web Services") in provider_manager.connection_types
 
-    def test_field_behaviours(self):
-        provider_manager = ProvidersManager()
-        connections_with_field_behaviours = list(provider_manager.field_behaviours.keys())
-        assert len(connections_with_field_behaviours) > 16
+    @parameterized.expand([("1.16.5",), ("2.0.0-preview.0",)])
+    def test_connection_form_widgets(self, composer_version):
+        with mock.patch.dict("os.environ", COMPOSER_VERSION=composer_version):
+            provider_manager = ProvidersManager()
+            connections_form_widgets = list(provider_manager.connection_form_widgets.keys())
+            assert "extra__snowflake__account" in connections_form_widgets
+            assert len(connections_form_widgets) > 29
+
+    @parameterized.expand([("1.16.5",), ("2.0.0-preview.0",)])
+    def test_field_behaviours(self, composer_version):
+        with mock.patch.dict("os.environ", COMPOSER_VERSION=composer_version):
+            provider_manager = ProvidersManager()
+            connections_with_field_behaviours = list(provider_manager.field_behaviours.keys())
+            assert "snowflake" in connections_with_field_behaviours
+            assert len(connections_with_field_behaviours) > 16
 
     def test_extra_links(self):
         provider_manager = ProvidersManager()

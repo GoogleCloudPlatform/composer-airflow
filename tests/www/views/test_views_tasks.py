@@ -497,8 +497,8 @@ def test_run_with_not_runnable_states(_, admin_client, session, state):
     check_content_in_response('', resp)
 
     msg = (
-        f"Task is in the &#39;{state}&#39; state which is not a valid state for "
-        f"execution. The task must be cleared in order to be run"
+        "The Run operation is currently not supported in Composer, but "
+        "you can clear the task instance and scheduler will executed it automatically."
     )
     assert re.search(msg, resp.get_data(as_text=True))
 
