@@ -1110,6 +1110,16 @@ class ProvidersManager(LoggingMixin, metaclass=Singleton):
         return sorted(self._extra_link_class_name_set)
 
     @property
+    def connection_types(self):
+        """Returns connection types for connection forms."""
+        self.initialize_providers_hooks()
+        _connection_types = []
+        for connection_type, provider_info in self.hooks.items():
+            if provider_info:
+                _connection_types.append((connection_type, provider_info.hook_name))
+        return _connection_types
+
+    @property
     def connection_form_widgets(self) -> dict[str, ConnectionFormWidgetInfo]:
         """
         Returns widgets for connection forms.
