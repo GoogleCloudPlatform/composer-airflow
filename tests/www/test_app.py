@@ -17,8 +17,11 @@
 # under the License.
 from __future__ import annotations
 
+import json
+import os
 import runpy
 import sys
+import tempfile
 from datetime import timedelta
 from unittest import mock
 
@@ -28,6 +31,7 @@ from werkzeug.test import create_environ
 from werkzeug.wrappers import Response
 
 from airflow.www import app as application
+from airflow.www.app import load_environment_variables
 from tests.test_utils.config import conf_vars
 from tests.test_utils.decorators import dont_initialize_flask_app_submodules
 
@@ -249,3 +253,29 @@ def test_app_can_json_serialize_k8s_pod():
     pod = k8s.V1Pod(spec=k8s.V1PodSpec(containers=[k8s.V1Container(name="base")]))
     app = application.cached_app(testing=True)
     assert app.json.dumps(pod) == '{"spec": {"containers": [{"name": "base"}]}}'
+
+
+@mock.patch("os.environ", {})
+def test_composer_load_environment_variables():
+    env = {"a": 1, "b": 2}
+    with tempfile.TemporaryDirectory() as temp_dir:
+        with open(f"{temp_dir}/env_var.json", "w+") as f:
+            json.dump(env, f)
+
+        load_environment_variables(gcs_path=temp_dir)
+        assert os.environ == env
+
+        with open(f"{temp_dir}/env_var.json.bkp") as f:
+            assert json.load(f) == env
+
+
+@mock.patch("os.environ", {})
+def test_composer_load_environment_variables_from_backup():
+    env = {"a": 1, "b": 2}
+    with tempfile.TemporaryDirectory() as temp_dir:
+        assert os.path.isfile(f"{temp_dir}/env_var.json") is False
+        with open(f"{temp_dir}/env_var.json.bkp", "w+") as f:
+            json.dump(env, f)
+
+        load_environment_variables(gcs_path=temp_dir)
+        assert os.environ == env

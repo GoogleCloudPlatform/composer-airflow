@@ -949,11 +949,33 @@ class ProvidersManager(LoggingMixin):
         return sorted(self._extra_link_class_name_set)
 
     @property
+    def connection_types(self):
+        """Returns connection types for connection forms."""
+        from airflow.composer.connections.loader import get_connection_types
+        from airflow.composer.utils import is_composer_v1
+
+        if is_composer_v1():
+            return get_connection_types()
+
+        self.initialize_providers_hooks()
+        _connection_types = []
+        for connection_type, provider_info in self.hooks.items():
+            if provider_info:
+                _connection_types.append((connection_type, provider_info.hook_name))
+        return _connection_types
+
+    @property
     def connection_form_widgets(self) -> dict[str, ConnectionFormWidgetInfo]:
         """
         Returns widgets for connection forms.
         Dictionary keys in the same order that it defined in Hook.
         """
+        from airflow.composer.connections.loader import get_connection_form_widgets
+        from airflow.composer.utils import is_composer_v1
+
+        if is_composer_v1():
+            return get_connection_form_widgets()
+
         self.initialize_providers_hooks()
         self._import_info_from_all_hooks()
         return self._connection_form_widgets
@@ -961,6 +983,12 @@ class ProvidersManager(LoggingMixin):
     @property
     def field_behaviours(self) -> dict[str, dict]:
         """Returns dictionary with field behaviours for connection types."""
+        from airflow.composer.connections.loader import get_connection_field_behaviours
+        from airflow.composer.utils import is_composer_v1
+
+        if is_composer_v1():
+            return get_connection_field_behaviours()
+
         self.initialize_providers_hooks()
         self._import_info_from_all_hooks()
         return self._field_behaviours

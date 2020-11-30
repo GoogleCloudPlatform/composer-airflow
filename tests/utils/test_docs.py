@@ -20,7 +20,7 @@ from unittest import mock
 
 import pytest
 
-from airflow.utils.docs import get_docs_url
+from airflow.utils.docs import get_doc_url_for_provider, get_docs_url
 
 
 class TestGetDocsUrl:
@@ -50,3 +50,23 @@ class TestGetDocsUrl:
     def test_should_return_link(self, version, page, expected_url):
         with mock.patch("airflow.version.version", version):
             assert expected_url == get_docs_url(page)
+
+    @pytest.mark.parametrize(
+        "provider_name, provider_version, expected_url",
+        [
+            (
+                "apache-airflow-providers-google",
+                "2023.4.13+composer",
+                "https://github.com/GoogleCloudPlatform/composer-airflow/blob/providers-google-2023.4.13+composer/airflow/providers/google/CHANGELOG.rst",  # noqa: E501
+            ),
+            (
+                "apache-airflow-providers-google",
+                "8.9.0",
+                "https://airflow.apache.org/docs/apache-airflow-providers-google/8.9.0/",
+            ),
+        ],
+    )
+    @mock.patch("importlib_metadata.metadata", autospec=True)
+    def test_get_doc_url_for_provider(self, mock_metadata, provider_name, provider_version, expected_url):
+        mock_metadata.return_value.get_all.return_value = None
+        assert expected_url == get_doc_url_for_provider(provider_name, provider_version)

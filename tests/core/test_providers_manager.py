@@ -19,11 +19,13 @@ from __future__ import annotations
 
 import logging
 import re
+from unittest import mock
 from unittest.mock import patch
 
 import pytest
 from flask_appbuilder.fieldwidgets import BS3TextFieldWidget
 from flask_babel import lazy_gettext
+from parameterized import parameterized
 from wtforms import BooleanField, Field, StringField
 
 from airflow.exceptions import AirflowOptionalProviderFeatureException
@@ -169,10 +171,11 @@ class TestProviderManager:
         assert [] == [w.message for w in warning_records.list if "hook-class-names" in str(w.message)]
         assert len(self._caplog.records) == 0
 
-    def test_connection_form_widgets(self):
-        provider_manager = ProvidersManager()
-        connections_form_widgets = list(provider_manager.connection_form_widgets.keys())
-        assert len(connections_form_widgets) > 29
+    @parameterized.expand([("1.16.5",), ("2.0.0-preview.0",)])
+    def test_connection_types(self, composer_version):
+        with mock.patch.dict("os.environ", COMPOSER_VERSION=composer_version):
+            provider_manager = ProvidersManager()
+            assert ("aws", "Amazon Web Services") in provider_manager.connection_types
 
     @pytest.mark.parametrize(
         "scenario",
@@ -306,10 +309,21 @@ class TestProviderManager:
         )
         assert actual_field_names_order == expected_field_names_order, "Not keeping original fields order"
 
-    def test_field_behaviours(self):
-        provider_manager = ProvidersManager()
-        connections_with_field_behaviours = list(provider_manager.field_behaviours.keys())
-        assert len(connections_with_field_behaviours) > 16
+    @parameterized.expand([("1.16.5",), ("2.0.0-preview.0",)])
+    def test_connection_form_widgets(self, composer_version):
+        with mock.patch.dict("os.environ", COMPOSER_VERSION=composer_version):
+            provider_manager = ProvidersManager()
+            connections_form_widgets = list(provider_manager.connection_form_widgets.keys())
+            assert "extra__snowflake__account" in connections_form_widgets
+            assert len(connections_form_widgets) > 29
+
+    @parameterized.expand([("1.16.5",), ("2.0.0-preview.0",)])
+    def test_field_behaviours(self, composer_version):
+        with mock.patch.dict("os.environ", COMPOSER_VERSION=composer_version):
+            provider_manager = ProvidersManager()
+            connections_with_field_behaviours = list(provider_manager.field_behaviours.keys())
+            assert "snowflake" in connections_with_field_behaviours
+            assert len(connections_with_field_behaviours) > 16
 
     def test_extra_links(self):
         provider_manager = ProvidersManager()

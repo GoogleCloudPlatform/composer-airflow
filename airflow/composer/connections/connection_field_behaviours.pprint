@@ -1,0 +1,354 @@
+OrderedDict([('adls',
+              {'hidden_fields': ['schema', 'port'],
+               'placeholders': {'extra': 'additional options for use with '
+                                         'FileService and AzureFileVolume',
+                                'extra__adls__connection_string': 'connection '
+                                                                  'string auth',
+                                'extra__adls__tenant_id': 'tenant',
+                                'host': 'account url',
+                                'login': 'account name',
+                                'password': 'secret'},
+               'relabeling': {'host': 'Account Name (Active Directory Auth)',
+                              'login': 'ADLS gen2 Storage Login (optional)',
+                              'password': 'ADLS gen2 Storage Key (optional)'}}),
+             ('arangodb',
+              {'hidden_fields': ['port', 'extra'],
+               'placeholders': {'host': 'eg."http://127.0.0.1:8529" or '
+                                        '"http://127.0.0.1:8529,http://127.0.0.1:8530" '
+                                        '(coordinators in a cluster)',
+                                'login': 'root',
+                                'password': 'password',
+                                'schema': '_system'},
+               'relabeling': {'host': 'ArangoDB Host URL or  comma separated '
+                                      'list of URLs (coordinators in a '
+                                      'cluster)',
+                              'login': 'ArangoDB Username',
+                              'password': 'ArangoDB Password',
+                              'schema': 'ArangoDB Database'}}),
+             ('asana',
+              {'hidden_fields': ['port', 'host', 'login', 'schema'],
+               'placeholders': {'extra__asana__project': 'Asana project gid',
+                                'extra__asana__workspace': 'Asana workspace '
+                                                           'gid',
+                                'password': 'Asana personal access token'},
+               'relabeling': {}}),
+             ('aws',
+              {'hidden_fields': ['host', 'schema', 'port'],
+               'placeholders': {'extra': '{\n'
+                                         '  "region_name": "us-east-1",\n'
+                                         '  "session_kwargs": {\n'
+                                         '    "profile_name": "default"\n'
+                                         '  },\n'
+                                         '  "config_kwargs": {\n'
+                                         '    "retries": {\n'
+                                         '      "mode": "standard",\n'
+                                         '      "max_attempts": 10\n'
+                                         '    }\n'
+                                         '  },\n'
+                                         '  "role_arn": '
+                                         '"arn:aws:iam::123456789098:role/role-name",\n'
+                                         '  "assume_role_method": '
+                                         '"assume_role",\n'
+                                         '  "assume_role_kwargs": {\n'
+                                         '    "RoleSessionName": "airflow"\n'
+                                         '  },\n'
+                                         '  "aws_session_token": '
+                                         '"AQoDYXdzEJr...EXAMPLETOKEN",\n'
+                                         '  "endpoint_url": '
+                                         '"http://localhost:4566"\n'
+                                         '}',
+                                'login': 'AKIAIOSFODNN7EXAMPLE',
+                                'password': 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'},
+               'relabeling': {'login': 'AWS Access Key ID',
+                              'password': 'AWS Secret Access Key'}}),
+             ('azure',
+              {'hidden_fields': ['schema', 'port', 'host'],
+               'placeholders': {'extra': '{\n'
+                                         ' "key_path": "path to json file for '
+                                         'auth",\n'
+                                         ' "key_json": "specifies json dict '
+                                         'for auth"\n'
+                                         '}',
+                                'extra__azure__subscriptionId': 'subscriptionId '
+                                                                '(token '
+                                                                'credentials '
+                                                                'auth)',
+                                'extra__azure__tenantId': 'tenantId (token '
+                                                          'credentials auth)',
+                                'login': 'client_id (token credentials auth)',
+                                'password': 'secret (token credentials auth)'},
+               'relabeling': {'login': 'Azure Client ID',
+                              'password': 'Azure Secret'}}),
+             ('azure_batch',
+              {'hidden_fields': ['schema', 'port', 'host', 'extra'],
+               'relabeling': {'login': 'Batch Account Name',
+                              'password': 'Batch Account Access Key'}}),
+             ('azure_container_registry',
+              {'hidden_fields': ['schema', 'port', 'extra'],
+               'placeholders': {'host': 'docker image registry server',
+                                'login': 'private registry username',
+                                'password': 'private registry password'},
+               'relabeling': {'host': 'Registry Server',
+                              'login': 'Registry Username',
+                              'password': 'Registry Password'}}),
+             ('azure_container_volume',
+              {'hidden_fields': ['schema', 'port', 'host', 'extra'],
+               'placeholders': {'extra__azure_container_volume__connection_string': 'connection '
+                                                                                    'string '
+                                                                                    'auth',
+                                'login': 'client_id (token credentials auth)',
+                                'password': 'secret (token credentials auth)'},
+               'relabeling': {'login': 'Azure Client ID',
+                              'password': 'Azure Secret'}}),
+             ('azure_cosmos',
+              {'hidden_fields': ['schema', 'port', 'host', 'extra'],
+               'placeholders': {'extra__azure_cosmos__collection_name': 'collection '
+                                                                        'name',
+                                'extra__azure_cosmos__database_name': 'database '
+                                                                      'name',
+                                'login': 'endpoint uri',
+                                'password': 'master key'},
+               'relabeling': {'login': 'Cosmos Endpoint URI',
+                              'password': 'Cosmos Master Key Token'}}),
+             ('azure_data_explorer',
+              {'hidden_fields': ['schema', 'port', 'extra'],
+               'placeholders': {'extra__azure_data_explorer__auth_method': 'AAD_APP/AAD_APP_CERT/AAD_CREDS/AAD_DEVICE',
+                                'extra__azure_data_explorer__certificate': 'Used '
+                                                                           'with '
+                                                                           'AAD_APP_CERT',
+                                'extra__azure_data_explorer__tenant': 'Used '
+                                                                      'with '
+                                                                      'AAD_APP/AAD_APP_CERT/AAD_CREDS',
+                                'extra__azure_data_explorer__thumbprint': 'Used '
+                                                                          'with '
+                                                                          'AAD_APP_CERT',
+                                'login': 'Varies with authentication method',
+                                'password': 'Varies with authentication '
+                                            'method'},
+               'relabeling': {'host': 'Data Explorer Cluster URL',
+                              'login': 'Username'}}),
+             ('azure_data_factory',
+              {'hidden_fields': ['schema', 'port', 'host', 'extra'],
+               'relabeling': {'login': 'Client ID', 'password': 'Secret'}}),
+             ('azure_data_lake',
+              {'hidden_fields': ['schema', 'port', 'host', 'extra'],
+               'placeholders': {'extra__azure_data_lake__account_name': 'datalake '
+                                                                        'store',
+                                'extra__azure_data_lake__tenant': 'tenant id',
+                                'login': 'client id',
+                                'password': 'secret'},
+               'relabeling': {'login': 'Azure Client ID',
+                              'password': 'Azure Client Secret'}}),
+             ('azure_fileshare',
+              {'hidden_fields': ['schema', 'port', 'host', 'extra'],
+               'placeholders': {'extra__azure_fileshare__connection_string': 'account '
+                                                                             'url '
+                                                                             'or '
+                                                                             'token '
+                                                                             '(optional)',
+                                'extra__azure_fileshare__protocol': 'account '
+                                                                    'url or '
+                                                                    'token '
+                                                                    '(optional)',
+                                'extra__azure_fileshare__sas_token': 'account '
+                                                                     'url or '
+                                                                     'token '
+                                                                     '(optional)',
+                                'login': 'account name',
+                                'password': 'secret'},
+               'relabeling': {'login': 'Blob Storage Login (optional)',
+                              'password': 'Blob Storage Key (optional)'}}),
+             ('azure_service_bus',
+              {'hidden_fields': ['port', 'host', 'extra', 'login', 'password'],
+               'placeholders': {'schema': 'Endpoint=sb://<Resource '
+                                          'group>.servicebus.windows.net/;SharedAccessKeyName=<AccessKeyName>;SharedAccessKey=<SharedAccessKey>'},
+               'relabeling': {'schema': 'Connection String'}}),
+             ('azure_synapse',
+              {'hidden_fields': ['schema', 'port', 'extra'],
+               'relabeling': {'host': 'Synapse Workspace URL',
+                              'login': 'Client ID',
+                              'password': 'Secret'}}),
+             ('cloudant',
+              {'hidden_fields': ['port', 'extra'],
+               'relabeling': {'host': 'Account',
+                              'login': 'Username (or API Key)',
+                              'schema': 'Database'}}),
+             ('dbt_cloud',
+              {'hidden_fields': ['schema', 'port', 'extra'],
+               'placeholders': {'host': "Defaults to 'cloud.getdbt.com'."},
+               'relabeling': {'host': 'Tenant',
+                              'login': 'Account ID',
+                              'password': 'API Token'}}),
+             ('docker',
+              {'hidden_fields': ['schema'],
+               'relabeling': {'host': 'Registry URL', 'login': 'Username'}}),
+             ('emr',
+              {'hidden_fields': ['host', 'schema', 'port', 'login', 'password'],
+               'placeholders': {'extra': '{\n'
+                                         '  "Name": "MyClusterName",\n'
+                                         '  "ReleaseLabel": "emr-5.36.0",\n'
+                                         '  "Applications": [\n'
+                                         '    {\n'
+                                         '      "Name": "Spark"\n'
+                                         '    }\n'
+                                         '  ],\n'
+                                         '  "Instances": {\n'
+                                         '    "InstanceGroups": [\n'
+                                         '      {\n'
+                                         '        "Name": "Primary node",\n'
+                                         '        "Market": "SPOT",\n'
+                                         '        "InstanceRole": "MASTER",\n'
+                                         '        "InstanceType": "m5.large",\n'
+                                         '        "InstanceCount": 1\n'
+                                         '      }\n'
+                                         '    ],\n'
+                                         '    "KeepJobFlowAliveWhenNoSteps": '
+                                         'false,\n'
+                                         '    "TerminationProtected": false\n'
+                                         '  },\n'
+                                         '  "StepConcurrencyLevel": 2\n'
+                                         '}'},
+               'relabeling': {'extra': 'Run Job Flow Configuration'}}),
+             ('gcpssh',
+              {'hidden_fields': ['host',
+                                 'schema',
+                                 'login',
+                                 'password',
+                                 'port',
+                                 'extra'],
+               'relabeling': {}}),
+             ('github',
+              {'hidden_fields': ['schema', 'port', 'login', 'extra'],
+               'placeholders': {'host': 'https://{hostname}/api/v3 (for GitHub '
+                                        'Enterprise)'},
+               'relabeling': {'host': 'GitHub Enterprise URL (Optional)',
+                              'password': 'GitHub Access Token'}}),
+             ('google_cloud_platform',
+              {'hidden_fields': ['host',
+                                 'schema',
+                                 'login',
+                                 'password',
+                                 'port',
+                                 'extra'],
+               'relabeling': {}}),
+             ('jdbc',
+              {'hidden_fields': ['port', 'schema', 'extra'],
+               'relabeling': {'host': 'Connection URL'}}),
+             ('kubernetes',
+              {'hidden_fields': ['host',
+                                 'schema',
+                                 'login',
+                                 'password',
+                                 'port',
+                                 'extra'],
+               'relabeling': {}}),
+             ('pagerduty',
+              {'hidden_fields': ['port', 'login', 'schema', 'host'],
+               'relabeling': {'password': 'Pagerduty API token'}}),
+             ('pagerduty_events',
+              {'hidden_fields': ['port', 'login', 'schema', 'host', 'extra'],
+               'relabeling': {'password': 'Pagerduty Integration key'}}),
+             ('qubole',
+              {'hidden_fields': ['login', 'schema', 'port', 'extra'],
+               'placeholders': {'host': 'https://<env>.qubole.com/api'},
+               'relabeling': {'host': 'API Endpoint',
+                              'password': 'Auth Token'}}),
+             ('redshift',
+              {'hidden_fields': [],
+               'relabeling': {'login': 'User', 'schema': 'Database'}}),
+             ('salesforce',
+              {'hidden_fields': ['schema', 'port', 'extra', 'host'],
+               'relabeling': {'login': 'Username'}}),
+             ('sftp',
+              {'hidden_fields': ['schema'],
+               'relabeling': {'login': 'Username'}}),
+             ('slack',
+              {'hidden_fields': ['login', 'port', 'host', 'schema', 'extra'],
+               'placeholders': {'extra__slack__base_url': 'https://www.slack.com/api/',
+                                'extra__slack__proxy': 'http://localhost:9000',
+                                'extra__slack__timeout': '30',
+                                'password': 'xoxb-1234567890123-09876543210987-AbCdEfGhIjKlMnOpQrStUvWx'},
+               'relabeling': {'password': 'Slack API Token'}}),
+             ('slackwebhook',
+              {'hidden_fields': ['login', 'port', 'extra'],
+               'placeholders': {'extra__slackwebhook__proxy': 'http://localhost:9000',
+                                'extra__slackwebhook__timeout': '30',
+                                'host': 'hooks.slack.com/services',
+                                'password': 'T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX',
+                                'schema': 'https'},
+               'relabeling': {'host': 'Slack Webhook Endpoint',
+                              'password': 'Webhook Token'}}),
+             ('snowflake',
+              {'hidden_fields': ['port'],
+               'placeholders': {'extra': '{\n'
+                                         ' "authenticator": "snowflake '
+                                         'oauth",\n'
+                                         ' "private_key_file": "private key",\n'
+                                         ' "session_parameters": "session '
+                                         'parameters"\n'
+                                         '}',
+                                'extra__snowflake__account': 'snowflake '
+                                                             'account name',
+                                'extra__snowflake__database': 'snowflake db '
+                                                              'name',
+                                'extra__snowflake__insecure_mode': 'insecure '
+                                                                   'mode',
+                                'extra__snowflake__private_key_content': 'Content '
+                                                                         'to '
+                                                                         'snowflake '
+                                                                         'private '
+                                                                         'key '
+                                                                         '(PEM '
+                                                                         'format)',
+                                'extra__snowflake__private_key_file': 'Path of '
+                                                                      'snowflake '
+                                                                      'private '
+                                                                      'key '
+                                                                      '(PEM '
+                                                                      'Format)',
+                                'extra__snowflake__region': 'snowflake hosted '
+                                                            'region',
+                                'extra__snowflake__role': 'snowflake role',
+                                'extra__snowflake__warehouse': 'snowflake '
+                                                               'warehouse name',
+                                'login': 'snowflake username',
+                                'password': 'snowflake password',
+                                'schema': 'snowflake schema'},
+               'relabeling': {}}),
+             ('spark',
+              {'hidden_fields': ['schema', 'login', 'password'],
+               'relabeling': {}}),
+             ('ssh',
+              {'hidden_fields': ['schema'],
+               'relabeling': {'login': 'Username'}}),
+             ('tabular',
+              {'hidden_fields': ['schema', 'port'],
+               'placeholders': {'host': 'https://api.tabulardata.io/ws/v1',
+                                'login': 'client_id (token credentials auth)',
+                                'password': 'secret (token credentials auth)'},
+               'relabeling': {'host': 'Base URL',
+                              'login': 'Client ID',
+                              'password': 'Client Secret'}}),
+             ('wasb',
+              {'hidden_fields': ['schema', 'port', 'extra'],
+               'placeholders': {'extra__wasb__connection_string': 'connection '
+                                                                  'string auth',
+                                'extra__wasb__sas_token': 'account url or '
+                                                          'token',
+                                'extra__wasb__shared_access_key': 'shared '
+                                                                  'access key',
+                                'extra__wasb__tenant_id': 'tenant',
+                                'host': 'account url',
+                                'login': 'account name',
+                                'password': 'secret'},
+               'relabeling': {'host': 'Account Name (Active Directory Auth)',
+                              'login': 'Blob Storage Login (optional)',
+                              'password': 'Blob Storage Key (optional)'}}),
+             ('yandexcloud',
+              {'hidden_fields': ['host',
+                                 'schema',
+                                 'login',
+                                 'password',
+                                 'port',
+                                 'extra'],
+               'relabeling': {}})])

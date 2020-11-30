@@ -582,12 +582,12 @@ def test_run_ignoring_deps_sets_queued_dttm(_, admin_client, session):
     resp = admin_client.post("run", data=form, follow_redirects=True)
 
     assert resp.status_code == 200
-    # We cannot use freezegun here as it does not play well with Flask 2.2 and SqlAlchemy
-    # Unlike real datetime, when FakeDatetime is used, it coerces to
-    # '2020-08-06 09:00:00+00:00' which is rejected by MySQL for EXPIRY Column
-    assert timezone.utcnow() - session.query(TaskInstance.queued_dttm).filter(
-        TaskInstance.task_id == task_id
-    ).scalar() < timedelta(minutes=5)
+
+    msg = (
+        "The Run operation is currently not supported in Composer, but "
+        "you can clear the task instance and scheduler will executed it automatically."
+    )
+    assert re.search(msg, resp.get_data(as_text=True))
 
 
 @pytest.mark.parametrize("state", QUEUEABLE_STATES)
@@ -615,7 +615,10 @@ def test_run_with_not_runnable_states(_, admin_client, session, state):
     resp = admin_client.post("run", data=form, follow_redirects=True)
     check_content_in_response("", resp)
 
-    msg = f"Task is in the &#39;{state}&#39; state."
+    msg = (
+        "The Run operation is currently not supported in Composer, but "
+        "you can clear the task instance and scheduler will executed it automatically."
+    )
     assert re.search(msg, resp.get_data(as_text=True))
 
 
