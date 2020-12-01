@@ -66,8 +66,10 @@ if os.path.isfile('/home/airflow/gcs/env_var.json') \
                         'have not been applied.')
 
 if not conf.getboolean('core', 'unit_test_mode'):
-    airflow.plugins_manager = six.moves.reload_module(airflow.plugins_manager)
-    airflow.configuration = six.moves.reload_module(airflow.configuration)
+    if hasattr(airflow, 'plugins_manager'):
+        airflow.plugins_manager = six.moves.reload_module(airflow.plugins_manager)
+    if hasattr(airflow, 'configuration'):
+        airflow.configuration = six.moves.reload_module(airflow.configuration)
     airflow = six.moves.reload_module(airflow)
 
 def create_app(config=None, session=None, testing=False, app_name="Airflow"):
