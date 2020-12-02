@@ -1186,6 +1186,21 @@ def webserver(args):
 def scheduler(args):
     py2_deprecation_waring()
     print(settings.HEADER)
+
+    if (settings.RBAC and conf.getboolean(
+        'webserver', 'rbac_autoregister_per_folder_roles', fallback=False)):
+
+        # Prepare appbuilder instance to be shared across DAG loading processes.
+        # It will be used for configuring per-folder DAG grouping roles.
+        os.environ['SKIP_DAGS_PARSING'] = 'True'
+        appbuilder = cached_appbuilder()
+        os.environ.pop('SKIP_DAGS_PARSING')
+
+        from multiprocessing import Lock, Manager
+
+        appbuilder.sm.lock = Lock()
+        appbuilder.sm.dag_to_role = Manager().dict()
+
     job = jobs.SchedulerJob(
         dag_id=args.dag_id,
         subdir=process_subdir(args.subdir),
