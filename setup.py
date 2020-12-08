@@ -270,7 +270,7 @@ gcp = [
     'pandas-gbq',
 ]
 grpc = [
-    'grpcio>=1.15.0',
+    'grpcio>=1.15.0,<1.31.0',
 ]
 hashicorp = [
     'hvac~=0.10',
