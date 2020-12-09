@@ -102,6 +102,11 @@ def add_default_pool_if_not_exists(session=None):
 def create_default_connections(session=None):
     from airflow.models import Connection
 
+    if session.connection.dialect.name == 'mysql':
+        session.connection.execute(
+            "select GET_LOCK('connections',1800);"
+        )
+
     merge_conn(
         Connection(
             conn_id='airflow_db', conn_type='mysql',
@@ -142,7 +147,7 @@ def create_default_connections(session=None):
         Connection(
             conn_id='hiveserver2_default', conn_type='hiveserver2',
             host='localhost',
-            schema='default', port=10000))
+            schema='default', port=10000), session)
     merge_conn(
         Connection(
             conn_id='metastore_default', conn_type='hive_metastore',
@@ -314,6 +319,11 @@ def create_default_connections(session=None):
         Connection(
             conn_id='opsgenie_default', conn_type='http',
             host='', password=''), session)
+
+    if session.connection.dialect.name == 'mysql':
+        session.connection.execute(
+            "select RELEASE_LOCK('connections');"
+        )
 
 
 def initdb(rbac=False):
