@@ -86,6 +86,10 @@ def merge_conn(conn, session=None):
 
 @provide_session
 def add_default_pool_if_not_exists(session=None):
+    if session.connection().dialect.name == 'mysql':
+        session.connection().execute(
+            "select RELEASE_LOCK('pool');"
+        )
     from airflow.models.pool import Pool
     if not Pool.get_pool(Pool.DEFAULT_POOL_NAME, session=session):
         default_pool = Pool(
@@ -96,16 +100,15 @@ def add_default_pool_if_not_exists(session=None):
         )
         session.add(default_pool)
         session.commit()
+    if session.connection().dialect.name == 'mysql':
+        session.connection().execute(
+            "select RELEASE_LOCK('pool');"
+        )
 
 
 @provide_session
 def create_default_connections(session=None):
     from airflow.models import Connection
-
-    if session.connection.dialect.name == 'mysql':
-        session.connection.execute(
-            "select GET_LOCK('connections',1800);"
-        )
 
     merge_conn(
         Connection(
@@ -320,17 +323,17 @@ def create_default_connections(session=None):
             conn_id='opsgenie_default', conn_type='http',
             host='', password=''), session)
 
-    if session.connection.dialect.name == 'mysql':
-        session.connection.execute(
-            "select RELEASE_LOCK('connections');"
-        )
-
 
 def initdb(rbac=False):
     session = settings.Session()
 
     from airflow import models
     upgradedb()
+
+    if session.connection().dialect.name == 'mysql':
+        session.connection().execute(
+            "select GET_LOCK('db_init',1800);"
+        )
 
     if conf.getboolean('core', 'LOAD_DEFAULT_CONNECTIONS', fallback=True):
         create_default_connections()
@@ -378,6 +381,11 @@ def initdb(rbac=False):
         from flask_appbuilder.security.sqla import models
         from flask_appbuilder.models.sqla import Base
         Base.metadata.create_all(settings.engine)
+
+    if session.connection().dialect.name == 'mysql':
+        session.connection().execute(
+            "select RELEASE_LOCK('db_init');"
+        )
 
 
 def upgradedb():
