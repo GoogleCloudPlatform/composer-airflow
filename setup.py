@@ -641,8 +641,7 @@ INSTALL_REQUIREMENTS = [
     'python-dateutil>=2.3, <3',
     'python-nvd3~=0.15.0',
     'python-slugify>=3.0.0,<5.0',
-    'requests>=2.20.0, <2.23.0;python_version<"3.0"',  # Required to keep snowflake happy
-    'requests>=2.20.0, <2.24.0;python_version>="3.0"',  # Required to keep snowflake happy
+    'requests>=2.20.0',
     'setproctitle>=1.1.8, <2',
     'sqlalchemy~=1.3',
     'sqlalchemy_jsonfield==0.8.0;python_version<"3.5"',
