@@ -88,7 +88,7 @@ def merge_conn(conn, session=None):
 def add_default_pool_if_not_exists(session=None):
     if session.connection().dialect.name == 'mysql':
         session.connection().execute(
-            "select RELEASE_LOCK('pool');"
+            "select GET_LOCK('pool',1800);"
         )
     from airflow.models.pool import Pool
     if not Pool.get_pool(Pool.DEFAULT_POOL_NAME, session=session):
