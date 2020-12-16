@@ -150,7 +150,7 @@ def create_default_connections(session=None):
         Connection(
             conn_id='hiveserver2_default', conn_type='hiveserver2',
             host='localhost',
-            schema='default', port=10000))
+            schema='default', port=10000), session)
     merge_conn(
         Connection(
             conn_id='metastore_default', conn_type='hive_metastore',
