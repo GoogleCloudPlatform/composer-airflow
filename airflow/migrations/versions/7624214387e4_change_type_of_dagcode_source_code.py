@@ -19,19 +19,19 @@
 """Change type of DagCode.source_code column
 
 Revision ID: 7624214387e4
-Revises: da3f683c3a5a
+Revises: 952da73b5eff
 Create Date: 2020-10-19 21:14:50.537315
 
 """
 
 # revision identifiers, used by Alembic.
 revision = '7624214387e4'
-down_revision = 'da3f683c3a5a'
+down_revision = '952da73b5eff'
 branch_labels = None
 depends_on = None
 
 from alembic import op  # noqa
-import sqlalchemy as sa  # noqa
+import sqlalchemy as sa   # noqa
 from sqlalchemy.dialects import mysql  # noqa
 
 
