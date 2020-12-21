@@ -19,7 +19,7 @@
 """Add index for worker healthcheck
 
 Revision ID: 31cbfc73ceed
-Revises: 7624214387e4
+Revises: 211e584da130
 Create Date: 2020-10-13 20:04:36.783436
 
 """
@@ -29,7 +29,7 @@ from sqlalchemy.engine.reflection import Inspector
 
 # revision identifiers, used by Alembic.
 revision = '31cbfc73ceed'
-down_revision = '7624214387e4'
+down_revision = '211e584da130'
 branch_labels = None
 depends_on = None
 
