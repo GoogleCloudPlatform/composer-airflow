@@ -695,4 +695,11 @@ class DagBag(LoggingMixin):
         from airflow.www.security import ApplessAirflowSecurityManager
 
         security_manager = ApplessAirflowSecurityManager(session=session)
+        rbac_autoregister_per_folder_roles = conf.getboolean(
+            "webserver", "rbac_autoregister_per_folder_roles", fallback=False
+        )
+        if rbac_autoregister_per_folder_roles:
+            # Create roles in RBAC tables if they do not exist.
+            for _role in dag.access_control or {}:
+                security_manager.add_role(_role)
         security_manager.sync_perm_for_dag(root_dag_id, dag.access_control)
