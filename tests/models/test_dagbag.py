@@ -916,6 +916,8 @@ class TestDagBag:
             security_manager = ApplessAirflowSecurityManager(session)
             mock_sync_perm_for_dag = mock_security_manager.return_value.sync_perm_for_dag
             mock_sync_perm_for_dag.side_effect = security_manager.sync_perm_for_dag
+            mock_add_role = mock_security_manager.return_value.add_role
+            mock_add_role.side_effect = security_manager.add_role
 
             dagbag = DagBag(
                 dag_folder=os.path.join(TEST_DAGS_FOLDER, "test_example_bash_operator.py"),
@@ -925,15 +927,18 @@ class TestDagBag:
 
             def _sync_perms():
                 mock_sync_perm_for_dag.reset_mock()
+                mock_add_role.reset_mock()
                 dagbag._sync_perm_for_dag(dag, session=session)
 
             # perms dont exist
             _sync_perms()
             mock_sync_perm_for_dag.assert_called_once_with("test_example_bash_operator", None)
+            mock_add_role.assert_not_called()
 
             # perms now exist
             _sync_perms()
             mock_sync_perm_for_dag.assert_not_called()
+            mock_add_role.assert_not_called()
 
             # Always sync if we have access_control
             dag.access_control = {"Public": {"can_read"}}
@@ -941,6 +946,49 @@ class TestDagBag:
             mock_sync_perm_for_dag.assert_called_once_with(
                 "test_example_bash_operator", {"Public": {"can_read"}}
             )
+            mock_add_role.assert_not_called()
+
+    @conf_vars({("webserver", "rbac_autoregister_per_folder_roles"): "True"})
+    @patch("airflow.www.security.ApplessAirflowSecurityManager")
+    def test_sync_perm_for_dag_rbac_autoregister_per_folder_roles(self, mock_security_manager):
+        """
+        Test that dagbag._sync_perm_for_dag will add roles from access_control field in
+        case RBAC per folder feature is enabled.
+        """
+        with create_session() as session:
+            security_manager = ApplessAirflowSecurityManager(session)
+            mock_sync_perm_for_dag = mock_security_manager.return_value.sync_perm_for_dag
+            mock_sync_perm_for_dag.side_effect = security_manager.sync_perm_for_dag
+            mock_add_role = mock_security_manager.return_value.add_role
+            mock_add_role.side_effect = security_manager.add_role
+
+            dagbag = DagBag(
+                dag_folder=os.path.join(TEST_DAGS_FOLDER, "test_example_bash_operator.py"),
+                include_examples=False,
+            )
+            dag = dagbag.dags["test_example_bash_operator"]
+
+            def _sync_perms():
+                mock_sync_perm_for_dag.reset_mock()
+                mock_add_role.reset_mock()
+                dagbag._sync_perm_for_dag(dag, session=session)
+
+            _sync_perms()
+            mock_sync_perm_for_dag.assert_called_once_with("test_example_bash_operator", None)
+            mock_add_role.assert_not_called()
+
+            dag.access_control = {"Public": {"can_read"}}
+            _sync_perms()
+            mock_sync_perm_for_dag.assert_called_once_with(
+                "test_example_bash_operator", {"Public": {"can_read"}}
+            )
+            mock_add_role.assert_called_once_with("Public")
+
+            # permviews now exist, check that sync_perm_for_dag is called even if access_control is None
+            dag.access_control = None
+            _sync_perms()
+            mock_sync_perm_for_dag.assert_called_once_with("test_example_bash_operator", None)
+            mock_add_role.assert_not_called()
 
     @patch("airflow.models.dagbag.settings.MIN_SERIALIZED_DAG_UPDATE_INTERVAL", 5)
     @patch("airflow.models.dagbag.settings.MIN_SERIALIZED_DAG_FETCH_INTERVAL", 5)
