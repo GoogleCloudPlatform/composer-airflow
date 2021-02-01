@@ -3330,11 +3330,22 @@ class DagModel(Base):
         """
         log.debug("Deactivating DAGs (for which DAG files are deleted) from %s table ", cls.__tablename__)
 
+        rbac_autoregister_per_folder_roles = conf.getboolean(
+            "webserver", "rbac_autoregister_per_folder_roles", fallback=False
+        )
+        if rbac_autoregister_per_folder_roles:
+            from airflow.www.security import ApplessAirflowSecurityManager
+
+            security_manager = ApplessAirflowSecurityManager(session=session)
+
         dag_models = session.query(cls).all()
         for dag_model in dag_models:
             if dag_model.fileloc is not None:
                 if correct_maybe_zipped(dag_model.fileloc) not in alive_dag_filelocs:
                     dag_model.is_active = False
+                    if rbac_autoregister_per_folder_roles:
+                        # Revoke permissions to deleted DAGs from all roles.
+                        security_manager.sync_perm_for_dag(dag_model.dag_id, {})
             else:
                 continue
 
