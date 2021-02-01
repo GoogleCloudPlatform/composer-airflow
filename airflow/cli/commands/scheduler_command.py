@@ -35,6 +35,21 @@ def scheduler(args):
     skip_serve_logs = args.skip_serve_logs
 
     print(settings.HEADER)
+
+    from multiprocessing import Lock, Manager
+    import os
+    from airflow.www.app import cached_app
+    from airflow.configuration import conf
+    if conf.getboolean(
+        'webserver', 'rbac_autoregister_per_folder_roles', fallback=False):
+        # Prepare appbuilder instance to be shared across DAG loading processes.
+        # It will be used for configuring per-folder DAG grouping roles.
+        os.environ['SKIP_DAGS_PARSING'] = 'True'
+        appbuilder = cached_app().appbuilder
+        os.environ.pop('SKIP_DAGS_PARSING')
+        appbuilder.sm.lock = Lock()
+        appbuilder.sm.dag_to_role = Manager().dict()
+
     job = SchedulerJob(
         subdir=process_subdir(args.subdir),
         num_runs=args.num_runs,
