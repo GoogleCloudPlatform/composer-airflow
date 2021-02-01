@@ -17,6 +17,16 @@
 from celery.signals import celeryd_init
 
 
+def dag_policy(dag):
+    """Applies per-DAG policy."""
+    # Avoid circular imports by moving imports inside method.
+    from airflow.composer.dag_rbac_per_folder import apply_dag_rbac_per_folder_policy
+    from airflow.configuration import conf
+
+    if conf.getboolean("webserver", "rbac_autoregister_per_folder_roles", fallback=False):
+        apply_dag_rbac_per_folder_policy(dag)
+
+
 @celeryd_init.connect
 def setup_logging_on_celeryd_init(**kwargs):
     """Customize Celery logging configuration as per Composer needs."""

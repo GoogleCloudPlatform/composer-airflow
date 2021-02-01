@@ -3411,6 +3411,34 @@ class TestDagModel:
             dag.run(local=True)
             assert isinstance(run_job_mock.call_args_list[1].kwargs["job"].executor, LocalExecutor)
 
+    @provide_session
+    @conf_vars({("webserver", "rbac_autoregister_per_folder_roles"): "True"})
+    @patch("airflow.www.security_appless.ApplessAirflowSecurityManager.sync_perm_for_dag")
+    def test_revoke_permissions_on_deleted_dag_with_per_folder_roles_autoregistration(
+        self, mock_sync_perm_for_dag, session=None
+    ):
+
+        dag_id = "test_role_dag"
+        dag = DAG(dag_id, schedule=datetime.timedelta(days=1), start_date=DEFAULT_DATE)
+        dag_fileloc = "dag_fileloc.py"
+        dag.fileloc = dag_fileloc
+        with mock.patch("airflow.models.dag.DagCode.bulk_sync_to_db"):
+            dag.sync_to_db(session=session)
+
+        DagModel.deactivate_deleted_dags(
+            [dag_fileloc],
+            processor_subdir="/usr/local/airflow/dags/",
+        )
+        if mock_sync_perm_for_dag.call_args_list:
+            calls_args, _ = list(zip(*mock_sync_perm_for_dag.call_args_list))
+            assert (dag_id, {}) not in calls_args
+
+        DagModel.deactivate_deleted_dags(
+            [],
+            processor_subdir="/usr/local/airflow/dags/",
+        ),
+        mock_sync_perm_for_dag.assert_any_call(dag_id, {})
+
 
 class TestQueries:
     def setup_method(self) -> None:
