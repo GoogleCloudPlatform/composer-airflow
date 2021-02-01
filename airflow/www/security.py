@@ -634,7 +634,12 @@ class AirflowSecurityManager(SecurityManagerOverride, SecurityManager, LoggingMi
                 if (action_name, dag_resource_name) not in perms:
                     self._merge_perm(action_name, dag_resource_name)
 
-            if dag.access_control is not None:
+            from airflow.configuration import conf
+
+            rbac_autoregister_per_folder_roles = conf.getboolean(
+                "webserver", "rbac_autoregister_per_folder_roles", fallback=False
+            )
+            if rbac_autoregister_per_folder_roles or dag.access_control is not None:
                 self.sync_perm_for_dag(dag_resource_name, dag.access_control)
 
     def update_admin_permission(self) -> None:
@@ -711,7 +716,12 @@ class AirflowSecurityManager(SecurityManagerOverride, SecurityManager, LoggingMi
         for dag_action_name in self.DAG_ACTIONS:
             self.create_permission(dag_action_name, dag_resource_name)
 
-        if access_control is not None:
+        from airflow.configuration import conf
+
+        rbac_autoregister_per_folder_roles = conf.getboolean(
+            "webserver", "rbac_autoregister_per_folder_roles", fallback=False
+        )
+        if rbac_autoregister_per_folder_roles or access_control is not None:
             self.log.debug("Syncing DAG-level permissions for DAG '%s'", dag_resource_name)
             self._sync_dag_view_permissions(dag_resource_name, access_control)
         else:
@@ -720,7 +730,9 @@ class AirflowSecurityManager(SecurityManagerOverride, SecurityManager, LoggingMi
                 dag_resource_name,
             )
 
-    def _sync_dag_view_permissions(self, dag_id: str, access_control: dict[str, Collection[str]]) -> None:
+    def _sync_dag_view_permissions(
+        self, dag_id: str, access_control: dict[str, Collection[str]] | None
+    ) -> None:
         """
         Set the access policy on the given DAG's ViewModel.
 
@@ -728,6 +740,9 @@ class AirflowSecurityManager(SecurityManagerOverride, SecurityManager, LoggingMi
         :param access_control: a dict where each key is a rolename and
             each value is a set() of action names (e.g. {'can_read'})
         """
+        if access_control is None:
+            access_control = {}
+
         dag_resource_name = permissions.resource_name_for_dag(dag_id)
 
         def _get_or_create_dag_permission(action_name: str) -> Permission | None:
@@ -743,7 +758,7 @@ class AirflowSecurityManager(SecurityManagerOverride, SecurityManager, LoggingMi
             for perm in existing_dag_perms:
                 non_admin_roles = [role for role in perm.role if role.name != "Admin"]
                 for role in non_admin_roles:
-                    target_perms_for_role = access_control.get(role.name, ())
+                    target_perms_for_role = access_control.get(role.name, ()) if access_control else ()
                     if perm.action.name not in target_perms_for_role:
                         self.log.info(
                             "Revoking '%s' on DAG '%s' for role '%s'",
