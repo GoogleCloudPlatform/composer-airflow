@@ -567,7 +567,12 @@ class AirflowSecurityManager(SecurityManager, LoggingMixin):
                 if (action_name, dag_resource_name) not in perms:
                     self._merge_perm(action_name, dag_resource_name)
 
-            if dag.access_control:
+            from airflow.configuration import conf
+
+            rbac_autoregister_per_folder_roles = conf.getboolean(
+                "webserver", "rbac_autoregister_per_folder_roles", fallback=False
+            )
+            if rbac_autoregister_per_folder_roles or dag.access_control:
                 self.sync_perm_for_dag(dag_resource_name, dag.access_control)
 
     def update_admin_permission(self):
@@ -636,7 +641,12 @@ class AirflowSecurityManager(SecurityManager, LoggingMixin):
         for dag_action_name in self.DAG_ACTIONS:
             self.create_permission(dag_action_name, dag_resource_name)
 
-        if access_control:
+        from airflow.configuration import conf
+
+        rbac_autoregister_per_folder_roles = conf.getboolean(
+            "webserver", "rbac_autoregister_per_folder_roles", fallback=False
+        )
+        if rbac_autoregister_per_folder_roles or access_control:
             self._sync_dag_view_permissions(dag_resource_name, access_control)
 
     def _sync_dag_view_permissions(self, dag_id, access_control):
@@ -647,6 +657,9 @@ class AirflowSecurityManager(SecurityManager, LoggingMixin):
         :param access_control: a dict where each key is a rolename and
             each value is a set() of action names (e.g. {'can_read'})
         """
+        if access_control is None:
+            access_control = {}
+
         dag_resource_name = permissions.resource_name_for_dag(dag_id)
 
         def _get_or_create_dag_permission(action_name: str) -> Permission | None:
