@@ -1016,6 +1016,33 @@
       type: string
       example: ~
       default: "30"
+    - name: async_dagbag_loader
+      description: |
+        With asynchronous DAG loading, the web server creates a new process.
+        The process loads DAGs in the background, sends newly loaded DAGs
+        (dagbag_sync_interval), and then sleeps.
+        The process wakes up periodically to reload DAGs (collect_dags_interval).
+        With asynchronous DAG loading, you can use a larger
+        webserver-worker_refresh_interval.
+      version_added: 1.10.2
+      type: boolean
+      example: ~
+      default: "False"
+    - name: collect_dags_interval
+      description: |
+        With asynchronous DAG loading, how often to reload dags.
+        Use a smaller value for faster refreshes.
+      version_added: 1.10.2
+      type: int
+      example: ~
+      default: "30"
+    - name: dagbag_sync_interval
+      description: |
+        With asynchronous DAG loading, how often to send newly loaded DAGs.
+      version_added: 1.10.2
+      type: int
+      example: ~
+      default: "10"
 
 - name: email
   description: ~
