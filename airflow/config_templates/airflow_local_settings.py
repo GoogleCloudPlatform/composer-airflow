@@ -70,6 +70,11 @@ DEFAULT_LOGGING_CONFIG = {
             FORMATTER_CLASS_KEY: COLORED_FORMATTER_CLASS if COLORED_LOG else 'logging.Formatter'
         },
     },
+    'filters': {
+        'redis_warning': {
+            '()': 'airflow.composer.custom_log_filters.RemoveRedisWarningFilter',
+        }
+    },
     'handlers': {
         'console': {
             'class': 'logging.StreamHandler',
@@ -114,6 +119,7 @@ DEFAULT_LOGGING_CONFIG = {
     'root': {
         'handlers': ['console'],
         'level': LOG_LEVEL,
+        'filters': ['redis_warning'],
     }
 }  # type: Dict[str, Any]
 
