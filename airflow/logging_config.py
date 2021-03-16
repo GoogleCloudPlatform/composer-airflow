@@ -69,8 +69,7 @@ def configure_logging():
 def validate_logging_config(logging_config):  # pylint: disable=unused-argument
     """Validate the provided Logging Config"""
     # Now lets validate the other logging-related settings
-    # Patch to use fixed 'task' log reader in composer.
-    task_log_reader = 'task'
+    task_log_reader = conf.get('logging', 'task_log_reader')
 
     logger = logging.getLogger('airflow.task')
 

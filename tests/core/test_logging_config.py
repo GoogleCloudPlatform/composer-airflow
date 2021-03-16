@@ -252,7 +252,6 @@ class TestLoggingSettings(unittest.TestCase):
             configure_logging()
             mock_info.assert_called_once_with('Unable to load custom logging, using default config instead')
 
-    @pytest.mark.xfail(reason="Composer. task_log_reader is hardcoded to 'task'")
     def test_1_9_config(self):
         from airflow.logging_config import configure_logging
 
