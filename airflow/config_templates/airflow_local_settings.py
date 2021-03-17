@@ -64,6 +64,11 @@ DEFAULT_LOGGING_CONFIG: Dict[str, Any] = {
             'class': COLORED_FORMATTER_CLASS if COLORED_LOG else 'logging.Formatter',
         },
     },
+    'filters': {
+        'composer_filter': {
+            '()': 'airflow.composer.custom_log_filter.ComposerFilter',
+        }
+    },
     'handlers': {
         'console': {
             'class': 'airflow.utils.log.logging_mixin.RedirectStdHandler',
@@ -108,6 +113,7 @@ DEFAULT_LOGGING_CONFIG: Dict[str, Any] = {
     'root': {
         'handlers': ['console'],
         'level': LOG_LEVEL,
+        'filters': ['composer_filter'],
     },
 }
 
