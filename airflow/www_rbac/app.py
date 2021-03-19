@@ -183,8 +183,10 @@ def create_app(config=None, session=None, testing=False, app_name="Airflow"):
             if "dev" in version.version:
                 airflow_doc_site = "https://airflow.readthedocs.io/en/latest"
             else:
-                airflow_doc_site = 'https://airflow.apache.org/docs/{}'.format(
-                    version.open_source_version())
+                airflow_doc_site = (
+                    'https://airflow.apache.org/docs/apache-airflow/'
+                    '{}/index.html'.format(version.open_source_version())
+                )
 
             appbuilder.add_link("Documentation",
                                 href=airflow_doc_site,
