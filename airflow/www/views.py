@@ -41,6 +41,7 @@ from flask import (
     abort, jsonify, redirect, url_for, request, Markup, Response,
     current_app, render_template, make_response)
 from flask import flash
+from flask import json as flask_json
 from flask_admin import BaseView, expose, AdminIndexView
 from flask_admin.actions import action
 from flask_admin.babel import lazy_gettext
@@ -84,6 +85,7 @@ from airflow.utils.helpers import alchemy_to_dict, render_log_filename
 from airflow.utils.net import get_hostname
 from airflow.utils.state import State
 from airflow.utils.timezone import datetime
+from airflow.utils import json as utils_json
 from airflow.www import utils as wwwutils
 from airflow.www.forms import (DateTimeForm, DateTimeWithNumRunsForm,
                                DateTimeWithNumRunsWithDagRunsForm)
@@ -1686,6 +1688,7 @@ class Airflow(AirflowViewMixin, BaseView):
             'children': [recurse_nodes(t, set()) for t in dag.roots],
             'instances': [dag_runs.get(d) or {'execution_date': d.isoformat()} for d in dates],
         }
+        data = flask_json.tojson_filter(data, cls=utils_json.AirflowJsonEncoder)
 
         session.commit()
 
