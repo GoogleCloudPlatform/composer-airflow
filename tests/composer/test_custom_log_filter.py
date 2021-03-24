@@ -14,26 +14,35 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+import contextlib
+import io
 import logging
 import unittest
 
-from airflow.composer.custom_log_filter import ComposerFilter
+from airflow.logging_config import configure_logging
 
 
 class TestComposerFilter(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        configure_logging()
 
     def test_detecting_redis_warning(self):
-        record = logging.LogRecord('logger_name', logging.WARN,
-                                   'default_celery.py', 80,
-                                   'You have configured a result_backend of redis://airflow-redis-service:6379/0, it is highly recommended to use an alternative result_backend (i.e. a database).',
-                                   None, None)
+        logger = logging.getLogger('airflow.config_templates.default_celery')
+        message = (
+            'You have configured a result_backend of redis://airflow-redis'
+            '-service:6379/0, it is highly recommended to use an alternative '
+            'result_backend (i.e. a database).'
+        )
+        with contextlib.redirect_stdout(io.StringIO()) as temp_stdout:
+            logger.warning(message)
 
-        self.assertFalse(ComposerFilter().filter(record))
+        self.assertNotIn(message, temp_stdout.getvalue())
 
     def test_example_message_not_filtered_out(self):
-        record = logging.LogRecord('logger_name', logging.INFO,
-                                   'dagbag.py', 418,
-                                   'Filling up the DagBag from /home/airflow/gcs/dags/airflow_monitoring.py',
-                                   None, None)
+        logger = logging.getLogger('airflow.settings')
+        message = 'Filling up the DagBag from /home/airflow/gcs/dags/airflow_monitoring.py'
+        with contextlib.redirect_stdout(io.StringIO()) as temp_stdout:
+            logger.info(message)
 
-        self.assertTrue(ComposerFilter().filter(record))
+        self.assertIn(message, temp_stdout.getvalue())

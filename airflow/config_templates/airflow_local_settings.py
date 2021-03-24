@@ -74,6 +74,7 @@ DEFAULT_LOGGING_CONFIG: Dict[str, Any] = {
             'class': 'airflow.utils.log.logging_mixin.RedirectStdHandler',
             'formatter': 'airflow',
             'stream': 'stdout',
+            'filters': ['composer_filter'],
         },
         'task': {
             'class': 'airflow.utils.log.file_task_handler.FileTaskHandler',
@@ -113,7 +114,6 @@ DEFAULT_LOGGING_CONFIG: Dict[str, Any] = {
     'root': {
         'handlers': ['console'],
         'level': LOG_LEVEL,
-        'filters': ['composer_filter'],
     },
 }
 
