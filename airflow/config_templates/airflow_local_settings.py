@@ -79,7 +79,8 @@ DEFAULT_LOGGING_CONFIG = {
         'console': {
             'class': 'logging.StreamHandler',
             'formatter': 'airflow',
-            'stream': 'ext://sys.__stdout__'
+            'stream': 'ext://sys.__stdout__',
+            'filters': ['redis_warning'],
         },
         'task': {
             'class': 'airflow.utils.log.file_task_handler.FileTaskHandler',
@@ -114,7 +115,6 @@ DEFAULT_LOGGING_CONFIG = {
     'root': {
         'handlers': ['console'],
         'level': LOG_LEVEL,
-        'filters': ['redis_warning'],
     }
 }  # type: Dict[str, Any]
 
