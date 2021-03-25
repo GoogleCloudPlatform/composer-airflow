@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 #
 # Copyright 2020 Google LLC
 #
@@ -15,26 +14,33 @@
 # limitations under the License.
 """Custom log filter for Cloud Composer."""
 import logging
+import os
 
 
 def _is_redis_warning(record):
-    """
-    Method that detects using Redis as result backend warning.
+    """Method that detects using Redis as result backend warning."""
+    return record.getMessage().startswith('You have configured a result_backend of redis://')
 
-    The concern with running Redis backend is that celery task messages may get
-    lost across Redis restarts. Composer has provisioned Redis service using
-    StatefulSet and saves a snapshot every 60 seconds to a persistent disk.
-    So it's not a concern to use the Redis backend in Cloud Composer.
 
-    From https://groups.google.com/g/cloud-composer-discuss/c/8SY2NdjjOS4
-    """
-    return record.getMessage().startswith(
-        'You have configured a result_backend of redis://')
+def _is_stats_client_warning(record):
+    """Method that detects stats client is not configured warning."""
+    return record.getMessage().startswith('Could not configure StatsClient: ')
 
 
 class ComposerFilter(logging.Filter):
+    """Custom Composer log filter."""
 
     def filter(self, record):
+        # The concern with running Redis backend is that celery task messages may get
+        # lost across Redis restarts. Composer has provisioned Redis service using
+        # StatefulSet and saves a snapshot every 60 seconds to a persistent disk.
+        # So it's not a concern to use the Redis backend in Cloud Composer.
+        # From https://groups.google.com/g/cloud-composer-discuss/c/8SY2NdjjOS4
         if _is_redis_warning(record):
+            return False
+
+        # Webserver doesn't have access to statsd host, and it doesn't need because it doesn't
+        # send any metrics, therefore we can safely silent this message for webserver.
+        if _is_stats_client_warning(record) and os.environ.get('AIRFLOW_WEBSERVER', None) == 'True':
             return False
         return True

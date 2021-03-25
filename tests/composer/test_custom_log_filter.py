@@ -18,6 +18,7 @@ import contextlib
 import io
 import logging
 import unittest
+from unittest import mock
 
 from airflow.logging_config import configure_logging
 
@@ -37,6 +38,22 @@ class TestComposerFilter(unittest.TestCase):
         with contextlib.redirect_stdout(io.StringIO()) as temp_stdout:
             logger.warning(message)
 
+        self.assertNotIn(message, temp_stdout.getvalue())
+
+    def test_detecting_stats_client_warning(self):
+        logger = logging.getLogger('airflow.stats')
+        message = (
+            'Could not configure StatsClient: [Errno -2] Name or service not '
+            'known, using DummyStatsLogger instead.'
+        )
+
+        with contextlib.redirect_stdout(io.StringIO()) as temp_stdout:
+            logger.error(message)
+        self.assertIn(message, temp_stdout.getvalue())
+
+        with mock.patch('os.environ', {'AIRFLOW_WEBSERVER': 'True'}):
+            with contextlib.redirect_stdout(io.StringIO()) as temp_stdout:
+                logger.error(message)
         self.assertNotIn(message, temp_stdout.getvalue())
 
     def test_example_message_not_filtered_out(self):
