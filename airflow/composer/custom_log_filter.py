@@ -15,6 +15,11 @@
 """Custom log filter for Cloud Composer."""
 import logging
 import os
+import re
+
+PROVIDERS_HOOK_MISSING_ATTRIBUTE_WARNING_RE = re.compile(
+    r"The '<class 'airflow.providers[a-zA-Z\.]*Hook'>' is missing [a-z_]* attribute and cannot be registered"
+)
 
 
 def _is_redis_warning(record):
@@ -25,6 +30,11 @@ def _is_redis_warning(record):
 def _is_stats_client_warning(record):
     """Method that detects stats client is not configured warning."""
     return record.getMessage().startswith('Could not configure StatsClient: ')
+
+
+def _is_providers_hook_missing_attribute_warning(record):
+    """Method that detects missing attribute warning for provider hooks."""
+    return PROVIDERS_HOOK_MISSING_ATTRIBUTE_WARNING_RE.match(record.getMessage())
 
 
 class ComposerFilter(logging.Filter):
@@ -43,4 +53,12 @@ class ComposerFilter(logging.Filter):
         # send any metrics, therefore we can safely silent this message for webserver.
         if _is_stats_client_warning(record) and os.environ.get('AIRFLOW_WEBSERVER', None) == 'True':
             return False
+
+        # Warning about missing attribute for hook doesn't mean this hook is not usable,
+        # it means that this hook will not be available e.g. on "Connections" page in UI.
+        # In case of custom user hooks this warning is useful, in case of provider hooks
+        # this warning is useless for Airflow user because they are not able to fix it.
+        if _is_providers_hook_missing_attribute_warning(record):
+            return False
+
         return True

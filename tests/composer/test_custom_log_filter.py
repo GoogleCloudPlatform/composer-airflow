@@ -56,6 +56,17 @@ class TestComposerFilter(unittest.TestCase):
                 logger.error(message)
         self.assertNotIn(message, temp_stdout.getvalue())
 
+    def test_detecting_providers_hook_missing_attribute_warning(self):
+        logger = logging.getLogger('airflow.providers_manager')
+        message = (
+            "The '<class 'airflow.providers.apache.beam.hooks.beam.BeamHook'>' "
+            "is missing conn_name_attr attribute and cannot be registered"
+        )
+        with contextlib.redirect_stdout(io.StringIO()) as temp_stdout:
+            logger.warning(message)
+
+        self.assertNotIn(message, temp_stdout.getvalue())
+
     def test_example_message_not_filtered_out(self):
         logger = logging.getLogger('airflow.settings')
         message = 'Filling up the DagBag from /home/airflow/gcs/dags/airflow_monitoring.py'
