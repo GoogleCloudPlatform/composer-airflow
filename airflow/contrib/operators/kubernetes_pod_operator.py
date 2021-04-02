@@ -137,7 +137,6 @@ class KubernetesPodOperator(BaseOperator):  # pylint: disable=too-many-instance-
                  affinity=None,
                  # Changed from None for Cloud Composer
                  config_file='/home/airflow/composer_kube_config',
-                 xcom_push=False,
                  node_selectors=None,
                  image_pull_secrets=None,
                  service_account_name='default',
