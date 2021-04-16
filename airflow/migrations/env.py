@@ -99,15 +99,7 @@ def run_migrations_online():
         )
 
         with context.begin_transaction():
-            if connection.dialect.name == 'mysql':
-                connection.execute("select GET_LOCK('alembic',1800);")
-            elif connection.dialect.name == 'postgresql':
-                connection.execute("select PG_ADVISORY_LOCK(1);")
             context.run_migrations()
-            if connection.dialect.name == 'mysql':
-                connection.execute("select RELEASE_LOCK('alembic');")
-            elif connection.dialect.name == 'postgresql':
-                connection.execute("select PG_ADVISORY_UNLOCK(1);")
 
 
 if context.is_offline_mode():
