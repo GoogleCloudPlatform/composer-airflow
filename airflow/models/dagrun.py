@@ -110,7 +110,7 @@ class DagRun(Base, LoggingMixin):
         """
         DR = DagRun
 
-        exec_date = func.cast(self.execution_date, DateTime)
+        exec_date = func.cast(self.execution_date, UtcDateTime)
 
         dr = session.query(DR).filter(
             DR.dag_id == self.dag_id,
