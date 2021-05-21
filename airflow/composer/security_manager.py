@@ -15,6 +15,7 @@
 # limitations under the License.
 """Airflow Composer security manager implementation."""
 
+import jwt
 import logging
 import urllib.parse
 
@@ -26,7 +27,9 @@ from flask_appbuilder import expose
 from flask_appbuilder.security.views import AuthView
 from flask_login import login_user
 from flask_login import logout_user
+from google import auth
 from google.auth.transport import requests
+from google.auth.transport.requests import AuthorizedSession
 from google.oauth2 import id_token
 
 from airflow import configuration as conf
@@ -36,12 +39,15 @@ from airflow.www.security import AirflowSecurityManager
 
 log = logging.getLogger(__file__)
 
-# Expected audience of JWT.
-AUDIENCE = conf.get("webserver", "google_oauth2_audience")
+# Expected audience of IAP JWT.
+IAP_JWT_AUDIENCE = conf.get("webserver", "google_oauth2_audience")
+
+# URL to the public key used for verifying Inverting Proxy JWT signatures.
+INVERTING_PROXY_JWT_PUBLIC_KEY_URL = conf.get("webserver", "jwt_public_key_url")
 
 
 def _decode_iap_jwt(iap_jwt):
-    """Returns username and email decoded from the given JWT.
+    """Returns username and email decoded from the given IAP JWT.
 
     Args:
       iap_jwt: JWT from Cloud IAP.
@@ -55,10 +61,39 @@ def _decode_iap_jwt(iap_jwt):
         decoded_jwt = id_token.verify_token(
             iap_jwt,
             requests.Request(),
-            audience=AUDIENCE,
+            audience=IAP_JWT_AUDIENCE,
             certs_url="https://www.gstatic.com/iap/verify/public_key")
         return decoded_jwt["sub"], decoded_jwt["email"]
     except ValueError as e:
+        log.error("JWT verification error: %s", e)
+        return None, None
+
+
+def _decode_inverting_proxy_jwt(inverting_proxy_jwt):
+    """Returns username and email decoded from the given Inverting Proxy JWT.
+
+    Args:
+      inverting_proxy_jwt: JWT from Inverting Proxy.
+
+    Returns:
+      Decoded username and email.
+    """
+    try:
+        credentials, project = auth.default(
+            scopes=["https://www.googleapis.com/auth/cloud-platform"])
+        authed_session = AuthorizedSession(credentials)
+        response = authed_session.request(
+            'GET', INVERTING_PROXY_JWT_PUBLIC_KEY_URL)
+        if response.status_code != 200:
+            log.error(
+                "Failed to fetch public key for JWT verification, status: %s",
+                response.status_code)
+            return None, None
+        public_key = response.text
+        decoded_jwt = jwt.decode(
+            inverting_proxy_jwt, public_key, algorithms=["RS256"])
+        return decoded_jwt["sub"], decoded_jwt["email"]
+    except Exception as e:
         log.error("JWT verification error: %s", e)
         return None, None
 
@@ -95,8 +130,15 @@ class ComposerAuthRemoteUserView(AuthView):
             # show 'Access is Denied' message.
             return redirect(self.appbuilder.get_url_for_index)
 
-        iap_jwt = request.headers.get("X-Goog-IAP-JWT-Assertion")
-        username, email = _decode_iap_jwt(iap_jwt)
+        if "X-Goog-IAP-JWT-Assertion" in request.headers:
+            iap_jwt = request.headers.get("X-Goog-IAP-JWT-Assertion")
+            username, email = _decode_iap_jwt(iap_jwt)
+        elif "X-Inverting-Proxy-User-ID" in request.headers:
+            inverting_proxy_jwt = request.headers.get("X-Inverting-Proxy-User-ID")
+            username, email = _decode_inverting_proxy_jwt(inverting_proxy_jwt)
+        else:
+            return self.login_error_message, 403
+
         if username is None:
             return self.login_error_message, 403
 

@@ -42,6 +42,7 @@ class TestBase(unittest.TestCase):
         with conf_vars(
             {
                 ("webserver", "google_oauth2_audience"): "audience",
+                ("webserver", "jwt_public_key_url"): "",
                 ("webserver", "rbac_user_registration_role"): "Viewer",
                 ("webserver", "rbac_autoregister_per_folder_roles"): "True",
             }
