@@ -42,9 +42,6 @@ log = logging.getLogger(__file__)
 # Expected audience of IAP JWT.
 IAP_JWT_AUDIENCE = conf.get("webserver", "google_oauth2_audience")
 
-# URL to the public key used for verifying Inverting Proxy JWT signatures.
-INVERTING_PROXY_JWT_PUBLIC_KEY_URL = conf.get("webserver", "jwt_public_key_url")
-
 
 def _decode_iap_jwt(iap_jwt):
     """Returns username and email decoded from the given IAP JWT.
@@ -83,7 +80,7 @@ def _decode_inverting_proxy_jwt(inverting_proxy_jwt):
             scopes=["https://www.googleapis.com/auth/cloud-platform"])
         authed_session = AuthorizedSession(credentials)
         response = authed_session.request(
-            'GET', INVERTING_PROXY_JWT_PUBLIC_KEY_URL)
+            'GET', conf.get("webserver", "jwt_public_key_url"))
         if response.status_code != 200:
             log.error(
                 "Failed to fetch public key for JWT verification, status: %s",
