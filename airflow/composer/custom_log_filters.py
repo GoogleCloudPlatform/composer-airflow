@@ -30,5 +30,8 @@ class RemoveRedisWarningFilter(logging.Filter):
     """
 
     def filter(self, record):
-        return not record.getMessage().startswith(
-            'You have configured a result_backend of redis://')
+        try:
+            return not record.getMessage().startswith(
+                'You have configured a result_backend of redis://')
+        except Exception:
+            return True
