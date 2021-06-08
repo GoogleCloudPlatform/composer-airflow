@@ -22,3 +22,4 @@ services:
       - ../../../files:/files:cached
       - ../../../dist:/dist:cached
       - ../../../../pypi-dependencies:/files/pypi-dependencies:cached
+      - ../../../../pypi-dependencies-test:/files/pypi-dependencies-test:cached
