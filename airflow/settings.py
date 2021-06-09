@@ -578,6 +578,10 @@ def initialize():
     # Ensure we close DB connections at scheduler and gunicorn worker terminations
     atexit.register(dispose_orm)
 
+    from airflow.composer.utils import initialize
+
+    initialize()
+
 
 # Const stuff
 
