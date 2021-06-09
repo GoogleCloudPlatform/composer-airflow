@@ -28,6 +28,7 @@ from airflow.plugins_manager import AirflowPlugin
 from airflow.timetables.base import DagRunInfo, DataInterval, TimeRestriction, Timetable
 
 log = logging.getLogger(__name__)
+
 try:
     from pandas.tseries.holiday import USFederalHolidayCalendar
 
