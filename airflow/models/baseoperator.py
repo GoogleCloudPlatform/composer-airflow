@@ -1497,6 +1497,17 @@ class BaseOperator(AbstractOperator, metaclass=BaseOperatorMeta):
         This is achieved by raising a special exception (TaskDeferred)
         which is caught in the main _execute_task wrapper.
         """
+        from airflow.composer.utils import get_composer_version, is_triggerer_enabled
+
+        if get_composer_version() is not None and not is_triggerer_enabled():
+            # This if statement will allow to bypass community tests.
+            raise AirflowException(
+                "This Composer environment does not have Airflow triggerer running. "
+                "To use deferrable operators enable the triggerer in the environment. "
+                "See https://cloud.google.com/composer/docs/composer-2/use-deferrable-operators "
+                "for more details."
+            )
+
         raise TaskDeferred(trigger=trigger, method_name=method_name, kwargs=kwargs, timeout=timeout)
 
     def unmap(self, resolve: None | dict[str, Any] | tuple[Context, Session]) -> BaseOperator:

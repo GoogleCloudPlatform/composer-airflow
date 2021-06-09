@@ -330,6 +330,27 @@ class TestCliTasks:
         assert 'foo=bar' in output
         assert 'AIRFLOW_TEST_MODE=True' in output
 
+    @mock.patch('airflow.cli.commands.task_command.get_dag', autospec=True)
+    def test_cli_run_wait_dag_not_found_timeout(self, get_dag_mock):
+        # Check that task_run method uses wait_dag_not_found_timeout configuration option.
+        from airflow.utils.cli import get_dag
+
+        get_dag_mock.side_effect = get_dag
+
+        with pytest.raises(
+            AirflowException,
+            match="Dag 'example_python_operator' could not be found",
+        ), conf_vars({('core', 'wait_dag_not_found_timeout'): '60'}):
+            task_command.task_run(
+                self.parser.parse_args(
+                    ['tasks', 'run', self.dag_id, self.dag.task_ids[0], '--local', self.run_id]
+                )
+            )
+
+        get_dag_mock.assert_called_with(
+            mock.ANY, self.dag_id, include_examples=False, wait_dag_not_found_timeout=60
+        )
+
     @parameterized.expand(
         [
             ("--ignore-all-dependencies",),

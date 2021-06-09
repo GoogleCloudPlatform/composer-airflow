@@ -207,7 +207,10 @@ def _search_for_dag_file(val: str | None) -> str | None:
 
 
 def get_dag(
-    subdir: str | None, dag_id: str, include_examples=conf.getboolean('core', 'LOAD_EXAMPLES')
+    subdir: str | None,
+    dag_id: str,
+    include_examples=conf.getboolean('core', 'LOAD_EXAMPLES'),
+    wait_dag_not_found_timeout: int = 0,
 ) -> DAG:
     """
     Returns DAG of a given dag_id
@@ -216,10 +219,22 @@ def get_dag(
     find the correct path (assuming it's a file) and failing that, use the configured
     dags folder.
     """
+    import time
+
     from airflow.models import DagBag
 
+    start_time = time.time()
+
     first_path = process_subdir(subdir)
-    dagbag = DagBag(first_path, include_examples=include_examples)
+
+    while True:
+        time_passed_before_dag_bag_load = time.time() - start_time
+        dagbag = DagBag(dag_folder=first_path, include_examples=include_examples)
+        if dag_id in dagbag.dags or time_passed_before_dag_bag_load > wait_dag_not_found_timeout:
+            break
+        sleep_time = 5
+        logger.info(f'DAG is not found in loaded DAG bag. Retrying after {sleep_time} seconds.')
+        time.sleep(sleep_time)
     if dag_id not in dagbag.dags:
         fallback_path = _search_for_dag_file(subdir) or settings.DAGS_FOLDER
         logger.warning("Dag %r not found in path %s; trying path %s", dag_id, first_path, fallback_path)
