@@ -796,6 +796,10 @@ def initialize():
     # Ensure we close DB connections at scheduler and gunicorn worker terminations
     atexit.register(dispose_orm)
 
+    from airflow.composer.utils import initialize
+
+    initialize()
+
 
 def is_usage_data_collection_enabled() -> bool:
     """Check if data collection is enabled."""

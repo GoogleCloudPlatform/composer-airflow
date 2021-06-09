@@ -219,7 +219,12 @@ def _search_for_dag_file(val: str | None) -> str | None:
     return None
 
 
-def get_dag(subdir: str | None, dag_id: str, from_db: bool = False) -> DAG:
+def get_dag(
+    subdir: str | None,
+    dag_id: str,
+    from_db: bool = False,
+    wait_dag_not_found_timeout: int = 0,
+) -> DAG:
     """
     Return DAG of a given dag_id.
 
@@ -227,15 +232,28 @@ def get_dag(subdir: str | None, dag_id: str, from_db: bool = False) -> DAG:
     find the correct path (assuming it's a file) and failing that, use the configured
     dags folder.
     """
+    import time
+
     from airflow.models import DagBag
 
     if from_db:
         dagbag = DagBag(read_dags_from_db=True)
         dag = dagbag.get_dag(dag_id)  # get_dag loads from the DB as requested
     else:
+        start_time = time.time()
+
         first_path = process_subdir(subdir)
-        dagbag = DagBag(first_path)
-        dag = dagbag.dags.get(dag_id)  # avoids db calls made in get_dag
+
+        while True:
+            time_passed_before_dag_bag_load = time.time() - start_time
+            dagbag = DagBag(first_path)
+            dag = dagbag.dags.get(dag_id)  # avoids db calls made in get_dag
+            if dag_id in dagbag.dags or time_passed_before_dag_bag_load > wait_dag_not_found_timeout:
+                break
+            sleep_time = 5
+            logger.info("DAG is not found in loaded DAG bag. Retrying after %s seconds.", sleep_time)
+            time.sleep(sleep_time)
+
     if not dag:
         if from_db:
             raise AirflowException(f"Dag {dag_id!r} could not be found in DagBag read from database.")

@@ -1774,6 +1774,17 @@ class BaseOperator(AbstractOperator, metaclass=BaseOperatorMeta):
         be None; otherwise, provide the name of the method that should be used when resuming execution in
         the task.
         """
+        from airflow.composer.utils import get_composer_version, is_triggerer_enabled
+
+        if get_composer_version() is not None and not is_triggerer_enabled():
+            # This if statement will allow to bypass community tests.
+            raise AirflowException(
+                "This Composer environment does not have Airflow triggerer running. "
+                "To use deferrable operators enable the triggerer in the environment. "
+                "See https://cloud.google.com/composer/docs/composer-2/use-deferrable-operators "
+                "for more details."
+            )
+
         raise TaskDeferred(trigger=trigger, method_name=method_name, kwargs=kwargs, timeout=timeout)
 
     def resume_execution(self, next_method: str, next_kwargs: dict[str, Any] | None, context: Context):
