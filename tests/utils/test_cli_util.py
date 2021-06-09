@@ -80,6 +80,38 @@ class TestCliUtil(unittest.TestCase):
     def test_process_subdir_path_with_placeholder(self):
         assert os.path.join(settings.DAGS_FOLDER, 'abc') == cli.process_subdir('DAGS_FOLDER/abc')
 
+    @mock.patch("airflow.models.DagBag", autospec=True)
+    @mock.patch("time.sleep", autospec=True)
+    def test_get_dag_retry(self, time_sleep_mock, dag_bag_mock):
+        # Check retry after first fail to find DAG.
+        dag_bag_mock_results = [mock.MagicMock(dags={"test_dag": "test-dag"}), mock.MagicMock(dags={})]
+
+        def dag_bag_mock_side_effect(subdir):
+            assert subdir == "/tmp"
+            return dag_bag_mock_results.pop()
+
+        dag_bag_mock.side_effect = dag_bag_mock_side_effect
+
+        dag = cli.get_dag("/tmp", "test_dag", 30)
+
+        assert dag == "test-dag"
+        time_sleep_mock.assert_called_once_with(5)
+
+    @mock.patch("airflow.models.DagBag", autospec=True)
+    @mock.patch("time.sleep", autospec=True)
+    def test_get_dag_retry_timeout(self, time_sleep_mock, dag_bag_mock):
+        # Check fail in case of reached timeout.
+        def dag_bag_mock_side_effect(subdir):
+            assert subdir == "/tmp"
+            return mock.MagicMock(dags={})
+
+        dag_bag_mock.side_effect = dag_bag_mock_side_effect
+
+        with self.assertRaises(AirflowException):
+            cli.get_dag("/tmp", "test_dag", 1)
+
+        time_sleep_mock.assert_called_with(5)
+
     def test_get_dags(self):
         dags = cli.get_dags(None, "example_subdag_operator")
         assert len(dags) == 1

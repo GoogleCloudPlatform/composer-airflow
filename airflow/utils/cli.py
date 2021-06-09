@@ -43,6 +43,8 @@ T = TypeVar("T", bound=Callable)
 if TYPE_CHECKING:
     from airflow.models.dag import DAG
 
+log = logging.getLogger(__name__)
+
 
 def _check_cli_args(args):
     if not args:
@@ -194,11 +196,22 @@ def get_dag_by_file_location(dag_id: str):
     return dagbag.dags[dag_id]
 
 
-def get_dag(subdir: Optional[str], dag_id: str) -> "DAG":
+def get_dag(subdir: Optional[str], dag_id: str, wait_dag_not_found_timeout: int = 0) -> "DAG":
     """Returns DAG of a given dag_id"""
+    import time
+
     from airflow.models import DagBag
 
-    dagbag = DagBag(process_subdir(subdir))
+    start_time = time.time()
+
+    while True:
+        time_passed_before_dag_bag_load = time.time() - start_time
+        dagbag = DagBag(process_subdir(subdir))
+        if dag_id in dagbag.dags or time_passed_before_dag_bag_load > wait_dag_not_found_timeout:
+            break
+        sleep_time = 5
+        log.info(f'DAG is not found in loaded DAG bag. Retrying after {sleep_time} seconds.')
+        time.sleep(sleep_time)
     if dag_id not in dagbag.dags:
         raise AirflowException(
             f"Dag {dag_id!r} could not be found; either it does not exist or it failed to parse."
