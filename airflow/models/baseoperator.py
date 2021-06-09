@@ -1655,6 +1655,15 @@ class BaseOperator(Operator, LoggingMixin, TaskMixin, metaclass=BaseOperatorMeta
         This is achieved by raising a special exception (TaskDeferred)
         which is caught in the main _execute_task wrapper.
         """
+        from airflow.composer.utils import get_composer_version
+
+        if get_composer_version() is not None:
+            # This if statement will allow to bypass community tests.
+            raise AirflowException(
+                "Composer doesn't support deferrable operators yet. Tasks that are using "
+                "deferrable operators will fail to execute with this message."
+            )
+
         raise TaskDeferred(trigger=trigger, method_name=method_name, kwargs=kwargs, timeout=timeout)
 
 
