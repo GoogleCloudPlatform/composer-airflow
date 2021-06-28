@@ -919,7 +919,9 @@ def replace_extra_requirement_with_provider_packages(extra: str, providers: List
     ]
 
 
-def add_provider_packages_to_extra_requirements(extra: str, providers: List[str]) -> None:
+def add_provider_packages_to_extra_requirements(
+    extra: str, providers: List[str], constraints: Dict[str, str] = None
+) -> None:
     """
     Adds provider packages as requirements to extra. This is used to add provider packages as requirements
     to the "bulk" kind of extras. Those bulk extras do not have the detailed 'extra' requirements as
@@ -927,9 +929,17 @@ def add_provider_packages_to_extra_requirements(extra: str, providers: List[str]
 
     :param extra: Name of the extra to add providers to
     :param providers: list of provider ids
+    :param constraints: constraints for providers
     """
+    if constraints is None:
+        constraints = {}
     EXTRAS_REQUIREMENTS[extra].extend(
-        [get_provider_package_from_package_id(package_name) for package_name in providers]
+        [
+            '{}{}'.format(
+                get_provider_package_from_package_id(package_name), constraints.get(package_name, '')
+            )
+            for package_name in providers
+        ]
     )
 
 
@@ -952,8 +962,20 @@ def add_all_provider_packages() -> None:
     add_provider_packages_to_extra_requirements(
         "devel_hadoop", ["apache.hdfs", "apache.hive", "presto", "trino"]
     )
-    add_provider_packages_to_extras_requirements(
-        "composer", ["apache.beam", "cncf.kubernetes", "google", "mysql", "postgres", "sendgrid", "ssh"])
+    add_provider_packages_to_extra_requirements(
+        "composer",
+        ["apache.beam", "cncf.kubernetes", "google", "mysql", "postgres", "sendgrid", "ssh"],
+        {
+            # These constraints needed to now allow installing providers which require Airflow 2.1.0.
+            "apache.beam": "<3.0.0",
+            "cncf.kubernetes": "<2.0.0",
+            "google": "<4.0.0",
+            "mysql": "<2.0.0",
+            "postgres": "<2.0.0",
+            "sendgrid": "<2.0.0",
+            "ssh": "<2.0.0",
+        },
+    )
 
 
 class Develop(develop_orig):
