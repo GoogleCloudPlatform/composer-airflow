@@ -230,14 +230,14 @@ class TestProviderManager(unittest.TestCase):
         with mock.patch.dict("os.environ", COMPOSER_VERSION=composer_version):
             provider_manager = ProvidersManager()
             connections_form_widgets = list(provider_manager.connection_form_widgets.keys())
-            assert CONNECTION_FORM_WIDGETS == connections_form_widgets
+            assert "extra__snowflake__account" in connections_form_widgets
 
     @parameterized.expand([("1.16.5",), ("2.0.0-preview.0",)])
     def test_field_behaviours(self, composer_version):
         with mock.patch.dict("os.environ", COMPOSER_VERSION=composer_version):
             provider_manager = ProvidersManager()
             connections_with_field_behaviours = list(provider_manager.field_behaviours.keys())
-            assert CONNECTIONS_WITH_FIELD_BEHAVIOURS == connections_with_field_behaviours
+            assert "snowflake" in connections_with_field_behaviours
 
     def test_extra_links(self):
         provider_manager = ProvidersManager()
