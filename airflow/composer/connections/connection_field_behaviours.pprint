@@ -41,6 +41,38 @@ OrderedDict([('cloudant',
              ('sftp',
               {'hidden_fields': ['schema'],
                'relabeling': {'login': 'Username'}}),
+             ('snowflake',
+              {'hidden_fields': ['port'],
+               'placeholders': {'extra': '{\n'
+                                         ' "role": "snowflake role",\n'
+                                         ' "authenticator": "snowflake '
+                                         'oauth",\n'
+                                         ' "private_key_file": "private key",\n'
+                                         ' "session_parameters": "session '
+                                         'parameters"\n'
+                                         '}',
+                                'extra__snowflake__account': 'snowflake '
+                                                             'account name',
+                                'extra__snowflake__aws_access_key_id': 'aws '
+                                                                       'access '
+                                                                       'key id '
+                                                                       '(S3ToSnowflakeOperator)',
+                                'extra__snowflake__aws_secret_access_key': 'aws '
+                                                                           'secret '
+                                                                           'access '
+                                                                           'key '
+                                                                           '(S3ToSnowflakeOperator)',
+                                'extra__snowflake__database': 'snowflake db '
+                                                              'name',
+                                'extra__snowflake__region': 'snowflake hosted '
+                                                            'region',
+                                'extra__snowflake__warehouse': 'snowflake '
+                                                               'warehouse name',
+                                'host': 'snowflake hostname',
+                                'login': 'snowflake username',
+                                'password': 'snowflake password',
+                                'schema': 'snowflake schema'},
+               'relabeling': {}}),
              ('spark',
               {'hidden_fields': ['schema', 'login', 'password'],
                'relabeling': {}}),
