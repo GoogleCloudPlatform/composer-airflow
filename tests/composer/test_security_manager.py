@@ -19,6 +19,7 @@ import string
 import unittest
 from unittest import mock
 
+import jwt
 from google.auth.transport import requests
 
 from airflow.configuration import WEBSERVER_CONFIG
@@ -29,10 +30,9 @@ from tests.test_utils.fab_utils import create_user
 
 
 class TestBase(unittest.TestCase):
+    CURRENT_DIRECTORY = os.path.dirname(os.path.realpath(__file__))
     WEBSERVER_CONFIG_BACKUP = WEBSERVER_CONFIG + '.backup'
-    COMPOSER_WEBSERVER_CONFIG = os.path.join(
-        os.path.dirname(os.path.realpath(__file__)), "../../airflow/composer/webserver_config.py"
-    )
+    COMPOSER_WEBSERVER_CONFIG = os.path.join(CURRENT_DIRECTORY, "../../airflow/composer/webserver_config.py")
 
     @classmethod
     def setUpClass(cls):
@@ -42,7 +42,6 @@ class TestBase(unittest.TestCase):
         with conf_vars(
             {
                 ("webserver", "google_oauth2_audience"): "audience",
-                ("webserver", "jwt_public_key_url"): "",
                 ("webserver", "rbac_user_registration_role"): "Viewer",
                 ("webserver", "rbac_autoregister_per_folder_roles"): "True",
             }
@@ -125,6 +124,19 @@ class TestBase(unittest.TestCase):
         assert resp.get_data() == b"Not authorized or account inactive"
         assert resp.status_code == 403
 
+        # Test login user with invalid token.
+        def id_token_mock_verify_token_side_effect(
+            id_token, request, audience, certs_url
+        ):  # pylint: disable=function-redefined
+            raise ValueError("Invalid token")
+
+        id_token_mock.verify_token.side_effect = id_token_mock_verify_token_side_effect
+
+        self.client.get("/login/")
+        resp = self.client.get("/login/", headers={"X-Goog-IAP-JWT-Assertion": "invalid-token"})
+        assert resp.get_data() == b"Not authorized or account inactive"
+        assert resp.status_code == 403
+
     @mock.patch("airflow.composer.security_manager.id_token", autospec=True)
     def test_login_user_preregistered(self, id_token_mock):
         username = f"test-{self.get_random_id()}"
@@ -151,6 +163,68 @@ class TestBase(unittest.TestCase):
         assert self.sm.find_user(username=username)
         assert resp.headers["Location"] == "http://localhost/"
         assert resp.status_code == 302
+
+    @mock.patch("airflow.composer.security_manager.auth.default", autospec=True)
+    @mock.patch("airflow.composer.security_manager.AuthorizedSession", autospec=True)
+    @conf_vars({("webserver", "jwt_public_key_url"): "jwt-public-key-url-test"})
+    def test_login_user_inverting_proxy(self, authorized_session_mock, auth_default_mock):
+        username = f"test-{self.get_random_id()}"
+        email = f"test-{self.get_random_id()}@test.com"
+        with open(os.path.join(self.CURRENT_DIRECTORY, 'test_data/jwtRS256.key')) as f:
+            private_key = f.read()
+            inv_proxy_user_id = jwt.encode({"sub": username, "email": email}, private_key, algorithm="RS256")
+        with open(os.path.join(self.CURRENT_DIRECTORY, 'test_data/jwtRS256.key.pub')) as f:
+            public_key = f.read()
+
+        def request_side_effect(method, url):
+            assert method == "GET"
+            assert url == "jwt-public-key-url-test"
+            return mock.Mock(status_code=200, text=public_key)
+
+        def auth_default_mock_side_effect(scopes):
+            assert scopes == ["https://www.googleapis.com/auth/cloud-platform"]
+            return "credentials", "project"
+
+        def authorized_session_mock_side_effect(credentials):
+            assert credentials == "credentials"
+            return mock.Mock(request=mock.Mock(side_effect=request_side_effect))
+
+        auth_default_mock.side_effect = auth_default_mock_side_effect
+        authorized_session_mock.side_effect = authorized_session_mock_side_effect
+
+        resp = self.client.get("/login/", headers={"X-Inverting-Proxy-User-ID": inv_proxy_user_id})
+
+        assert resp.headers["Location"] == "http://localhost/"
+        assert resp.status_code == 302
+        user = self.sm.find_user(username=username)
+        assert user.email == email
+        assert user.roles == [self.sm.find_role(name="Viewer")]
+
+        # Test invalid token.
+        self.client.get("/logout/")
+        resp = self.client.get("/login/", headers={"X-Inverting-Proxy-User-ID": "invalid-token"})
+
+        assert resp.get_data() == b"Not authorized or account inactive"
+        assert resp.status_code == 403
+
+        # Test not successful response from google.auth.
+        # flake8: noqa: F811
+        def request_side_effect(method, url):  # pylint: disable=function-redefined
+            assert method == "GET"
+            assert url == "jwt-public-key-url-test"
+            return mock.Mock(status_code=400, text=public_key)
+
+        def authorized_session_mock_side_effect(credentials):  # pylint: disable=function-redefined
+            assert credentials == "credentials"
+            return mock.Mock(request=mock.Mock(side_effect=request_side_effect))
+
+        authorized_session_mock.side_effect = authorized_session_mock_side_effect
+
+        self.client.get("/logout/")
+        resp = self.client.get("/login/", headers={"X-Inverting-Proxy-User-ID": inv_proxy_user_id})
+
+        assert resp.get_data() == b"Not authorized or account inactive"
+        assert resp.status_code == 403
 
     def test_nodags_role(self):
         self.assertIn(

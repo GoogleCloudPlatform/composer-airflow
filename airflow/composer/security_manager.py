@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 #
 # Copyright 2020 Google LLC
 #
@@ -15,18 +14,14 @@
 # limitations under the License.
 """Airflow Composer security manager implementation."""
 
-import jwt
 import logging
 import urllib.parse
 
-from flask import g
-from flask import get_flashed_messages
-from flask import redirect
-from flask import request
+import jwt
+from flask import g, get_flashed_messages, redirect, request
 from flask_appbuilder import expose
 from flask_appbuilder.security.views import AuthView
-from flask_login import login_user
-from flask_login import logout_user
+from flask_login import login_user, logout_user
 from google import auth
 from google.auth.transport import requests
 from google.auth.transport.requests import AuthorizedSession
@@ -35,7 +30,6 @@ from google.oauth2 import id_token
 from airflow import configuration as conf
 from airflow.security import permissions
 from airflow.www.security import AirflowSecurityManager
-
 
 log = logging.getLogger(__file__)
 
@@ -59,7 +53,8 @@ def _decode_iap_jwt(iap_jwt):
             iap_jwt,
             requests.Request(),
             audience=IAP_JWT_AUDIENCE,
-            certs_url="https://www.gstatic.com/iap/verify/public_key")
+            certs_url="https://www.gstatic.com/iap/verify/public_key",
+        )
         return decoded_jwt["sub"], decoded_jwt["email"]
     except ValueError as e:
         log.error("JWT verification error: %s", e)
@@ -76,21 +71,16 @@ def _decode_inverting_proxy_jwt(inverting_proxy_jwt):
       Decoded username and email.
     """
     try:
-        credentials, project = auth.default(
-            scopes=["https://www.googleapis.com/auth/cloud-platform"])
+        credentials, _ = auth.default(scopes=["https://www.googleapis.com/auth/cloud-platform"])
         authed_session = AuthorizedSession(credentials)
-        response = authed_session.request(
-            'GET', conf.get("webserver", "jwt_public_key_url"))
+        response = authed_session.request("GET", conf.get("webserver", "jwt_public_key_url"))
         if response.status_code != 200:
-            log.error(
-                "Failed to fetch public key for JWT verification, status: %s",
-                response.status_code)
+            log.error("Failed to fetch public key for JWT verification, status: %s", response.status_code)
             return None, None
         public_key = response.text
-        decoded_jwt = jwt.decode(
-            inverting_proxy_jwt, public_key, algorithms=["RS256"])
+        decoded_jwt = jwt.decode(inverting_proxy_jwt, public_key, algorithms=["RS256"])
         return decoded_jwt["sub"], decoded_jwt["email"]
-    except Exception as e:
+    except Exception as e:  # pylint: disable=broad-except
         log.error("JWT verification error: %s", e)
         return None, None
 
@@ -107,12 +97,12 @@ def _is_safe_redirect_url(next_url, host_url):
     """
     next_url_parsed = urllib.parse.urlparse(next_url)
     host_url_parsed = urllib.parse.urlparse(host_url)
-    return next_url_parsed.scheme in ("http", "https") and \
-           next_url_parsed.netloc == host_url_parsed.netloc
+    return next_url_parsed.scheme in ("http", "https") and next_url_parsed.netloc == host_url_parsed.netloc
 
 
 class ComposerAuthRemoteUserView(AuthView):
     """Authentication REMOTE_USER view for Composer."""
+
     login_template = ""
     login_error_message = "Not authorized or account inactive"
 
@@ -194,8 +184,7 @@ class ComposerAuthRemoteUserView(AuthView):
                     first_name=email,
                     last_name="-",
                     email=email,
-                    role=self.appbuilder.sm.find_role(
-                        self.appbuilder.sm.auth_user_registration_role),
+                    role=self.appbuilder.sm.find_role(self.appbuilder.sm.auth_user_registration_role),
                 )
                 # Adding a user record can fail for example because of a
                 # preregistered user with the same email but different
@@ -232,6 +221,7 @@ class ComposerAuthRemoteUserView(AuthView):
 
 class ComposerAirflowSecurityManager(AirflowSecurityManager):
     """Airflow security manager adjusted for Composer."""
+
     authremoteuserview = ComposerAuthRemoteUserView
 
     # Hide User's Statistics page, which is broken due to a bug in
@@ -242,21 +232,22 @@ class ComposerAirflowSecurityManager(AirflowSecurityManager):
     userstatschartview = None
 
     def __init__(self, appbuilder):
-        super(ComposerAirflowSecurityManager, self).__init__(appbuilder)
-        if conf.getboolean(
-            "webserver", "rbac_autoregister_per_folder_roles", fallback=False):
+        super().__init__(appbuilder)
+        if conf.getboolean("webserver", "rbac_autoregister_per_folder_roles", fallback=False):
             # Add a role with permissions like in the User role except for
             # permissions to any DAGs. This role can be used as the user
             # registration role so that new users can open Airflow UI but
             # don't have access to any DAGs by default.
-            self.ROLE_CONFIGS.append({
-                "role": "NoDags",
-                "perms": [
-                    p
-                    for p in self.VIEWER_PERMISSIONS + self.USER_PERMISSIONS
-                    if p[1] != permissions.RESOURCE_DAG
-                ],
-            })
+            self.ROLE_CONFIGS.append(
+                {
+                    "role": "NoDags",
+                    "perms": [
+                        p
+                        for p in self.VIEWER_PERMISSIONS + self.USER_PERMISSIONS
+                        if p[1] != permissions.RESOURCE_DAG
+                    ],
+                }
+            )
             # Note that the role hasn't been added to EXISTING_ROLES in
             # security.py. This means that AirflowSecurityManager will keep
             # synchronizing permissions from User role to NoDags role (
