@@ -24,26 +24,17 @@ PROVIDERS_HOOK_MISSING_ATTRIBUTE_WARNING_RE = re.compile(
 
 def _is_redis_warning(record):
     """Method that detects using Redis as result backend warning."""
-    try:
-        return record.getMessage().startswith('You have configured a result_backend of redis://')
-    except Exception:
-        return False
+    return record.getMessage().startswith('You have configured a result_backend of redis://')
 
 
 def _is_stats_client_warning(record):
     """Method that detects stats client is not configured warning."""
-    try:
-        return record.getMessage().startswith('Could not configure StatsClient: ')
-    except Exception:
-        return False
+    return record.getMessage().startswith('Could not configure StatsClient: ')
 
 
 def _is_providers_hook_missing_attribute_warning(record):
     """Method that detects missing attribute warning for provider hooks."""
-    try:
-        return PROVIDERS_HOOK_MISSING_ATTRIBUTE_WARNING_RE.match(record.getMessage())
-    except Exception:
-        return False
+    return PROVIDERS_HOOK_MISSING_ATTRIBUTE_WARNING_RE.match(record.getMessage())
 
 
 class ComposerFilter(logging.Filter):
