@@ -25,8 +25,8 @@ from google.auth.transport import requests
 from airflow.configuration import WEBSERVER_CONFIG
 from airflow.security import permissions
 from airflow.www import app
+from tests.test_utils.api_connexion_utils import create_user
 from tests.test_utils.config import conf_vars
-from tests.test_utils.fab_utils import create_user
 
 
 class TestBase(unittest.TestCase):
