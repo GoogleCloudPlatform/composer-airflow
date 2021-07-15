@@ -979,7 +979,7 @@ def add_all_provider_packages() -> None:
     add_all_deprecated_provider_packages()
     add_provider_packages_to_extra_requirements(
         "composer",
-        ["apache.beam", "cncf.kubernetes", "google", "mysql", "postgres", "sendgrid", "ssh"],
+        ["apache.beam", "cncf.kubernetes", "google", "http", "mysql", "postgres", "sendgrid", "ssh"],
         {},
     )
 
