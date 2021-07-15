@@ -16,9 +16,9 @@
 # specific language governing permissions and limitations
 # under the License.
 import os
+from functools import cached_property
 from typing import Collection, Optional
 
-from cached_property import cached_property
 from google.api_core.client_info import ClientInfo
 from google.cloud import storage
 
