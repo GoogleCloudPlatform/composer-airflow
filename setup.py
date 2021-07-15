@@ -980,16 +980,7 @@ def add_all_provider_packages() -> None:
     add_provider_packages_to_extra_requirements(
         "composer",
         ["apache.beam", "cncf.kubernetes", "google", "mysql", "postgres", "sendgrid", "ssh"],
-        {
-            # These constraints needed to now allow installing providers which require Airflow 2.1.0.
-            "apache.beam": "<3.0.0",
-            "cncf.kubernetes": "<2.0.0",
-            "google": "<4.0.0",
-            "mysql": "<2.0.0",
-            "postgres": "<2.0.0",
-            "sendgrid": "<2.0.0",
-            "ssh": "<2.0.0",
-        },
+        {},
     )
 
 
