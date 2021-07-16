@@ -53,12 +53,13 @@ def test_doc_urls(admin_client):
 
 
 def test_composer_web_server_name(admin_client):
-    resp = admin_client.client.get('/', follow_redirects=True)
-    admin_client.check_content_in_response('Webserver: COMPOSER_TEST_WEB_SERVER_NAME', resp)
+    resp = admin_client.get('/', follow_redirects=True)
+    check_content_in_response('Webserver: COMPOSER_TEST_WEB_SERVER_NAME', resp)
 
 
 def test_composer_load_environment_variables(admin_client):
     import os
+
     assert os.environ.get('COMPOSER_ENV_TEST') == 'TEST_VAR'
 
 
