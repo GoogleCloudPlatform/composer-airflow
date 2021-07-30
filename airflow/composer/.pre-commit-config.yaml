@@ -184,14 +184,6 @@ repos:
         files: ^docs/.*\.py$
         exclude: rtd-deprecation
         require_serial: true
-      - id: pylint
-        name: Run pylint
-        language: system
-        entry: "./scripts/ci/pre_commit/pre_commit_pylint.sh"
-        files: \.py$
-        exclude: ^scripts/.*\.py$|^dev|^provider_packages|^chart|^tests
-        pass_filenames: true
-        require_serial: true
       - id: flake8
         name: Run flake8
         language: system
