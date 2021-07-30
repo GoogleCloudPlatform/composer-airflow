@@ -176,7 +176,7 @@ class FileTaskHandler(logging.Handler):
                     # We do not use this handler to read logs in Composer, but
                     # we apply this logic in order to pass community tests.
                     log += _strip_separator_from_log(file.read())
-            except Exception as e:  # pylint: disable=broad-except
+            except Exception as e:
                 log = f"*** Failed to load local log file: {location}\n"
                 log += f"*** {str(e)}\n"
         elif conf.get('core', 'executor') == 'KubernetesExecutor':
