@@ -109,7 +109,7 @@ class GCSTaskHandler(FileTaskHandler, LoggingMixin):
 
         try:
             remote_log = self.gcs_read(remote_loc)
-            remote_log = '\n'.join([one_line[0:one_line.rfind('@-@')] for one_line in remote_log.split('\n')])
+            remote_log = '\n'.join([one_line[0:one_line.rfind('@-@')] if one_line.rfind('@-@')>=0 else one_line for one_line in remote_log.split('\n')])
             log = '*** Reading remote log from {}.\n{}\n'.format(
                 remote_loc, remote_log)
             return log, {'end_of_log': True}
