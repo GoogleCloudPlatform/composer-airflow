@@ -63,6 +63,11 @@ def test_composer_load_environment_variables(admin_client):
     assert os.environ.get('COMPOSER_ENV_TEST') == 'TEST_VAR'
 
 
+def test_composer_no_logout_menu_item(admin_client):
+    resp = admin_client.get('/', follow_redirects=True)
+    check_content_not_in_response('Log Out', resp)
+
+
 def test_home(capture_templates, admin_client):
     with capture_templates() as templates:
         resp = admin_client.get('home', follow_redirects=True)
