@@ -525,6 +525,10 @@ class TestAirflowBaseViews(TestBase):
     def test_composer_load_environment_variables(self):
         assert os.environ.get('COMPOSER_ENV_TEST') == 'TEST_VAR'
 
+    def test_composer_no_logout_menu_item(self):
+        resp = self.client.get('/', follow_redirects=True)
+        self.check_content_not_in_response('Log Out', resp)
+
     def test_health(self):
 
         # case-1: healthy scheduler status
