@@ -37,7 +37,7 @@ from celery import Celery, Task, states as celery_states
 from celery.backends.base import BaseKeyValueStoreBackend
 from celery.backends.database import DatabaseBackend, Task as TaskDb, session_cleanup
 from celery.result import AsyncResult
-from celery.signals import import_modules as celery_import_modules
+from celery.signals import celeryd_init, import_modules as celery_import_modules
 from setproctitle import setproctitle  # pylint: disable=no-name-in-module
 
 import airflow.settings as settings
@@ -170,6 +170,16 @@ def send_task_to_executor(
         result = ExceptionWithTraceback(e, exception_traceback)
 
     return key, command, result
+
+
+@celeryd_init.connect
+def setup_log_format(**kwargs):
+    """Apply same format for Celery logs as we have for all other logs.
+
+    From https://github.com/celery/celery/issues/3599.
+    """
+    # TODO: cover with unit test.
+    kwargs['conf'].worker_log_format = conf.get('logging', 'LOG_FORMAT')
 
 
 # pylint: disable=unused-import
