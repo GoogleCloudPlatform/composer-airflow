@@ -117,6 +117,17 @@ class ComposerAuthRemoteUserView(AuthView):
             # show 'Access is Denied' message.
             return redirect(self.appbuilder.get_url_for_index)
 
+        # Authenticate user from current request, return 403 in case of not
+        # valid credentials.
+        if self.auth_current_user() is None:
+            return self.login_error_message, 403
+
+        # Flush any spurious "Access is Denied" flash message.
+        get_flashed_messages()
+        return self._redirect_back()
+
+    def auth_current_user(self, user_registration_role=None):
+        """Authenticate and set current user if appropriate header exists."""
         if "X-Goog-IAP-JWT-Assertion" in request.headers:
             iap_jwt = request.headers.get("X-Goog-IAP-JWT-Assertion")
             username, email = _decode_iap_jwt(iap_jwt)
@@ -124,21 +135,21 @@ class ComposerAuthRemoteUserView(AuthView):
             inverting_proxy_jwt = request.headers.get("X-Inverting-Proxy-User-ID")
             username, email = _decode_inverting_proxy_jwt(inverting_proxy_jwt)
         else:
-            return self.login_error_message, 403
+            return None
 
         if username is None:
-            return self.login_error_message, 403
+            return None
 
-        user = self._auth_remote_user(username=username, email=email)
+        user = self._auth_remote_user(
+            username=username, email=email, user_registration_role=user_registration_role
+        )
         if user is None or not user.is_active:
-            return self.login_error_message, 403
+            return None
 
-        # Flush any spurious "Access is Denied" flash message.
-        get_flashed_messages()
         login_user(user)
-        return self._redirect_back()
+        return user
 
-    def _auth_remote_user(self, username, email):
+    def _auth_remote_user(self, username, email, user_registration_role=None):
         """Fetches the specified user record or creates one if it doesn't exist.
 
         Also recognizes a user preregistered with email address as username, and
@@ -147,6 +158,9 @@ class ComposerAuthRemoteUserView(AuthView):
         Args:
           username: User's username for remote authentication.
           email: User's email to set in the user's record.
+          user_registration_role: User's role in case it will be registered
+            (created). If not passed, AUTH_USER_REGISTRATION_ROLE from
+            webserver_config.py will be used.
 
         Returns:
           The fetched or created user's record.
@@ -184,7 +198,9 @@ class ComposerAuthRemoteUserView(AuthView):
                     first_name=email,
                     last_name="-",
                     email=email,
-                    role=self.appbuilder.sm.find_role(self.appbuilder.sm.auth_user_registration_role),
+                    role=self.appbuilder.sm.find_role(
+                        user_registration_role or self.appbuilder.sm.auth_user_registration_role
+                    ),
                 )
                 # Adding a user record can fail for example because of a
                 # preregistered user with the same email but different
