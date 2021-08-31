@@ -26,7 +26,7 @@ from unittest import mock
 # leave this it is used by the test worker
 import celery.contrib.testing.tasks  # noqa: F401 pylint: disable=unused-import
 import pytest
-from celery import Celery
+from celery import Celery, signals
 from celery.backends.base import BaseBackend, BaseKeyValueStoreBackend  # noqa
 from celery.backends.database import DatabaseBackend
 from celery.contrib.testing.worker import start_worker
@@ -486,3 +486,13 @@ class TestBulkStateFetcher(unittest.TestCase):
         assert [
             'DEBUG:airflow.executors.celery_executor.BulkStateFetcher:Fetched 2 state(s) for 2 task(s)'
         ] == cm.output
+
+
+def test_setup_log_format():
+    conf_mock = mock.Mock()
+    signals.celeryd_init.send(
+        sender=None,
+        conf=conf_mock,
+    )
+
+    assert conf_mock.worker_log_format == conf.get('logging', 'LOG_FORMAT')

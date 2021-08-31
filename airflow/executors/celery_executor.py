@@ -178,7 +178,6 @@ def setup_log_format(**kwargs):
 
     From https://github.com/celery/celery/issues/3599.
     """
-    # TODO: cover with unit test.
     kwargs['conf'].worker_log_format = conf.get('logging', 'LOG_FORMAT')
 
 
