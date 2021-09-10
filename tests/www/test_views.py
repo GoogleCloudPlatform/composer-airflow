@@ -520,7 +520,7 @@ class TestAirflowBaseViews(TestBase):
 
     def test_composer_web_server_name(self):
         resp = self.client.get('/', follow_redirects=True)
-        self.check_content_in_response('Webserver: COMPOSER_TEST_WEB_SERVER_NAME', resp)
+        self.check_content_in_response('Environment Name: COMPOSER_TEST_WEB_SERVER_NAME', resp)
 
     def test_composer_load_environment_variables(self):
         assert os.environ.get('COMPOSER_ENV_TEST') == 'TEST_VAR'

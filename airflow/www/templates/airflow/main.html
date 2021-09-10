@@ -67,7 +67,7 @@
         <div>
           {{ version_label }}: {{ airflow_version }}
           {% if git_version %}<br>Git Version:<strong>{{ git_version }}</strong>{% endif %}
-          {% if config.WEB_SERVER_NAME %}<br>Webserver: {{ config.WEB_SERVER_NAME }}{% endif %}
+          {% if config.WEB_SERVER_NAME %}<br>Environment Name: {{ config.WEB_SERVER_NAME }}{% endif %}
         </div>
         <div></div>
       </div>
