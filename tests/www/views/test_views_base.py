@@ -54,7 +54,7 @@ def test_doc_urls(admin_client):
 
 def test_composer_web_server_name(admin_client):
     resp = admin_client.get('/', follow_redirects=True)
-    check_content_in_response('Webserver: COMPOSER_TEST_WEB_SERVER_NAME', resp)
+    check_content_in_response('Environment Name: COMPOSER_TEST_WEB_SERVER_NAME', resp)
 
 
 def test_composer_load_environment_variables(admin_client):
