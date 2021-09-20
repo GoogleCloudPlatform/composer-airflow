@@ -66,11 +66,24 @@ if os.path.isfile('/home/airflow/gcs/env_var.json') \
                             'have not been applied.')
 
 if not conf.getboolean('core', 'unit_test_mode'):
+    # Reload modules in app to reload Airflow configuration.
     if hasattr(airflow, 'plugins_manager'):
         airflow.plugins_manager = six.moves.reload_module(airflow.plugins_manager)
     if hasattr(airflow, 'configuration'):
         airflow.configuration = six.moves.reload_module(airflow.configuration)
-    airflow = six.moves.reload_module(airflow)
+    try:
+        # Reload "airflow" module if it is possible. It may happen that this
+        # "app" module will be imported from place which will be imported in
+        # "airflow" module that will cause circular dependency and crash (e.g.
+        # Airflow webserver plugin that is using csrf object from this module).
+        # The intention of this import is to apply changes in Airflow
+        # configuration in running webserver and it works fine in this case as
+        # there is no such issue described above. In all other scenarios this is
+        # not a hard requirement to have this import and to prevent crashing
+        # we have try/except here.
+        airflow = six.moves.reload_module(airflow)
+    except ImportError:
+        pass
 
 
 def create_app(config=None, testing=False):
