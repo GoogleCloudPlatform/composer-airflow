@@ -20,6 +20,7 @@ from functools import cached_property
 from typing import Collection, Optional
 
 from google.api_core.client_info import ClientInfo
+from google.api_core.exceptions import NotFound
 from google.cloud import storage
 
 from airflow import version
@@ -159,12 +160,19 @@ class GCSTaskHandler(FileTaskHandler, LoggingMixin):
             remote_log = _strip_separator_from_log(remote_log)
             log = f'*** Reading remote log from {remote_loc}.\n{remote_log}\n'
             return log, {'end_of_log': True}
-        except Exception as e:  # pylint: disable=broad-except
-            log = '*** Unable to read remote log from {}\n*** {}\n\n'.format(remote_loc, str(e))
+        except NotFound as e:
+            log = (
+                '*** Log file is not found: {}. The task might not have been executed or worker '
+                'executing it might have finished abnormally (e.g. was evicted)\n*** {}'.format(
+                    remote_loc, str(e)
+                )
+            )
             self.log.error(log)
-            local_log, metadata = super()._read(ti, try_number)
-            log += local_log
-            return log, metadata
+            return log, {'end_of_log': True}
+        except Exception as e:  # pylint: disable=broad-except
+            log = '*** Unable to read remote log from {}\n*** {}'.format(remote_loc, str(e))
+            self.log.error(log)
+            return log, {'end_of_log': True}
 
     def gcs_write(self, log, remote_log_location):
         """
