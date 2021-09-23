@@ -22,6 +22,8 @@ import unittest
 from datetime import datetime
 from unittest import mock
 
+from google.api_core.exceptions import NotFound
+
 from airflow.composer.gcs_task_handler import GCSTaskHandler
 from airflow.models import TaskInstance
 from airflow.models.dag import DAG
@@ -96,7 +98,33 @@ class TestGCSTaskHandler(unittest.TestCase):
     )
     @mock.patch("google.cloud.storage.Client")
     @mock.patch("google.cloud.storage.Blob")
-    def test_should_read_from_local(self, mock_blob, mock_client, mock_creds):
+    def test_gcs_not_found_file(self, mock_blob, mock_client, mock_creds):
+        mock_blob.from_string.return_value.download_as_bytes.return_value.decode.side_effect = NotFound(
+            "File is not found!"
+        )
+
+        log, metadata = self.gcs_task_handler._read(self.ti, self.ti.try_number)
+
+        self.assertEqual(
+            log,
+            (
+                "*** Log file is not found: gs://bucket/remote/log/location/1.log. The task might not have "
+                "been executed or worker executing it might have finished abnormally (e.g. was evicted)\n"
+                "*** 404 File is not found!"
+            ),
+        )
+        self.assertDictEqual(metadata, {"end_of_log": True})
+        mock_blob.from_string.assert_called_once_with(
+            "gs://bucket/remote/log/location/1.log", mock_client.return_value
+        )
+
+    @mock.patch(
+        "airflow.composer.gcs_task_handler.get_credentials_and_project_id",
+        return_value=("TEST_CREDENTIALS", "TEST_PROJECT_ID"),
+    )
+    @mock.patch("google.cloud.storage.Client")
+    @mock.patch("google.cloud.storage.Blob")
+    def test_gcs_unknown_exception(self, mock_blob, mock_client, mock_creds):
         mock_blob.from_string.return_value.download_as_bytes.return_value.decode.side_effect = Exception(
             "Failed to connect"
         )
@@ -107,7 +135,7 @@ class TestGCSTaskHandler(unittest.TestCase):
         self.assertEqual(
             log,
             "*** Unable to read remote log from gs://bucket/remote/log/location/1.log\n*** "
-            f"Failed to connect\n\n*** Reading local file: {self.local_log_location}/1.log\n",
+            "Failed to connect",
         )
         self.assertDictEqual(metadata, {"end_of_log": True})
         mock_blob.from_string.assert_called_once_with(
