@@ -170,13 +170,15 @@ OrderedDict([('asana',
                'placeholders': {'host': 'https://<env>.qubole.com/api'},
                'relabeling': {'host': 'API Endpoint',
                               'password': 'Auth Token'}}),
+             ('salesforce',
+              {'hidden_fields': ['schema', 'port', 'extra', 'host'],
+               'relabeling': {'login': 'Username'}}),
              ('sftp',
               {'hidden_fields': ['schema'],
                'relabeling': {'login': 'Username'}}),
              ('snowflake',
               {'hidden_fields': ['port'],
                'placeholders': {'extra': '{\n'
-                                         ' "role": "snowflake role",\n'
                                          ' "authenticator": "snowflake '
                                          'oauth",\n'
                                          ' "private_key_file": "private key",\n'
@@ -198,6 +200,7 @@ OrderedDict([('asana',
                                                               'name',
                                 'extra__snowflake__region': 'snowflake hosted '
                                                             'region',
+                                'extra__snowflake__role': 'snowflake role',
                                 'extra__snowflake__warehouse': 'snowflake '
                                                                'warehouse name',
                                 'host': 'snowflake hostname',
