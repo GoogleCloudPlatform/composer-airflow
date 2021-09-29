@@ -167,6 +167,7 @@ class TestBase(unittest.TestCase):
     @mock.patch("airflow.composer.security_manager.auth.default", autospec=True)
     @mock.patch("airflow.composer.security_manager.AuthorizedSession", autospec=True)
     @conf_vars({("webserver", "jwt_public_key_url"): "jwt-public-key-url-test"})
+    @conf_vars({("webserver", "inverting_proxy_backend_id"): "inverting-proxy-backend-id-test"})
     def test_login_user_inverting_proxy(self, authorized_session_mock, auth_default_mock):
         username = f"test-{self.get_random_id()}"
         email = f"test-{self.get_random_id()}@test.com"
@@ -176,9 +177,10 @@ class TestBase(unittest.TestCase):
         with open(os.path.join(self.CURRENT_DIRECTORY, 'test_data/jwtRS256.key.pub')) as f:
             public_key = f.read()
 
-        def request_side_effect(method, url):
+        def request_side_effect(method, url, headers):
             assert method == "GET"
             assert url == "jwt-public-key-url-test"
+            assert headers == {"X-Inverting-Proxy-Backend-ID": "inverting-proxy-backend-id-test"}
             return mock.Mock(status_code=200, text=public_key)
 
         def auth_default_mock_side_effect(scopes):
@@ -209,9 +211,10 @@ class TestBase(unittest.TestCase):
 
         # Test not successful response from google.auth.
         # flake8: noqa: F811
-        def request_side_effect(method, url):  # pylint: disable=function-redefined
+        def request_side_effect(method, url, headers):  # pylint: disable=function-redefined
             assert method == "GET"
             assert url == "jwt-public-key-url-test"
+            assert headers == {"X-Inverting-Proxy-Backend-ID": "inverting-proxy-backend-id-test"}
             return mock.Mock(status_code=400, text=public_key)
 
         def authorized_session_mock_side_effect(credentials):  # pylint: disable=function-redefined

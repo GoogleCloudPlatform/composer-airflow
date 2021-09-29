@@ -73,7 +73,12 @@ def _decode_inverting_proxy_jwt(inverting_proxy_jwt):
     try:
         credentials, _ = auth.default(scopes=["https://www.googleapis.com/auth/cloud-platform"])
         authed_session = AuthorizedSession(credentials)
-        response = authed_session.request("GET", conf.get("webserver", "jwt_public_key_url"))
+        headers = {
+            "X-Inverting-Proxy-Backend-ID":
+                conf.get("webserver", "inverting_proxy_backend_id")
+        }
+        response = authed_session.request(
+            "GET", conf.get("webserver", "jwt_public_key_url"), headers=headers)
         if response.status_code != 200:
             log.error("Failed to fetch public key for JWT verification, status: %s", response.status_code)
             return None, None
