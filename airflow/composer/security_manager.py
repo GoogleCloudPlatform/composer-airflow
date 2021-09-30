@@ -27,7 +27,7 @@ from google.auth.transport import requests
 from google.auth.transport.requests import AuthorizedSession
 from google.oauth2 import id_token
 
-from airflow import configuration as conf
+from airflow.configuration import conf
 from airflow.security import permissions
 from airflow.www.security import AirflowSecurityManager
 
