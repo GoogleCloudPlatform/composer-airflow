@@ -476,6 +476,7 @@ zendesk = [
 composer_additional = [
     "crcmod<2.0",
     "google-apitools",
+    "google-cloud-aiplatform",
     "google-cloud-pubsublite<1.0.0",
     "pip<20.3.0",
     "pipdeptree",
