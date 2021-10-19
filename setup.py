@@ -491,6 +491,7 @@ zendesk = [
 composer_additional = [
     "crcmod<2.0",
     "google-apitools",
+    "google-cloud-aiplatform",
     "google-cloud-pubsublite<1.0.0",
     "pip<20.3.0",
     "pipdeptree",
@@ -988,7 +989,12 @@ def add_all_provider_packages() -> None:
     add_provider_packages_to_extra_requirements(
         "composer",
         ["apache.beam", "cncf.kubernetes", "google", "http", "mysql", "postgres", "sendgrid", "ssh"],
-        {},
+        {
+            # google provider 6.0.0 version requires azure provider 3.2.0+, but
+            # Airflow 2.1.4 is compatible with azure providers <3.2.0 only.
+            # TODO: remove it for Airflow 2.2.0+.
+            "google": "<6.0.0",
+        },
     )
 
 
