@@ -32,7 +32,7 @@ class TestComposerMigrations(unittest.TestCase):
 
     @parameterized.expand(
         [
-            ['connection', 'host', 100],
+            ['connection', 'host', 500],
             ['job', 'hostname', 100],
             ['task_instance', 'hostname', 100],
         ]

@@ -16,34 +16,33 @@
 # specific language governing permissions and limitations
 # under the License.
 
-"""Add queued_at column to dagrun table
+"""Composer. Revert back length of connection.host column
 
-Revision ID: 97cdd93827b8
-Revises: a13f7613ad25
-Create Date: 2021-06-29 21:53:48.059438
+The length of this column accidentally was reduced in 5962f262d786 custom
+Composer migration. Here we revert back length of it.
+
+Revision ID: 6a1d4c4bf858
+Revises: 31cbfc73ceed
+Create Date: 2021-10-20 07:44:05.123456
 
 """
 
 import sqlalchemy as sa
 from alembic import op
-from sqlalchemy.dialects import mssql
 
 # revision identifiers, used by Alembic.
-revision = '97cdd93827b8'
-down_revision = 'a13f7613ad25'
+revision = '6a1d4c4bf858'
+down_revision = '31cbfc73ceed'
 branch_labels = None
-depends_on = '6a1d4c4bf858'
+depends_on = None
 
 
 def upgrade():
-    """Apply Add queued_at column to dagrun table"""
-    conn = op.get_bind()
-    if conn.dialect.name == "mssql":
-        op.add_column('dag_run', sa.Column('queued_at', mssql.DATETIME2(precision=6), nullable=True))
-    else:
-        op.add_column('dag_run', sa.Column('queued_at', sa.DateTime(), nullable=True))
+    """Apply migration"""
+    with op.batch_alter_table('connection') as batch_op:
+        batch_op.alter_column(column_name='host', type_=sa.String(500))
 
 
 def downgrade():
-    """Unapply Add queued_at column to dagrun table"""
-    op.drop_column('dag_run', "queued_at")
+    """Unapply migration"""
+    pass
