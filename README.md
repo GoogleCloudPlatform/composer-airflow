@@ -2,7 +2,7 @@
 
 This repository is a read-only repository that contains the code running in [Google Cloud Composer](https://cloud.google.com/composer) it is intended to be used for reference and for local testing - on-premise usage of this code is NOT supported. 
 
-For more information, please refer to [the documentation](https://cloud.google.com/composer/docs/concepts/composer-airflow-codebase).
+For more information, please refer to [the documentation](https://cloud.google.com/composer/docs/composer-airflow-codebase).
 
 ## Contribution
 
