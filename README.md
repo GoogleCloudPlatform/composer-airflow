@@ -2,6 +2,8 @@
 
 This repository is a read-only repository that contains the code running in [Google Cloud Composer](https://cloud.google.com/composer) it is intended to be used for reference and for local testing - on-premise usage of this code is NOT supported. 
 
+**There is no code in the main branch of the repository.** The Airflow code itself is found in the branches - there exists one branch for every version of Airflow that has been available in Cloud Composer. Note that not all versions are currently supported. (See [version support dates](https://cloud.google.com/composer/docs/concepts/versioning/composer-versions) for more details.)
+
 For more information, please refer to [the documentation](https://cloud.google.com/composer/docs/composer-airflow-codebase).
 
 ## Contribution
