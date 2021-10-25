@@ -232,7 +232,7 @@ class TestDagRunOperator(TestCase):
             execution_date=execution_date,
             wait_for_completion=True,
             poke_interval=10,
-            allowed_states=[State.RUNNING],
+            allowed_states=[State.QUEUED],
             dag=self.dag,
         )
         task.run(start_date=execution_date, end_date=execution_date)
@@ -250,7 +250,7 @@ class TestDagRunOperator(TestCase):
             execution_date=execution_date,
             wait_for_completion=True,
             poke_interval=10,
-            failed_states=[State.RUNNING],
+            failed_states=[State.QUEUED],
             dag=self.dag,
         )
         with pytest.raises(AirflowException):
