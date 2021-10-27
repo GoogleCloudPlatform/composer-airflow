@@ -1376,7 +1376,7 @@ class Airflow(AirflowBaseView):
 
         pod_spec = None
         try:
-            pod_spec = ti.get_rendered_k8s_spec(session=session)
+            pod_spec = "N/A" or ti.get_rendered_k8s_spec(session=session)
         except AirflowException as e:
             msg = "Error rendering Kubernetes POD Spec: " + escape(e)
             if e.__cause__:

@@ -21,11 +21,14 @@ from parameterized import parameterized
 
 from airflow import settings
 from airflow.composer.utils import (
+    get_composer_gke_cluster_host,
     get_composer_version,
+    initialize,
     is_composer_v1,
     is_serverless_composer,
     is_triggerer_enabled,
 )
+from tests.test_utils.config import conf_vars
 
 
 class TestUtils(unittest.TestCase):
@@ -69,3 +72,35 @@ class TestUtils(unittest.TestCase):
         settings.initialize()
 
         initialize_mock.assert_called_once()
+
+    @mock.patch("airflow.composer.utils.patch_fetch_container_logs", autospec=True)
+    @mock.patch.dict("os.environ", {"COMPOSER_VERSION": "2.1.10"})
+    def test_initialize_patch_fetch_container_logs(self, patch_fetch_container_logs_mock):
+        initialize()
+
+        patch_fetch_container_logs_mock.assert_not_called()
+
+    @mock.patch("airflow.composer.utils.patch_fetch_container_logs", autospec=True)
+    @mock.patch.dict("os.environ", {"COMPOSER_VERSION": "2.5.1"})
+    def test_initialize_patch_fetch_container_logs_serverless(self, patch_fetch_container_logs_mock):
+        initialize()
+
+        patch_fetch_container_logs_mock.assert_called_once_with()
+
+    @conf_vars({("kubernetes_executor", "config_file"): "/test_kube_config_file"})
+    @mock.patch("airflow.composer.utils.config", autospec=True)
+    def test_get_composer_gke_cluster_host(self, config_mock):
+        def load_kube_config_side_effect(config_file, client_configuration, persist_config):
+            self.assertEqual(config_file, "/test_kube_config_file")
+            self.assertEqual(persist_config, False)
+            client_configuration.host = "http://test-host-cluster"
+
+        config_mock.load_kube_config.side_effect = load_kube_config_side_effect
+
+        # Call twice to test cache.
+        host1 = get_composer_gke_cluster_host()
+        host2 = get_composer_gke_cluster_host()
+
+        self.assertEqual(host1, "http://test-host-cluster")
+        self.assertEqual(host2, "http://test-host-cluster")
+        config_mock.load_kube_config.assert_called_once()

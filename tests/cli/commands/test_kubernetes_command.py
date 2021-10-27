@@ -33,7 +33,9 @@ class TestGenerateDagYamlCommand:
     def setup_class(cls):
         cls.parser = cli_parser.get_parser()
 
-    def test_generate_dag_yaml(self):
+    @mock.patch("airflow.cli.commands.kubernetes_command.get_kube_client", autospec=True)
+    @mock.patch("airflow.composer.kubernetes.executor.refresh_pod_template_file", autospec=True)
+    def test_generate_dag_yaml(self, mock_refresh_pod_template_file, mock_get_kube_client):
         with tempfile.TemporaryDirectory("airflow_dry_run_test/") as directory:
             file_name = "miscellaneous_test_dag_run_after_loop_2020-11-03T00_00_00_plus_00_00.yml"
             kubernetes_command.generate_pod_yaml(
@@ -48,6 +50,7 @@ class TestGenerateDagYamlCommand:
                     ]
                 )
             )
+            mock_refresh_pod_template_file.assert_called_with(mock_get_kube_client().api_client)
             assert len(os.listdir(directory)) == 1
             out_dir = directory + "/airflow_yaml_output/"
             assert len(os.listdir(out_dir)) == 6
@@ -63,10 +66,12 @@ class TestCleanUpPodsCommand:
     def setup_class(cls):
         cls.parser = cli_parser.get_parser()
 
-    @mock.patch("kubernetes.client.CoreV1Api.delete_namespaced_pod")
-    def test_delete_pod(self, delete_namespaced_pod):
-        kubernetes_command._delete_pod("dummy", "awesome-namespace")
-        delete_namespaced_pod.assert_called_with(body=mock.ANY, name="dummy", namespace="awesome-namespace")
+    def test_delete_pod(self):
+        kube_client = MagicMock()
+        kubernetes_command._delete_pod(kube_client, "dummy", "awesome-namespace")
+        kube_client.delete_namespaced_pod.assert_called_with(
+            body=mock.ANY, name="dummy", namespace="awesome-namespace"
+        )
 
     @mock.patch("airflow.cli.commands.kubernetes_command._delete_pod")
     @mock.patch("kubernetes.client.CoreV1Api.list_namespaced_pod")
@@ -109,7 +114,7 @@ class TestCleanUpPodsCommand:
         list_namespaced_pod.assert_called_once_with(
             namespace="awesome-namespace", limit=500, label_selector=self.label_selector
         )
-        delete_pod.assert_called_with("dummy", "awesome-namespace")
+        delete_pod.assert_called_with(mock.ANY, "dummy", "awesome-namespace")
         load_incluster_config.assert_called_once()
 
     @mock.patch("airflow.cli.commands.kubernetes_command._delete_pod")
@@ -159,7 +164,7 @@ class TestCleanUpPodsCommand:
         list_namespaced_pod.assert_called_once_with(
             namespace="awesome-namespace", limit=500, label_selector=self.label_selector
         )
-        delete_pod.assert_called_with("dummy3", "awesome-namespace")
+        delete_pod.assert_called_with(mock.ANY, "dummy3", "awesome-namespace")
         load_incluster_config.assert_called_once()
 
     @mock.patch("airflow.cli.commands.kubernetes_command._delete_pod")
@@ -182,7 +187,7 @@ class TestCleanUpPodsCommand:
         list_namespaced_pod.assert_called_once_with(
             namespace="awesome-namespace", limit=500, label_selector=self.label_selector
         )
-        delete_pod.assert_called_with("dummy4", "awesome-namespace")
+        delete_pod.assert_called_with(mock.ANY, "dummy4", "awesome-namespace")
         load_incluster_config.assert_called_once()
 
     @mock.patch("airflow.cli.commands.kubernetes_command._delete_pod")
@@ -204,7 +209,7 @@ class TestCleanUpPodsCommand:
         list_namespaced_pod.assert_called_once_with(
             namespace="awesome-namespace", limit=500, label_selector=self.label_selector
         )
-        delete_pod.assert_called_with("dummy5", "awesome-namespace")
+        delete_pod.assert_called_with(mock.ANY, "dummy5", "awesome-namespace")
         load_incluster_config.assert_called_once()
 
     @mock.patch("airflow.cli.commands.kubernetes_command._delete_pod")
@@ -258,5 +263,5 @@ class TestCleanUpPodsCommand:
             ),
         ]
         list_namespaced_pod.assert_has_calls(calls)
-        delete_pod.assert_called_with("dummy", "awesome-namespace")
+        delete_pod.assert_called_with(mock.ANY, "dummy", "awesome-namespace")
         load_incluster_config.assert_called_once()

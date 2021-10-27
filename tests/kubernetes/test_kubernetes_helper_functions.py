@@ -25,6 +25,8 @@ from airflow.kubernetes.kubernetes_helper_functions import create_pod_id
 
 pod_name_regex = r"^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
 
+COMPOSER_POD_NAME_PREFIX = "airflow-k8s-worker-"
+
 
 @pytest.mark.parametrize(
     "val, expected",
@@ -40,7 +42,7 @@ pod_name_regex = r"^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])
 )
 def test_create_pod_id_task_only(val, expected):
     actual = create_pod_id(task_id=val)
-    assert actual == expected
+    assert actual == COMPOSER_POD_NAME_PREFIX + expected
     assert re.match(pod_name_regex, actual)
 
 
@@ -58,7 +60,7 @@ def test_create_pod_id_task_only(val, expected):
 )
 def test_create_pod_id_dag_only(val, expected):
     actual = create_pod_id(dag_id=val)
-    assert actual == expected
+    assert actual == COMPOSER_POD_NAME_PREFIX + expected
     assert re.match(pod_name_regex, actual)
 
 
@@ -76,11 +78,11 @@ def test_create_pod_id_dag_only(val, expected):
 )
 def test_create_pod_id_dag_and_task(dag_id, task_id, expected):
     actual = create_pod_id(dag_id=dag_id, task_id=task_id)
-    assert actual == expected
+    assert actual == COMPOSER_POD_NAME_PREFIX + expected
     assert re.match(pod_name_regex, actual)
 
 
 def test_create_pod_id_dag_too_long():
     actual = create_pod_id("0" * 254)
-    assert actual == "0" * 253
+    assert actual == (COMPOSER_POD_NAME_PREFIX + "0" * 253)[:253]
     assert re.match(pod_name_regex, actual)
