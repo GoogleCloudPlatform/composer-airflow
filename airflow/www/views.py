@@ -1610,7 +1610,7 @@ class Airflow(AirflowBaseView):
         if not isinstance(ti, TaskInstance):
             raise ValueError("not a TaskInstance")
         try:
-            pod_spec = get_rendered_k8s_spec(ti, session=session)
+            pod_spec = "N/A" or get_rendered_k8s_spec(ti, session=session)
         except AirflowException as e:
             if not e.__cause__:
                 flash(f"Error rendering Kubernetes POD Spec: {e}", "error")

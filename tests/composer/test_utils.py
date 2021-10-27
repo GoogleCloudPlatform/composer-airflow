@@ -23,6 +23,7 @@ from airflow import settings
 from airflow.composer.utils import (
     COMPOSER_DEFAULT_CELERY_CONFIG,
     get_component_hostname,
+    get_composer_gke_cluster_host,
     get_composer_version,
     initialize,
     is_composer_v1,
@@ -30,6 +31,7 @@ from airflow.composer.utils import (
     is_triggerer_enabled,
 )
 from airflow.providers.celery.executors.default_celery import DEFAULT_CELERY_CONFIG
+from tests.test_utils.config import conf_vars
 
 
 class TestUtils:
@@ -75,6 +77,24 @@ class TestUtils:
         settings.initialize()
 
         initialize_mock.assert_called_once()
+
+    @conf_vars({("kubernetes_executor", "config_file"): "/test_kube_config_file"})
+    @mock.patch("airflow.composer.utils.config", autospec=True)
+    def test_get_composer_gke_cluster_host(self, config_mock):
+        def load_kube_config_side_effect(config_file, client_configuration, persist_config):
+            assert config_file == "/test_kube_config_file"
+            assert persist_config is False
+            client_configuration.host = "http://test-host-cluster"
+
+        config_mock.load_kube_config.side_effect = load_kube_config_side_effect
+
+        # Call twice to test cache.
+        host1 = get_composer_gke_cluster_host()
+        host2 = get_composer_gke_cluster_host()
+
+        assert host1 == "http://test-host-cluster"
+        assert host2 == "http://test-host-cluster"
+        config_mock.load_kube_config.assert_called_once()
 
     @pytest.mark.parametrize(
         "hostname, expected_result",

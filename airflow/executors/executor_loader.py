@@ -224,6 +224,10 @@ class ExecutorLoader:
 
         :return: an instance of executor class via executor_name
         """
+        from airflow.composer.kubernetes.executor import patch_kubernetes_executor_start
+
+        patch_kubernetes_executor_start()
+
         if not executor_name:
             _executor_name = cls.get_default_executor_name()
         elif isinstance(executor_name, str):

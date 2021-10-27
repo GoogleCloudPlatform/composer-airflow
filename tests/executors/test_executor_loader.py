@@ -331,3 +331,9 @@ class TestExecutorLoader:
             assert isinstance(
                 ExecutorLoader.load_executor(executor_loader._executor_names[0]), AwsEcsExecutor
             )
+
+    @mock.patch("airflow.composer.kubernetes.executor.patch_kubernetes_executor_start", autospec=True)
+    def test_calls_composer_kubernetes_executor_patch(self, patch_kubernetes_executor_start_mock):
+        ExecutorLoader.init_executors()
+        ExecutorLoader.load_executor("LocalExecutor")
+        patch_kubernetes_executor_start_mock.assert_called()

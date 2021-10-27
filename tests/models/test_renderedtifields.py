@@ -170,6 +170,17 @@ class TestRenderedTaskInstanceFields:
         # Fetching them will return None
         assert RTIF.get_templated_fields(ti=ti2) is None
 
+    @mock.patch.dict("os.environ", {"AIRFLOW_IS_K8S_EXECUTOR_POD": "True"}, clear=False)
+    def test_k8s_executor_pod(self, dag_maker):
+        with dag_maker("test_k8s_executor_pod"):
+            task = BashOperator(task_id="test", bash_command="echo test")
+        dr = dag_maker.create_dagrun()
+        ti = dr.task_instances[0]
+
+        rtif = RTIF(ti=ti)
+
+        assert rtif.k8s_pod_yaml == "*" * 10
+
     @pytest.mark.skip_if_database_isolation_mode  # Does not work in db isolation mode
     @pytest.mark.enable_redact
     def test_secrets_are_masked_when_large_string(self, dag_maker):
