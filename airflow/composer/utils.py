@@ -20,6 +20,8 @@ import sys
 
 import aiodebug.log_slow_callbacks
 import requests
+from kubernetes import config
+from kubernetes.client import Configuration
 
 from airflow.configuration import conf
 from airflow.providers.celery.executors.default_celery import DEFAULT_CELERY_CONFIG
@@ -29,6 +31,8 @@ from airflow.utils import net
 # when redis closes connection.
 COMPOSER_DEFAULT_CELERY_CONFIG = copy.deepcopy(DEFAULT_CELERY_CONFIG)
 COMPOSER_DEFAULT_CELERY_CONFIG["redis_backend_health_check_interval"] = 30
+
+COMPOSER_GKE_CLUSTER_HOST = None
 
 
 def get_composer_version():
@@ -75,11 +79,34 @@ def get_component_hostname():
         return hostname
 
 
+def get_composer_gke_cluster_host():
+    global COMPOSER_GKE_CLUSTER_HOST
+
+    if COMPOSER_GKE_CLUSTER_HOST is not None:
+        return COMPOSER_GKE_CLUSTER_HOST
+
+    config_file = conf.get("kubernetes_executor", "config_file", fallback=None)
+    client_configuration = Configuration()
+    config.load_kube_config(
+        config_file=config_file, client_configuration=client_configuration, persist_config=False
+    )
+    COMPOSER_GKE_CLUSTER_HOST = client_configuration.host
+
+    return COMPOSER_GKE_CLUSTER_HOST
+
+
 def initialize():
     """Act as a hook to do Composer related setup for Airflow."""
-    if "triggerer" in sys.argv[0]:
+    if _is_triggerer_launch_command(sys.argv):
         # This line enables logging slow callbacks in triggers.
         aiodebug.log_slow_callbacks.enable(0.05)
+
+        if is_serverless_composer():
+            from airflow.composer.kubernetes.trigger import (
+                patch_define_container_state,
+            )
+
+            patch_define_container_state()
 
 
 def get_locational_endpoint(service, location, version):
@@ -94,3 +121,17 @@ def get_locational_endpoint(service, location, version):
 def is_endpoint_reachable(endpoint):
     response = requests.get(endpoint)
     return response.ok
+
+
+def _is_triggerer_launch_command(cmd_argv: list) -> bool:
+    """
+    Match triggerer start command.
+
+    Following the pattern: ['/opt/python3.11/bin/airflow', 'triggerer', '--skip-serve-logs'].
+    """
+    return all(
+        [
+            "airflow" in cmd_argv[0],
+            len(cmd_argv) > 1 and cmd_argv[1] == "triggerer",
+        ]
+    )

@@ -22,7 +22,9 @@ import airflow.utils.net
 from airflow import settings
 from airflow.composer.utils import (
     COMPOSER_DEFAULT_CELERY_CONFIG,
+    _is_triggerer_launch_command,
     get_component_hostname,
+    get_composer_gke_cluster_host,
     get_composer_version,
     get_locational_endpoint,
     initialize,
@@ -31,6 +33,7 @@ from airflow.composer.utils import (
     is_triggerer_enabled,
 )
 from airflow.providers.celery.executors.default_celery import DEFAULT_CELERY_CONFIG
+from tests.test_utils.config import conf_vars
 
 
 class TestUtils:
@@ -77,6 +80,24 @@ class TestUtils:
 
         initialize_mock.assert_called_once()
 
+    @conf_vars({("kubernetes_executor", "config_file"): "/test_kube_config_file"})
+    @mock.patch("airflow.composer.utils.config", autospec=True)
+    def test_get_composer_gke_cluster_host(self, config_mock):
+        def load_kube_config_side_effect(config_file, client_configuration, persist_config):
+            assert config_file == "/test_kube_config_file"
+            assert persist_config is False
+            client_configuration.host = "http://test-host-cluster"
+
+        config_mock.load_kube_config.side_effect = load_kube_config_side_effect
+
+        # Call twice to test cache.
+        host1 = get_composer_gke_cluster_host()
+        host2 = get_composer_gke_cluster_host()
+
+        assert host1 == "http://test-host-cluster"
+        assert host2 == "http://test-host-cluster"
+        config_mock.load_kube_config.assert_called_once()
+
     @pytest.mark.parametrize(
         "hostname, expected_result",
         [
@@ -97,7 +118,7 @@ class TestUtils:
         assert COMPOSER_DEFAULT_CELERY_CONFIG["redis_backend_health_check_interval"] == 30
 
     @mock.patch("aiodebug.log_slow_callbacks", autospec=True)
-    @mock.patch("sys.argv", ["triggerer"])
+    @mock.patch("sys.argv", ["/opt/python3.11/bin/airflow", "triggerer"])
     def test_is_aiodebug_called(self, aiodebug_log_slow_callbacks_mock):
         initialize()
 
@@ -119,3 +140,36 @@ class TestUtils:
 
             mock_get.assert_called_once()
             assert result == expected_value
+
+    @pytest.mark.parametrize(
+        "sys_argv_command, expected_result",
+        [
+            (["airflow", "triggerer"], True),
+            (["triggerer"], False),
+            (["airflow", "worker"], False),
+            (["", ""], False),
+        ],
+    )
+    def test_is_triggerer_cmd_passed(self, sys_argv_command, expected_result):
+        with mock.patch("sys.argv", ["/opt/python3.11/bin/airflow", "triggerer"]):
+            assert _is_triggerer_launch_command(sys_argv_command) == expected_result
+
+    @pytest.mark.parametrize(
+        "composer_version, patch_function_expected_calls_count",
+        [
+            ("2.1.10", 0),
+            ("3.0.1", 1),
+        ],
+    )
+    @mock.patch("sys.argv", ["/opt/python3.11/bin/airflow", "triggerer"])
+    @mock.patch("airflow.composer.kubernetes.trigger.patch_define_container_state")
+    def test_is_kpo_deferrable_patched(
+        self,
+        mock_container_state,
+        composer_version,
+        patch_function_expected_calls_count,
+    ):
+        with mock.patch.dict("os.environ", {"COMPOSER_VERSION": composer_version}):
+            initialize()
+
+        assert mock_container_state.call_count == patch_function_expected_calls_count
