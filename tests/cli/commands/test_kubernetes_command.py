@@ -41,7 +41,9 @@ class TestGenerateDagYamlCommand:
             importlib.reload(cli_parser)
             cls.parser = cli_parser.get_parser()
 
-    def test_generate_dag_yaml(self, tmp_path):
+    @mock.patch("airflow.cli.commands.kubernetes_command.get_kube_client", autospec=True)
+    @mock.patch("airflow.composer.kubernetes.executor.refresh_pod_template_file", autospec=True)
+    def test_generate_dag_yaml(self, mock_refresh_pod_template_file, mock_get_kube_client, tmp_path):
         path = tmp_path / "miscellaneous_test_dag_run_after_loop_2020-11-03T00_00_00_plus_00_00.yml"
         kubernetes_command.generate_pod_yaml(
             self.parser.parse_args(
@@ -55,6 +57,7 @@ class TestGenerateDagYamlCommand:
                 ]
             )
         )
+        mock_refresh_pod_template_file.assert_called_with(mock_get_kube_client().api_client)
         assert sum(1 for _ in path.parent.iterdir()) == 1
         output_path = path.parent / "airflow_yaml_output"
         assert sum(1 for _ in output_path.iterdir()) == 6
