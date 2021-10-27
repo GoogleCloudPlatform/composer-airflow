@@ -18,8 +18,13 @@ import os
 import sys
 
 import aiodebug.log_slow_callbacks
+from kubernetes import config
+from kubernetes.client import Configuration
 
+from airflow.composer.kubernetes.pod_manager import patch_fetch_container_logs
 from airflow.configuration import conf
+
+COMPOSER_GKE_CLUSTER_HOST = None
 
 
 def get_composer_version():
@@ -53,8 +58,27 @@ def is_serverless_composer():
     return major >= 3
 
 
+def get_composer_gke_cluster_host():
+    global COMPOSER_GKE_CLUSTER_HOST
+
+    if COMPOSER_GKE_CLUSTER_HOST is not None:
+        return COMPOSER_GKE_CLUSTER_HOST
+
+    config_file = conf.get("kubernetes_executor", "config_file", fallback=None)
+    client_configuration = Configuration()
+    config.load_kube_config(
+        config_file=config_file, client_configuration=client_configuration, persist_config=False
+    )
+    COMPOSER_GKE_CLUSTER_HOST = client_configuration.host
+
+    return COMPOSER_GKE_CLUSTER_HOST
+
+
 def initialize():
     """This method acts as a hook to do Composer related setup for Airflow."""
     if "triggerer" in sys.argv[0]:
         # This line enables logging slow callbacks in triggers.
         aiodebug.log_slow_callbacks.enable(0.05)
+
+    if is_serverless_composer():
+        patch_fetch_container_logs()

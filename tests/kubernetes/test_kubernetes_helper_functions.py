@@ -23,17 +23,16 @@ import pytest
 from pytest import param
 
 from airflow.kubernetes.kubernetes_helper_functions import create_pod_id
-from airflow.providers.cncf.kubernetes.operators.pod import _create_pod_id
 
 pod_name_regex = r"^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+
+COMPOSER_POD_NAME_PREFIX = "airflow-k8s-worker-"
 
 
 # todo: when cncf provider min airflow version >= 2.5 remove this parameterization
 # we added this function to provider temporarily until min airflow version catches up
 # meanwhile, we use this one test to test both core and provider
-@pytest.mark.parametrize(
-    "create_pod_id", [param(_create_pod_id, id="provider"), param(create_pod_id, id="core")]
-)
+@pytest.mark.parametrize("create_pod_id", [param(create_pod_id, id="core")])
 class TestCreatePodId:
     @pytest.mark.parametrize(
         "val, expected",
@@ -49,7 +48,7 @@ class TestCreatePodId:
     )
     def test_create_pod_id_task_only(self, val, expected, create_pod_id):
         actual = create_pod_id(task_id=val, unique=False)
-        assert actual == expected
+        assert actual == COMPOSER_POD_NAME_PREFIX + expected
         assert re.match(pod_name_regex, actual)
 
     @pytest.mark.parametrize(
@@ -66,7 +65,7 @@ class TestCreatePodId:
     )
     def test_create_pod_id_dag_only(self, val, expected, create_pod_id):
         actual = create_pod_id(dag_id=val, unique=False)
-        assert actual == expected
+        assert actual == COMPOSER_POD_NAME_PREFIX + expected
         assert re.match(pod_name_regex, actual)
 
     @pytest.mark.parametrize(
@@ -83,19 +82,19 @@ class TestCreatePodId:
     )
     def test_create_pod_id_dag_and_task(self, dag_id, task_id, expected, create_pod_id):
         actual = create_pod_id(dag_id=dag_id, task_id=task_id, unique=False)
-        assert actual == expected
+        assert actual == COMPOSER_POD_NAME_PREFIX + expected
         assert re.match(pod_name_regex, actual)
 
     def test_create_pod_id_dag_too_long_with_suffix(self, create_pod_id):
         actual = create_pod_id("0" * 254)
         assert len(actual) == 80
-        assert re.match(r"0{71}-[a-z0-9]{8}", actual)
+        assert re.match(r"airflow-k8s-worker-0{52}-[a-z0-9]{8}", actual)
         assert re.match(pod_name_regex, actual)
 
     def test_create_pod_id_dag_too_long_non_unique(self, create_pod_id):
         actual = create_pod_id("0" * 254, unique=False)
         assert len(actual) == 80
-        assert re.match(r"0{80}", actual)
+        assert re.match(r"airflow-k8s-worker-0{61}", actual)
         assert re.match(pod_name_regex, actual)
 
     @pytest.mark.parametrize("unique", [True, False])
@@ -110,7 +109,7 @@ class TestCreatePodId:
             max_length=length,
             unique=unique,
         )
-        base = f"{dag_id}{task_id}".strip("-")
+        base = f"{COMPOSER_POD_NAME_PREFIX}{dag_id}{task_id}".strip("-")
         if unique:
             assert actual[:-9] == base[: length - 9].strip("-")
             assert re.match(r"-[a-z0-9]{8}", actual[-9:])

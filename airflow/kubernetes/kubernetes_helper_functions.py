@@ -73,7 +73,8 @@ def create_pod_id(
         if name:
             name += "-"
         name += task_id
-    base_name = slugify(name, lowercase=True)[:max_length].strip(".-")
+    pod_id = slugify(name, lowercase=True)[:max_length].strip("-.")
+    base_name = ("airflow-k8s-worker-" + pod_id)[:max_length].strip("-.")
     if unique:
         return add_pod_suffix(pod_name=base_name, rand_len=8, max_len=max_length)
     else:
