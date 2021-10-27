@@ -119,7 +119,11 @@ class RenderedTaskInstanceFields(TaskInstanceDependencies):
             # of kubernetes provider installed to reach this place
             from airflow.providers.cncf.kubernetes.template_rendering import render_k8s_pod_yaml
 
-            self.k8s_pod_yaml = render_k8s_pod_yaml(ti)
+            # We do not display this field in Composer Airflow UI for security reasons, so we may omit
+            # generating its value here. Also, in order to properly generate it,
+            # composer_kubernetes_pod_template_file.yaml has to be present/created on Airflow worker and it is
+            # not right now.
+            self.k8s_pod_yaml = ("*" * 10) or render_k8s_pod_yaml(ti)
         self.rendered_fields = {
             field: serialize_template_field(getattr(self.task, field), field)
             for field in self.task.template_fields
