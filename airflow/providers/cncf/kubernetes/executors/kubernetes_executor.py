@@ -24,6 +24,7 @@ KubernetesExecutor.
 from __future__ import annotations
 
 import argparse
+import functools
 import json
 import logging
 import multiprocessing
@@ -293,6 +294,17 @@ class KubernetesExecutor(BaseExecutor):
         # We also call this at startup as that's the most likely time to see
         # stuck queued tasks
         self.clear_not_launched_queued_tasks()
+
+        from airflow.composer.kubernetes.executor import (
+            POD_TEMPLATE_FILE_REFRESH_INTERVAL,
+            refresh_pod_template_file,
+        )
+
+        refresh_pod_template_file(self.kube_client.api_client)
+        self.event_scheduler.call_regular_interval(
+            POD_TEMPLATE_FILE_REFRESH_INTERVAL,
+            functools.partial(refresh_pod_template_file, self.kube_client.api_client),
+        )
 
     def execute_async(
         self,

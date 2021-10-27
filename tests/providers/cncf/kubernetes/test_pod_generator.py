@@ -434,13 +434,19 @@ class TestPodGenerator:
         expected.metadata.annotations = self.annotations
         expected.metadata.name = "pod_id"
         expected.metadata.namespace = "test_namespace"
-        expected.spec.containers[0].args = ["command"]
+        expected.spec.containers[0].args = ["worker"]
         expected.spec.containers[0].image = expected_image
         expected.spec.containers[0].resources = {"limits": {"cpu": "1m", "memory": "1G"}}
         expected.spec.containers[0].env.append(
             k8s.V1EnvVar(
                 name="AIRFLOW_IS_K8S_EXECUTOR_POD",
                 value="True",
+            )
+        )
+        expected.spec.containers[0].env.append(
+            k8s.V1EnvVar(
+                name="AIRFLOW_K8S_EXECUTOR_POD_TASK_RUN_COMMAND",
+                value="'command'",
             )
         )
         result_dict = self.k8s_client.sanitize_for_serialization(result)
@@ -473,10 +479,16 @@ class TestPodGenerator:
         expected.metadata.annotations["map_index"] = "0"
         expected.metadata.name = "pod_id"
         expected.metadata.namespace = "test_namespace"
-        expected.spec.containers[0].args = ["command"]
+        expected.spec.containers[0].args = ["worker"]
         del expected.spec.containers[0].env_from[1:]
         del expected.spec.containers[0].env[-1:]
         expected.spec.containers[0].env.append(k8s.V1EnvVar(name="AIRFLOW_IS_K8S_EXECUTOR_POD", value="True"))
+        expected.spec.containers[0].env.append(
+            k8s.V1EnvVar(
+                name="AIRFLOW_K8S_EXECUTOR_POD_TASK_RUN_COMMAND",
+                value="'command'",
+            )
+        )
         result_dict = self.k8s_client.sanitize_for_serialization(result)
         expected_dict = self.k8s_client.sanitize_for_serialization(expected)
 
@@ -502,7 +514,7 @@ class TestPodGenerator:
         )
         sanitized_result = self.k8s_client.sanitize_for_serialization(result)
         worker_config.spec.containers[0].image = "test-image"
-        worker_config.spec.containers[0].args = ["command"]
+        worker_config.spec.containers[0].args = ["worker"]
         worker_config.metadata.annotations = self.annotations
         worker_config.metadata.labels = self.labels
         worker_config.metadata.labels["app"] = "myapp"
@@ -510,6 +522,9 @@ class TestPodGenerator:
         worker_config.metadata.namespace = "namespace"
         worker_config.spec.containers[0].env.append(
             k8s.V1EnvVar(name="AIRFLOW_IS_K8S_EXECUTOR_POD", value="True")
+        )
+        worker_config.spec.containers[0].env.append(
+            k8s.V1EnvVar(name="AIRFLOW_K8S_EXECUTOR_POD_TASK_RUN_COMMAND", value="'command'")
         )
         worker_config_result = self.k8s_client.sanitize_for_serialization(worker_config)
         assert sanitized_result == worker_config_result
@@ -813,7 +828,7 @@ class TestPodGenerator:
             dag_id="dag-6b24921d4",
             task_id="task-b6aca8991",
             try_number="1",
-            airflow_version=airflow_version,
+            airflow_version=airflow_version.replace("+", "-"),
             kubernetes_executor="True",
         )
         labels = PodGenerator.build_labels_for_k8s_executor_pod(**kwargs, **extra)

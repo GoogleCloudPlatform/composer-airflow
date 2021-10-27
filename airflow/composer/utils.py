@@ -18,8 +18,12 @@ import os
 import sys
 
 import aiodebug.log_slow_callbacks
+from kubernetes import config
+from kubernetes.client import Configuration
 
 from airflow.configuration import conf
+
+COMPOSER_GKE_CLUSTER_HOST = None
 
 
 def get_composer_version():
@@ -51,6 +55,22 @@ def is_serverless_composer():
     major, _, _ = composer_version.split(".", 2)
     major = int(major)
     return major >= 3
+
+
+def get_composer_gke_cluster_host():
+    global COMPOSER_GKE_CLUSTER_HOST
+
+    if COMPOSER_GKE_CLUSTER_HOST is not None:
+        return COMPOSER_GKE_CLUSTER_HOST
+
+    config_file = conf.get("kubernetes_executor", "config_file", fallback=None)
+    client_configuration = Configuration()
+    config.load_kube_config(
+        config_file=config_file, client_configuration=client_configuration, persist_config=False
+    )
+    COMPOSER_GKE_CLUSTER_HOST = client_configuration.host
+
+    return COMPOSER_GKE_CLUSTER_HOST
 
 
 def initialize():
