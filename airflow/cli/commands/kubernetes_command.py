@@ -38,6 +38,11 @@ from airflow.utils.cli import get_dag
 @cli_utils.action_cli
 def generate_pod_yaml(args):
     """Generates yaml files for each task in the DAG. Used for testing output of KubernetesExecutor"""
+    from airflow.composer.kubernetes.executor import refresh_pod_template_file
+
+    kube_client = get_kube_client()
+    refresh_pod_template_file(kube_client.api_client)
+
     execution_date = args.execution_date
     dag = get_dag(subdir=args.subdir, dag_id=args.dag_id)
     yaml_output_path = args.output_path
@@ -136,7 +141,7 @@ def cleanup_pods(args):
                     f'restart policy "{pod_restart_policy}"'
                 )
                 try:
-                    _delete_pod(pod.metadata.name, namespace)
+                    _delete_pod(kube_client, pod.metadata.name, namespace)
                 except ApiException as e:
                     print(f"Can't remove POD: {e}", file=sys.stderr)
                 continue
@@ -147,10 +152,9 @@ def cleanup_pods(args):
         list_kwargs["_continue"] = continue_token
 
 
-def _delete_pod(name, namespace):
+def _delete_pod(kube_client, name, namespace):
     """Helper Function for cleanup_pods"""
-    core_v1 = client.CoreV1Api()
     delete_options = client.V1DeleteOptions()
     print(f'Deleting POD "{name}" from "{namespace}" namespace')
-    api_response = core_v1.delete_namespaced_pod(name=name, namespace=namespace, body=delete_options)
+    api_response = kube_client.delete_namespaced_pod(name=name, namespace=namespace, body=delete_options)
     print(api_response)

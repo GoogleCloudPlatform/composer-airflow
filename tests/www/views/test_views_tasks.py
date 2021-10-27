@@ -316,6 +316,7 @@ def test_rendered_k8s(admin_client):
     with unittest.mock.patch.object(settings, "IS_K8S_OR_K8SCELERY_EXECUTOR", True):
         resp = admin_client.get(url, follow_redirects=True)
         check_content_in_response('K8s Pod Spec', resp)
+        check_content_in_response('N/A', resp)
 
 
 @conf_vars({('core', 'executor'): 'LocalExecutor'})

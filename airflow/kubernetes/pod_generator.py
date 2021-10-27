@@ -367,6 +367,8 @@ class PodGenerator:
             annotations['run_id'] = run_id
             labels['run_id'] = make_safe_label_value(run_id)
 
+        from airflow.composer.kubernetes.executor import get_task_run_command_from_args
+
         dynamic_pod = k8s.V1Pod(
             metadata=k8s.V1ObjectMeta(
                 namespace=namespace,
@@ -378,9 +380,16 @@ class PodGenerator:
                 containers=[
                     k8s.V1Container(
                         name="base",
-                        args=args,
+                        # Pass ["worker"] as args in base container to bypass GKE policy exemptor.
+                        args=["worker"],
                         image=image,
-                        env=[k8s.V1EnvVar(name="AIRFLOW_IS_K8S_EXECUTOR_POD", value="True")],
+                        env=[
+                            k8s.V1EnvVar(name="AIRFLOW_IS_K8S_EXECUTOR_POD", value="True"),
+                            k8s.V1EnvVar(
+                                name="AIRFLOW_K8S_EXECUTOR_POD_TASK_RUN_COMMAND",
+                                value=get_task_run_command_from_args(args),
+                            ),
+                        ],
                     )
                 ]
             ),

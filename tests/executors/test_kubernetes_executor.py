@@ -359,6 +359,7 @@ class TestKubernetesExecutor:
         )
 
         mock_kube_client = mock.patch('kubernetes.client.CoreV1Api', autospec=True)
+        mock_kube_client.api_client = mock.MagicMock()
         mock_get_kube_client.return_value = mock_kube_client
 
         with conf_vars({('kubernetes', 'pod_template_file'): ''}):
@@ -422,8 +423,14 @@ class TestKubernetesExecutor:
                             k8s.V1Container(
                                 name="base",
                                 image="airflow:3.6",
-                                args=['airflow', 'tasks', 'run', 'true', 'some_parameter'],
-                                env=[k8s.V1EnvVar(name='AIRFLOW_IS_K8S_EXECUTOR_POD', value='True')],
+                                args=['worker'],
+                                env=[
+                                    k8s.V1EnvVar(name='AIRFLOW_IS_K8S_EXECUTOR_POD', value='True'),
+                                    k8s.V1EnvVar(
+                                        name='AIRFLOW_K8S_EXECUTOR_POD_TASK_RUN_COMMAND',
+                                        value="'airflow' 'tasks' 'run' 'true' 'some_parameter'",
+                                    ),
+                                ],
                             )
                         ],
                         image_pull_secrets=[k8s.V1LocalObjectReference(name='airflow-registry')],
@@ -678,7 +685,7 @@ class TestKubernetesExecutor:
             executor = KubernetesExecutor()
             executor.job_id = "123"
             executor.start()
-            assert 2 == len(executor.event_scheduler.queue)
+            assert 3 == len(executor.event_scheduler.queue)
             executor._check_worker_pods_pending_timeout()
 
         mock_kube_client.list_namespaced_pod.assert_called_once_with(
@@ -729,6 +736,40 @@ class TestKubernetesExecutor:
             sentinel='foo',
         )
         mock_delete_pod.assert_called_once_with('foo90', 'anothernamespace')
+
+    @mock.patch('airflow.executors.kubernetes_executor.get_kube_client', autospec=True)
+    @mock.patch('airflow.composer.kubernetes.executor.refresh_pod_template_file', autospec=True)
+    @mock.patch('airflow.composer.kubernetes.executor.POD_TEMPLATE_FILE_REFRESH_INTERVAL', 34156)
+    @mock.patch('airflow.executors.kubernetes_executor.EventScheduler', autospec=True)
+    @mock.patch('airflow.executors.kubernetes_executor.KubernetesJobWatcher')
+    def test_composer_refresh_pod_template_file(
+        self,
+        mock_kubernetes_job_watcher,
+        mock_event_scheduler_class,
+        mock_refresh_pod_template_file,
+        mock_get_kube_client,
+    ):
+        event_scheduler_mock = mock.Mock()
+        mock_event_scheduler_class.return_value = event_scheduler_mock
+
+        executor = self.kubernetes_executor
+        executor.start()
+
+        mock_refresh_pod_template_file.assert_called_once_with(mock_get_kube_client().api_client)
+
+        scheduled_event_found = False
+        for call in event_scheduler_mock.call_regular_interval.call_args_list:
+            if (
+                len(call[0]) == 2
+                and call[0][0] == 34156
+                and call[0][1].func == mock_refresh_pod_template_file
+                and call[0][1].args == (mock_get_kube_client().api_client,)
+                and call[0][1].keywords == {}
+                and call[1] == {}
+            ):
+                scheduled_event_found = True
+                break
+        assert scheduled_event_found is True
 
     def test_clear_not_launched_queued_tasks_not_launched(self, dag_maker, create_dummy_dag, session):
         """If a pod isn't found for a TI, reset the state to scheduled"""

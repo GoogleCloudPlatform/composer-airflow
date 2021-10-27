@@ -2732,18 +2732,18 @@ class TestTaskInstance:
             'spec': {
                 'containers': [
                     {
-                        'args': [
-                            'airflow',
-                            'tasks',
-                            'run',
-                            'test_render_k8s_pod_yaml',
-                            'op1',
-                            'test_run_id',
-                            '--subdir',
-                            __file__,
-                        ],
+                        'args': ['worker'],
                         'name': 'base',
-                        'env': [{'name': 'AIRFLOW_IS_K8S_EXECUTOR_POD', 'value': 'True'}],
+                        'env': [
+                            {'name': 'AIRFLOW_IS_K8S_EXECUTOR_POD', 'value': 'True'},
+                            {
+                                'name': 'AIRFLOW_K8S_EXECUTOR_POD_TASK_RUN_COMMAND',
+                                'value': (
+                                    "'airflow' 'tasks' 'run' 'test_render_k8s_pod_yaml' 'op1' "
+                                    "'test_run_id' '--subdir' '{}'".format(__file__)
+                                ),
+                            },
+                        ],
                     }
                 ]
             },

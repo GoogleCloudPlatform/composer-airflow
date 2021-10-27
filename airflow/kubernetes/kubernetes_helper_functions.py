@@ -53,7 +53,7 @@ def create_pod_id(dag_id: str, task_id: str) -> str:
     """
     safe_dag_id = _strip_unsafe_kubernetes_special_chars(dag_id)
     safe_task_id = _strip_unsafe_kubernetes_special_chars(task_id)
-    return safe_dag_id + safe_task_id
+    return 'airflow-k8s-worker-' + safe_dag_id + safe_task_id
 
 
 def annotations_to_key(annotations: dict[str, str]) -> TaskInstanceKey | None:
