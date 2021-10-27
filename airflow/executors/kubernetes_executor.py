@@ -497,6 +497,17 @@ class KubernetesExecutor(BaseExecutor, LoggingMixin):
         )
         self.clear_not_launched_queued_tasks()
 
+        from airflow.composer.kubernetes.executor import (
+            POD_TEMPLATE_FILE_REFRESH_INTERVAL,
+            refresh_pod_template_file,
+        )
+
+        refresh_pod_template_file()
+        self.event_scheduler.call_regular_interval(
+            POD_TEMPLATE_FILE_REFRESH_INTERVAL,
+            refresh_pod_template_file,
+        )
+
     def execute_async(
         self,
         key: TaskInstanceKey,

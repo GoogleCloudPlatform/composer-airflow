@@ -609,7 +609,7 @@ class TestKubernetesExecutor(unittest.TestCase):
             executor = KubernetesExecutor()
             executor.job_id = "123"
             executor.start()
-            assert 1 == len(executor.event_scheduler.queue)
+            assert 2 == len(executor.event_scheduler.queue)
             executor._check_worker_pods_pending_timeout()
 
         mock_kube_client.list_namespaced_pod.assert_called_once_with(
@@ -660,6 +660,22 @@ class TestKubernetesExecutor(unittest.TestCase):
             sentinel='foo',
         )
         mock_delete_pod.assert_called_once_with('foo90', 'anothernamespace')
+
+    @mock.patch('airflow.executors.kubernetes_executor.get_kube_client', autospec=True)
+    @mock.patch('airflow.composer.kubernetes.executor.refresh_pod_template_file', autospec=True)
+    @mock.patch('airflow.composer.kubernetes.executor.POD_TEMPLATE_FILE_REFRESH_INTERVAL', 34)
+    @mock.patch('airflow.executors.kubernetes_executor.EventScheduler', autospec=True)
+    def test_composer_refresh_pod_template_file(
+        self, mock_event_scheduler_class, mock_refresh_pod_template_file, mock_get_kube_client
+    ):
+        event_scheduler_mock = mock.Mock()
+        mock_event_scheduler_class.return_value = event_scheduler_mock
+
+        executor = self.kubernetes_executor
+        executor.start()
+
+        mock_refresh_pod_template_file.assert_called_once_with()
+        event_scheduler_mock.call_regular_interval.assert_called_with(34, mock_refresh_pod_template_file)
 
 
 class TestKubernetesJobWatcher(unittest.TestCase):

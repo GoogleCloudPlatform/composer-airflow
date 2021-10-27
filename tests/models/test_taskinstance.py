@@ -1987,7 +1987,7 @@ class TestTaskInstance(unittest.TestCase):
                             'op1',
                             '2016-01-01T00:00:00+00:00',
                         ],
-                        'image': ':',
+                        'image': '',
                         'name': 'base',
                         'env': [{'name': 'AIRFLOW_IS_K8S_EXECUTOR_POD', 'value': 'True'}],
                     }
