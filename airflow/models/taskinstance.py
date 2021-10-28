@@ -1501,6 +1501,9 @@ class TaskInstance(Base, LoggingMixin):
                 log_message = "Marking task as FAILED."
             email_for_state = task.email_on_failure
         else:
+            if self.state == State.QUEUED:
+                # We increase the try_number so as to fail the task if it fails to start after sometime
+                self._try_number += 1
             self.state = State.UP_FOR_RETRY
             log_message = "Marking task as UP_FOR_RETRY."
             email_for_state = task.email_on_retry
@@ -2040,11 +2043,10 @@ class TaskInstance(Base, LoggingMixin):
             and add a prober in that method.
         """
         if self.duration is not None and self.state in State.finished:
-            Stats.incr(
-                f'task.count.{self.dag_id}@-@{self.task_id}@-@{self.operator}@-@{self.state}', 1)
+            Stats.incr(f'task.count.{self.dag_id}@-@{self.task_id}@-@{self.operator}@-@{self.state}', 1)
             Stats.gauge(
                 f'task.duration.{self.dag_id}@-@{self.task_id}@-@{self.operator}@-@{self.state}',
-                self.duration
+                self.duration,
             )
 
 
