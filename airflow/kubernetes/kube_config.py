@@ -35,11 +35,6 @@ class KubeConfig:
         self.parallelism = conf.getint(self.core_section, 'parallelism')
         self.pod_template_file = conf.get(self.kubernetes_section, 'pod_template_file', fallback=None)
 
-        # Fallback to Composer pod template file in case it is empty.
-        from airflow.composer.kubernetes.executor import POD_TEMPLATE_FILE
-
-        self.pod_template_file = self.pod_template_file or POD_TEMPLATE_FILE
-
         self.delete_worker_pods = conf.getboolean(self.kubernetes_section, 'delete_worker_pods')
         self.delete_worker_pods_on_failure = conf.getboolean(
             self.kubernetes_section, 'delete_worker_pods_on_failure'

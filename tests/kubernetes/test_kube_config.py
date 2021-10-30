@@ -16,25 +16,11 @@ from unittest import TestCase
 
 from parameterized import parameterized
 
-from airflow.composer.kubernetes.executor import POD_TEMPLATE_FILE
 from airflow.kubernetes.kube_config import KubeConfig
 from tests.test_utils.config import conf_vars
 
 
 class TestKubeConfig(TestCase):
-    @parameterized.expand(
-        [
-            ("test", "test"),
-            ("", POD_TEMPLATE_FILE),
-        ]
-    )
-    def test_kube_config_pod_template_file(
-        self, property_pod_template_file, expected_kube_config_pod_template_file
-    ):
-        with conf_vars({("kubernetes", "pod_template_file"): property_pod_template_file}):
-            kube_config = KubeConfig()
-            assert kube_config.pod_template_file == expected_kube_config_pod_template_file
-
     @parameterized.expand(
         [
             ("repo", "tag", "repo:tag"),
