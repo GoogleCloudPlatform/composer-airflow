@@ -24,8 +24,9 @@ from google.api_core.exceptions import NotFound
 from google.cloud import storage
 
 from airflow import version
+from airflow.composer.task_formatter import strip_separator_from_log
 from airflow.providers.google.cloud.utils.credentials_provider import get_credentials_and_project_id
-from airflow.utils.log.file_task_handler import FileTaskHandler, _strip_separator_from_log
+from airflow.utils.log.file_task_handler import FileTaskHandler
 from airflow.utils.log.logging_mixin import LoggingMixin
 
 _DEFAULT_SCOPESS = frozenset(
@@ -157,7 +158,7 @@ class GCSTaskHandler(FileTaskHandler, LoggingMixin):
         try:
             blob = storage.Blob.from_string(remote_loc, self.client)
             remote_log = blob.download_as_bytes().decode()
-            remote_log = _strip_separator_from_log(remote_log)
+            remote_log = strip_separator_from_log(remote_log)
             log = f'*** Reading remote log from {remote_loc}.\n{remote_log}\n'
             return log, {'end_of_log': True}
         except NotFound as e:

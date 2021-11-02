@@ -61,11 +61,15 @@ DEFAULT_LOGGING_CONFIG: Dict[str, Any] = {
         'airflow': {'format': LOG_FORMAT},
         'airflow_dag_processor_manager': {
             'format': LOG_FORMAT,
-            'class': 'airflow.composer.dag_processor_manager_formatter.DagProcessorManagerFormatter'
+            'class': 'airflow.composer.dag_processor_manager_formatter.DagProcessorManagerFormatter',
         },
         'airflow_coloured': {
             'format': COLORED_LOG_FORMAT if COLORED_LOG else LOG_FORMAT,
             'class': COLORED_FORMATTER_CLASS if COLORED_LOG else 'logging.Formatter',
+        },
+        'composer_airflow_task': {
+            'format': LOG_FORMAT,
+            'class': 'airflow.composer.task_formatter.TaskFormatter',
         },
     },
     'filters': {
@@ -92,7 +96,7 @@ DEFAULT_LOGGING_CONFIG: Dict[str, Any] = {
         },
         'task_console': {
             'class': 'airflow.utils.log.file_task_handler.StreamTaskHandler',
-            'formatter': 'airflow',
+            'formatter': 'composer_airflow_task',
             'stream': 'ext://sys.__stdout__',
         },
         'processor': {
@@ -154,7 +158,7 @@ DEFAULT_DAG_PARSING_LOGGING_CONFIG: Dict[str, Dict[str, Dict[str, Any]]] = {
             'class': 'airflow.utils.log.logging_mixin.RedirectStdHandler',
             'formatter': 'airflow_dag_processor_manager',
             'stream': 'stdout',
-        }
+        },
     },
     'loggers': {
         'airflow.processor_manager': {
