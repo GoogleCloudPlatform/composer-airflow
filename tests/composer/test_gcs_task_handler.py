@@ -14,7 +14,6 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-import json
 import logging
 import shutil
 import tempfile
@@ -172,16 +171,7 @@ class TestGCSTaskHandler(unittest.TestCase):
                 mock.call.from_string().download_as_string(),
                 mock.call.from_string("gs://bucket/remote/log/location/1.log", mock_client.return_value),
                 mock.call.from_string().upload_from_string(
-                    "CONTENT\nMESSAGE@-@{}\n".format(
-                        json.dumps(
-                            {
-                                "workflow": "dag_for_testing_task_handler",
-                                "task-id": "task_for_testing_gcs_task_handler",
-                                "execution-date": "2020-01-01T00:00:00+00:00",
-                                "try-number": "1",
-                            }
-                        )
-                    ),
+                    "CONTENT\nMESSAGE\n",
                     content_type="text/plain",
                 ),
             ],
@@ -255,16 +245,7 @@ class TestGCSTaskHandler(unittest.TestCase):
                 mock.call.from_string().download_as_string(),
                 mock.call.from_string("gs://bucket/remote/log/location/1.log", mock_client.return_value),
                 mock.call.from_string().upload_from_string(
-                    "*** Previous log discarded: Fail to download\n\nMESSAGE@-@{}\n".format(
-                        json.dumps(
-                            {
-                                "workflow": "dag_for_testing_task_handler",
-                                "task-id": "task_for_testing_gcs_task_handler",
-                                "execution-date": "2020-01-01T00:00:00+00:00",
-                                "try-number": "1",
-                            }
-                        )
-                    ),
+                    "*** Previous log discarded: Fail to download\n\nMESSAGE\n",
                     content_type="text/plain",
                 ),
             ],
