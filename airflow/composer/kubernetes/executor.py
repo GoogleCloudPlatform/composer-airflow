@@ -62,6 +62,13 @@ def refresh_pod_template_file(api_client: ApiClient):
         # TODO: add support for Composer 2.
         raise ValueError("No support for Composer 2")
 
+    # Add AIRFLOW_IS_K8S_EXECUTOR_POD environment variable for all containers inside pod. Note, that this
+    # environment variable is automatically added by KubernetesExecutor for first container of task pod, here
+    # we add it for all containers.
+    for c in pod_template_dict["spec"]["containers"]:
+        c.setdefault("env", [])
+        c["env"].append({"name": "AIRFLOW_IS_K8S_EXECUTOR_POD", "value": "True"})
+
     with tempfile.NamedTemporaryFile("w", delete=False) as f:
         f.write(yaml.dump(pod_template_dict))
     # Atomically override file. "os.rename" is bulletproof to race conditions such as another thread/process

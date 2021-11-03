@@ -16,12 +16,14 @@ import os
 import unittest
 from unittest import mock
 
+import yaml
 from kubernetes.client import (
     ApiClient,
     V1Affinity,
     V1Container,
     V1Deployment,
     V1DeploymentSpec,
+    V1EnvVar,
     V1NodeAffinity,
     V1ObjectMeta,
     V1PodSpec,
@@ -62,7 +64,11 @@ class TestExecutor(unittest.TestCase):
                                 V1Container(
                                     name="test-container",
                                     liveness_probe=V1Probe(failure_threshold=2),
-                                )
+                                    env=[V1EnvVar(name="env1", value="value1")],
+                                ),
+                                V1Container(
+                                    name="sidecar",
+                                ),
                             ],
                             restart_policy="Always",
                         ),
@@ -90,4 +96,4 @@ class TestExecutor(unittest.TestCase):
                 os.path.dirname(os.path.realpath(__file__)), "test_refresh_pod_template_file_composer_v1.yaml"
             )
             with open(expected_pod_template_file) as f_expected:
-                assert f_expected.read() == f.read()
+                assert yaml.safe_load(f_expected.read()) == yaml.safe_load(f.read())
