@@ -2,37 +2,68 @@ import logging
 import os
 import tempfile
 
+import yaml
+from kubernetes.client import ApiClient, AppsV1Api
+
+from airflow.composer.utils import is_composer_v1
 from airflow.configuration import AIRFLOW_HOME, conf
 
 POD_TEMPLATE_FILE = os.path.join(AIRFLOW_HOME, "composer_kubernetes_pod_template_file.yaml")
 POD_TEMPLATE_FILE_REFRESH_INTERVAL = conf.getint(
     "kubernetes", "pod_template_file_refresh_interval", fallback=60
 )
+AIRFLOW_WORKER = "airflow-worker"
+COMPOSER_VERSIONED_NAMESPACE = os.environ.get("COMPOSER_VERSIONED_NAMESPACE")
 
 log = logging.getLogger(__file__)
 
 
-def refresh_pod_template_file():
-    """Refreshes Composer pod template file used by KubernetesExecutor."""
-    log.info("Refreshing Composer kubernetes pod template file")
+def refresh_pod_template_file(api_client: ApiClient):
+    """Refreshes Composer pod template file used by KubernetesExecutor.
 
-    # TODO: temporary use dummy spec, replace it with real pod spec from GKE.
-    pod_spec = """---
-kind: Pod
-apiVersion: v1
-metadata:
-  name: dummy-name-dont-delete
-  namespace: dummy-name-dont-delete
-  labels:
-    mylabel: foo
-spec:
-  containers:
-    - name: base
-      image: dummy-name-dont-delete
-"""
+    The general idea of this method is to read current Airflow worker pod template and prepare it to be
+    used by KubernetesExecutor by adjusting some fields.
+    The logic differs for Composer 1 and Composer 2, refer to the code for details. The general approach is to
+    take existing template and remove/update specific fields.
+    Prepared pod template is stored in yaml file (POD_TEMPLATE_FILE).
+
+    :param api_client: k8s API client.
+    :type api_client: ApiClient
+    """
+    log.info("Refreshing Composer kubernetes pod template file")
+    if not COMPOSER_VERSIONED_NAMESPACE:
+        log.info(
+            "Skipping to refresh pod template file due to absence of Composer namespace environment variable"
+        )
+        return
+
+    kube_client = AppsV1Api(api_client=api_client)
+    # Read Airflow worker pod template and do some adjustments to it required to run it with
+    # KubernetesExecutor. Note, that kind and apiVersion fields will be added by executor.
+    if is_composer_v1():
+        pod_template_dict = api_client.sanitize_for_serialization(
+            kube_client.read_namespaced_deployment(AIRFLOW_WORKER, COMPOSER_VERSIONED_NAMESPACE).spec.template
+        )
+
+        # As of 2021-11-01 only labels (one) are stored in metadata of template
+        # for worker pod, these labels are used by selector in airflow-worker
+        # deployment, so we remove it from pod template for KubernetesExecutor.
+        del pod_template_dict["metadata"]
+        # As of 2021-11-01 the affinity field in worker pod is used for the
+        # purpose of even distribution of them among nodes in GKE cluster, we
+        # shouldn't use the same affinity value to not interfere with pods of
+        # airflow-worker deployment.
+        del pod_template_dict["spec"]["affinity"]
+        # We do not need liveness probe for main container.
+        del pod_template_dict["spec"]["containers"][0]["livenessProbe"]
+        # Never restart containers inside pod.
+        pod_template_dict["spec"]["restartPolicy"] = "Never"
+    else:
+        # TODO: add support for Composer 2.
+        raise ValueError("No support for Composer 2")
 
     with tempfile.NamedTemporaryFile("w", delete=False) as f:
-        f.write(pod_spec)
+        f.write(yaml.dump(pod_template_dict))
     # Atomically override file. "os.rename" is bulletproof to race conditions such as another thread/process
     # will read file while current is overriding it (file handle will continue to refer to the original
     # version of the file).

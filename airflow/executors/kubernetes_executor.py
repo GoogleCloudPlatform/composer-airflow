@@ -502,10 +502,10 @@ class KubernetesExecutor(BaseExecutor, LoggingMixin):
             refresh_pod_template_file,
         )
 
-        refresh_pod_template_file()
+        refresh_pod_template_file(self.kube_client.api_client)
         self.event_scheduler.call_regular_interval(
             POD_TEMPLATE_FILE_REFRESH_INTERVAL,
-            refresh_pod_template_file,
+            functools.partial(refresh_pod_template_file, self.kube_client.api_client),
         )
 
     def execute_async(

@@ -285,6 +285,7 @@ class TestKubernetesExecutor(unittest.TestCase):
         )
 
         mock_kube_client = mock.patch('kubernetes.client.CoreV1Api', autospec=True)
+        mock_kube_client.api_client = mock.MagicMock()
         mock_get_kube_client.return_value = mock_kube_client
 
         with conf_vars({('kubernetes', 'pod_template_file'): ''}):
@@ -663,10 +664,15 @@ class TestKubernetesExecutor(unittest.TestCase):
 
     @mock.patch('airflow.executors.kubernetes_executor.get_kube_client', autospec=True)
     @mock.patch('airflow.composer.kubernetes.executor.refresh_pod_template_file', autospec=True)
-    @mock.patch('airflow.composer.kubernetes.executor.POD_TEMPLATE_FILE_REFRESH_INTERVAL', 34)
+    @mock.patch('airflow.composer.kubernetes.executor.POD_TEMPLATE_FILE_REFRESH_INTERVAL', 34156)
     @mock.patch('airflow.executors.kubernetes_executor.EventScheduler', autospec=True)
+    @mock.patch('airflow.executors.kubernetes_executor.KubernetesJobWatcher')
     def test_composer_refresh_pod_template_file(
-        self, mock_event_scheduler_class, mock_refresh_pod_template_file, mock_get_kube_client
+        self,
+        mock_kubernetes_job_watcher,
+        mock_event_scheduler_class,
+        mock_refresh_pod_template_file,
+        mock_get_kube_client,
     ):
         event_scheduler_mock = mock.Mock()
         mock_event_scheduler_class.return_value = event_scheduler_mock
@@ -674,8 +680,21 @@ class TestKubernetesExecutor(unittest.TestCase):
         executor = self.kubernetes_executor
         executor.start()
 
-        mock_refresh_pod_template_file.assert_called_once_with()
-        event_scheduler_mock.call_regular_interval.assert_called_with(34, mock_refresh_pod_template_file)
+        mock_refresh_pod_template_file.assert_called_once_with(mock_get_kube_client().api_client)
+
+        scheduled_event_found = False
+        for call in event_scheduler_mock.call_regular_interval.call_args_list:
+            if (
+                len(call[0]) == 2
+                and call[0][0] == 34156
+                and call[0][1].func == mock_refresh_pod_template_file
+                and call[0][1].args == (mock_get_kube_client().api_client,)
+                and call[0][1].keywords == {}
+                and call[1] == {}
+            ):
+                scheduled_event_found = True
+                break
+        assert scheduled_event_found is True
 
 
 class TestKubernetesJobWatcher(unittest.TestCase):

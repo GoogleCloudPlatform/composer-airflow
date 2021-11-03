@@ -14,18 +14,80 @@
 # limitations under the License.
 import os
 import unittest
+from unittest import mock
+
+from kubernetes.client import (
+    ApiClient,
+    V1Affinity,
+    V1Container,
+    V1Deployment,
+    V1DeploymentSpec,
+    V1NodeAffinity,
+    V1ObjectMeta,
+    V1PodSpec,
+    V1PodTemplateSpec,
+    V1PreferredSchedulingTerm,
+    V1Probe,
+)
 
 from airflow.composer.kubernetes.executor import POD_TEMPLATE_FILE, refresh_pod_template_file
 
 
 class TestExecutor(unittest.TestCase):
-    def test_refresh_pod_template_file(self):
+    @mock.patch("airflow.composer.kubernetes.executor.COMPOSER_VERSIONED_NAMESPACE", "test-namespace")
+    @mock.patch("airflow.composer.kubernetes.executor.AppsV1Api", autospec=True)
+    @mock.patch.dict("os.environ", {"COMPOSER_VERSION": "1.18.0"})
+    def test_refresh_pod_template_file_composer_v1(self, mock_apps_v1_api_class):
+        mock_api_client = ApiClient()
+        mock_kube_client = mock.MagicMock()
+
+        def read_namespaced_deployment_side_effect(name, namespace):
+            assert name == "airflow-worker"
+            assert namespace == "test-namespace"
+            return V1Deployment(
+                spec=V1DeploymentSpec(
+                    selector={},
+                    template=V1PodTemplateSpec(
+                        metadata=V1ObjectMeta(labels={"label1": "value1"}),
+                        spec=V1PodSpec(
+                            affinity=V1Affinity(
+                                node_affinity=V1NodeAffinity(
+                                    preferred_during_scheduling_ignored_during_execution=V1PreferredSchedulingTerm(  # noqa: E501
+                                        preference={},
+                                        weight=100,
+                                    ),
+                                )
+                            ),
+                            containers=[
+                                V1Container(
+                                    name="test-container",
+                                    liveness_probe=V1Probe(failure_threshold=2),
+                                )
+                            ],
+                            restart_policy="Always",
+                        ),
+                    ),
+                )
+            )
+
+        mock_kube_client.read_namespaced_deployment.side_effect = read_namespaced_deployment_side_effect
+
+        def mock_apps_v1_api_class_side_effect(api_client):
+            assert api_client == mock_api_client
+            return mock_kube_client
+
+        mock_apps_v1_api_class.side_effect = mock_apps_v1_api_class_side_effect
+
         if os.path.exists(POD_TEMPLATE_FILE):
             os.remove(POD_TEMPLATE_FILE)
         assert os.path.exists(POD_TEMPLATE_FILE) is False
 
-        refresh_pod_template_file()
+        refresh_pod_template_file(mock_api_client)
 
         assert os.path.exists(POD_TEMPLATE_FILE) is True
         with open(POD_TEMPLATE_FILE) as f:
-            assert "dummy-name-dont-delete" in f.read()
+            expected_pod_template_file = os.path.join(
+                os.path.dirname(os.path.realpath(__file__)), "test_refresh_pod_template_file_composer_v1.yaml"
+            )
+            with open(expected_pod_template_file) as f_expected:
+                assert f_expected.read() == f.read()
