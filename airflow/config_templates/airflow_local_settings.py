@@ -67,7 +67,7 @@ DEFAULT_LOGGING_CONFIG = {
         },
         'airflow_dag_processor_manager': {
             'format': LOG_FORMAT,
-            'class': 'airflow.composer.dag_processor_manager_formatter.DagProcessorManagerFormatter'
+            '()': 'airflow.composer.dag_processor_manager_formatter.DagProcessorManagerFormatter'
         },
         'airflow_coloured': {
             'format': COLORED_LOG_FORMAT if COLORED_LOG else LOG_FORMAT,
