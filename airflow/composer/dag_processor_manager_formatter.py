@@ -27,6 +27,6 @@ class DagProcessorManagerFormatter(logging.Formatter):
     """
 
     def format(self, record):
-        log_text = super().format(record)
+        log_text = super(DagProcessorManagerFormatter,self).format(record)
         log_text = log_text.replace('\n', '\n' + DAG_PROCESSOR_LOG_PREFIX)
         return DAG_PROCESSOR_LOG_PREFIX + log_text
