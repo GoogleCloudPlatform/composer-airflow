@@ -3,7 +3,7 @@ import os
 import tempfile
 
 import yaml
-from kubernetes.client import ApiClient, AppsV1Api
+from kubernetes.client import ApiClient, AppsV1Api, CustomObjectsApi
 
 from airflow.composer.utils import is_composer_v1
 from airflow.configuration import AIRFLOW_HOME, conf
@@ -37,10 +37,10 @@ def refresh_pod_template_file(api_client: ApiClient):
         )
         return
 
-    kube_client = AppsV1Api(api_client=api_client)
     # Read Airflow worker pod template and do some adjustments to it required to run it with
     # KubernetesExecutor. Note, that kind and apiVersion fields will be added by executor.
     if is_composer_v1():
+        kube_client = AppsV1Api(api_client=api_client)
         pod_template_dict = api_client.sanitize_for_serialization(
             kube_client.read_namespaced_deployment(AIRFLOW_WORKER, COMPOSER_VERSIONED_NAMESPACE).spec.template
         )
@@ -54,13 +54,27 @@ def refresh_pod_template_file(api_client: ApiClient):
         # shouldn't use the same affinity value to not interfere with pods of
         # airflow-worker deployment.
         del pod_template_dict["spec"]["affinity"]
-        # We do not need liveness probe for main container.
-        del pod_template_dict["spec"]["containers"][0]["livenessProbe"]
-        # Never restart containers inside pod.
-        pod_template_dict["spec"]["restartPolicy"] = "Never"
     else:
-        # TODO: add support for Composer 2.
-        raise ValueError("No support for Composer 2")
+        kube_client = CustomObjectsApi(api_client=api_client)
+        pod_template_dict = api_client.sanitize_for_serialization(
+            kube_client.get_namespaced_custom_object(
+                group="composer.cloud.google.com",
+                version="v1beta1",
+                plural="airflowworkersets",
+                name=AIRFLOW_WORKER,
+                namespace=COMPOSER_VERSIONED_NAMESPACE,
+            )["spec"]["template"]
+        )
+
+        # As of 2021-11-15 only labels (one) are stored in metadata of template
+        # for worker pod, these labels are used by selector in airflow-worker
+        # AirflowWorkerSet, so we remove it from pod template for KubernetesExecutor.
+        del pod_template_dict["metadata"]
+
+    # We do not need liveness probe for main container.
+    del pod_template_dict["spec"]["containers"][0]["livenessProbe"]
+    # Never restart containers inside pod.
+    pod_template_dict["spec"]["restartPolicy"] = "Never"
 
     # Add AIRFLOW_IS_K8S_EXECUTOR_POD environment variable for all containers inside pod. Note, that this
     # environment variable is automatically added by KubernetesExecutor for first container of task pod, here

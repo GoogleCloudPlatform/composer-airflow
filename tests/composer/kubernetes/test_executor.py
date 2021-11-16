@@ -97,3 +97,63 @@ class TestExecutor(unittest.TestCase):
             )
             with open(expected_pod_template_file) as f_expected:
                 assert yaml.safe_load(f_expected.read()) == yaml.safe_load(f.read())
+
+    @mock.patch("airflow.composer.kubernetes.executor.COMPOSER_VERSIONED_NAMESPACE", "test-namespace")
+    @mock.patch("airflow.composer.kubernetes.executor.CustomObjectsApi", autospec=True)
+    @mock.patch.dict("os.environ", {"COMPOSER_VERSION": "2.0.0"})
+    def test_refresh_pod_template_file_composer_v2(self, mock_custom_objects_api_class):
+        mock_api_client = ApiClient()
+        mock_kube_client = mock.MagicMock()
+
+        def get_namespaced_custom_object_side_effect(group, version, plural, name, namespace):
+            assert group == "composer.cloud.google.com"
+            assert version == "v1beta1"
+            assert plural == "airflowworkersets"
+            assert name == "airflow-worker"
+            assert namespace == "test-namespace"
+            return {
+                "spec": {
+                    "template": {
+                        "metadata": {},
+                        "spec": {
+                            "containers": [
+                                {
+                                    "name": "test-container",
+                                    "env": [
+                                        {
+                                            "name": "env1",
+                                            "value": "value1",
+                                        }
+                                    ],
+                                    "livenessProbe": {},
+                                },
+                                {
+                                    "name": "sidecar",
+                                },
+                            ]
+                        },
+                    }
+                }
+            }
+
+        mock_kube_client.get_namespaced_custom_object.side_effect = get_namespaced_custom_object_side_effect
+
+        def mock_custom_objects_api_class_side_effect(api_client):
+            assert api_client == mock_api_client
+            return mock_kube_client
+
+        mock_custom_objects_api_class.side_effect = mock_custom_objects_api_class_side_effect
+
+        if os.path.exists(POD_TEMPLATE_FILE):
+            os.remove(POD_TEMPLATE_FILE)
+        assert os.path.exists(POD_TEMPLATE_FILE) is False
+
+        refresh_pod_template_file(mock_api_client)
+
+        assert os.path.exists(POD_TEMPLATE_FILE) is True
+        with open(POD_TEMPLATE_FILE) as f:
+            expected_pod_template_file = os.path.join(
+                os.path.dirname(os.path.realpath(__file__)), "test_refresh_pod_template_file_composer_v2.yaml"
+            )
+            with open(expected_pod_template_file) as f_expected:
+                assert yaml.safe_load(f_expected.read()) == yaml.safe_load(f.read())

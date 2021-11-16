@@ -1,0 +1,13 @@
+spec:
+  containers:
+  - name: test-container
+    env:
+    - name: env1
+      value: value1
+    - name: AIRFLOW_IS_K8S_EXECUTOR_POD
+      value: "True"
+  - name: sidecar
+    env:
+    - name: AIRFLOW_IS_K8S_EXECUTOR_POD
+      value: "True"
+  restartPolicy: Never
