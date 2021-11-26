@@ -32,7 +32,9 @@ class TestGenerateDagYamlCommand(unittest.TestCase):
     def setUpClass(cls):
         cls.parser = cli_parser.get_parser()
 
-    def test_generate_dag_yaml(self):
+    @mock.patch('airflow.cli.commands.kubernetes_command.get_kube_client', autospec=True)
+    @mock.patch('airflow.composer.kubernetes.executor.refresh_pod_template_file', autospec=True)
+    def test_generate_dag_yaml(self, mock_refresh_pod_template_file, mock_get_kube_client):
         with tempfile.TemporaryDirectory("airflow_dry_run_test/") as directory:
             file_name = "miscellaneous_test_dag_run_after_loop_2020-11-03T00_00_00_plus_00_00.yml"
             kubernetes_command.generate_pod_yaml(
@@ -47,6 +49,7 @@ class TestGenerateDagYamlCommand(unittest.TestCase):
                     ]
                 )
             )
+            mock_refresh_pod_template_file.assert_called_with(mock_get_kube_client().api_client)
             assert len(os.listdir(directory)) == 1
             out_dir = directory + "/airflow_yaml_output/"
             assert len(os.listdir(out_dir)) == 6

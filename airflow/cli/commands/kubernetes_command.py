@@ -35,6 +35,11 @@ from airflow.utils.cli import get_dag
 @cli_utils.action_logging
 def generate_pod_yaml(args):
     """Generates yaml files for each task in the DAG. Used for testing output of KubernetesExecutor"""
+    from airflow.composer.kubernetes.executor import refresh_pod_template_file
+
+    kube_client = get_kube_client()
+    refresh_pod_template_file(kube_client.api_client)
+
     execution_date = args.execution_date
     dag = get_dag(subdir=args.subdir, dag_id=args.dag_id)
     yaml_output_path = args.output_path
