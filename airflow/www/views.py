@@ -89,7 +89,7 @@ from airflow.api.common.experimental.mark_tasks import (
     set_dag_run_state_to_success,
 )
 from airflow.configuration import AIRFLOW_CONFIG, conf
-from airflow.exceptions import AirflowException, SerializedDagNotFound
+from airflow.exceptions import AirflowException
 from airflow.executors.executor_loader import ExecutorLoader
 from airflow.jobs.base_job import BaseJob
 from airflow.jobs.scheduler_job import SchedulerJob
@@ -1697,10 +1697,7 @@ class Airflow(AirflowBaseView):
         payload = []
         for dag_id, active_dag_runs in dags:
             max_active_runs = 0
-            try:
-                dag = current_app.dag_bag.get_dag(dag_id)
-            except SerializedDagNotFound:
-                dag = None
+            dag = current_app.dag_bag.get_dag(dag_id)
             if dag:
                 # TODO: Make max_active_runs a column so we can query for it directly
                 max_active_runs = dag.max_active_runs
@@ -2265,10 +2262,7 @@ class Airflow(AirflowBaseView):
         default_dag_run = conf.getint('webserver', 'default_dag_run_display_number')
         dag_id = request.args.get('dag_id')
 
-        try:
-            dag = current_app.dag_bag.get_dag(dag_id)
-        except airflow.exceptions.SerializedDagNotFound:
-            dag = None
+        dag: Optional[DAG] = current_app.dag_bag.get_dag(dag_id)
 
         base_date = request.args.get('base_date')
         num_runs = request.args.get('num_runs', default=default_dag_run, type=int)

@@ -21,6 +21,7 @@
 """Exceptions used by Airflow"""
 from typing import List, NamedTuple, Optional
 
+from airflow.api_connexion.exceptions import NotFound as ApiConnextionNotFound
 from airflow.utils.code_utils import prepare_code_snippet
 from airflow.utils.platform import is_tty
 
@@ -40,7 +41,7 @@ class AirflowBadRequest(AirflowException):
     status_code = 400
 
 
-class AirflowNotFoundException(AirflowException):
+class AirflowNotFoundException(AirflowException, ApiConnextionNotFound):
     """Raise when the requested object/resource is not available in the system"""
 
     status_code = 404
@@ -137,10 +138,6 @@ class DagFileExists(AirflowBadRequest):
 
 class DuplicateTaskIdFound(AirflowException):
     """Raise when a Task with duplicate task_id is defined in the same DAG"""
-
-
-class SerializedDagNotFound(DagNotFound):
-    """Raise when DAG is not found in the serialized_dags table in DB"""
 
 
 class SerializationError(AirflowException):

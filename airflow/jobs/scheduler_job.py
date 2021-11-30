@@ -37,7 +37,6 @@ from airflow import models, settings
 from airflow.configuration import conf
 from airflow.dag_processing.manager import DagFileProcessorAgent
 from airflow.dag_processing.processor import DagFileProcessorProcess
-from airflow.exceptions import SerializedDagNotFound
 from airflow.executors.executor_loader import UNPICKLEABLE_EXECUTORS
 from airflow.jobs.base_job import BaseJob
 from airflow.models import DAG
@@ -901,24 +900,19 @@ class SchedulerJob(BaseJob):
 
             callback_tuples = []
             for dag_run in dag_runs:
-                # Use try_except to not stop the Scheduler when a Serialized DAG is not found
-                # This takes care of Dynamic DAGs especially
-                # SerializedDagNotFound should not happen here in the same loop because the DagRun would
-                # not be created in self._create_dag_runs if Serialized DAG does not exist
-                # But this would take care of the scenario when the Scheduler is restarted after DagRun is
-                # created and the DAG is deleted / renamed
-                try:
-                    callback_to_run = self._schedule_dag_run(dag_run, session)
-                    callback_tuples.append((dag_run, callback_to_run))
-                except SerializedDagNotFound:
-                    self.log.exception("DAG '%s' not found in serialized_dag table", dag_run.dag_id)
-                    continue
+                callback_to_run = self._schedule_dag_run(dag_run, session)
+                callback_tuples.append((dag_run, callback_to_run))
 
             guard.commit()
 
             # Send the callbacks after we commit to ensure the context is up to date when it gets run
             for dag_run, callback_to_run in callback_tuples:
-                self._send_dag_callbacks_to_processor(dag_run, callback_to_run)
+                dag = self.dagbag.get_dag(dag_run.dag_id, session=session)
+                if not dag:
+                    self.log.error("DAG '%s' not found in serialized_dag table", dag_run.dag_id)
+                    continue
+
+                self._send_dag_callbacks_to_processor(dag, callback_to_run)
 
             # Without this, the session has an invalid view of the DB
             session.expunge_all()
@@ -1015,10 +1009,9 @@ class SchedulerJob(BaseJob):
             if total_queued >= max_queued_dagruns:
                 continue
 
-            try:
-                dag = self.dagbag.get_dag(dag_model.dag_id, session=session)
-            except SerializedDagNotFound:
-                self.log.exception("DAG '%s' not found in serialized_dag table", dag_model.dag_id)
+            dag = self.dagbag.get_dag(dag_model.dag_id, session=session)
+            if not dag:
+                self.log.error("DAG '%s' not found in serialized_dag table", dag_model.dag_id)
                 continue
             dag_hash = self.dagbag.dags_hash.get(dag.dag_id)
             # Explicitly check if the DagRun already exists. This is an edge case
@@ -1078,10 +1071,9 @@ class SchedulerJob(BaseJob):
 
         for dag_run in dag_runs:
 
-            try:
-                dag = dag_run.dag = self.dagbag.get_dag(dag_run.dag_id, session=session)
-            except SerializedDagNotFound:
-                self.log.exception("DAG '%s' not found in serialized_dag table", dag_run.dag_id)
+            dag = dag_run.dag = self.dagbag.get_dag(dag_run.dag_id, session=session)
+            if not dag:
+                self.log.error("DAG '%s' not found in serialized_dag table", dag_run.dag_id)
                 continue
             active_runs = active_runs_of_dags[dag_run.dag_id]
 
@@ -1140,7 +1132,7 @@ class SchedulerJob(BaseJob):
             )
 
             # Send SLA & DAG Success/Failure Callbacks to be executed
-            self._send_dag_callbacks_to_processor(dag_run, callback_to_execute)
+            self._send_dag_callbacks_to_processor(dag, callback_to_execute)
 
             return 0
 
@@ -1176,13 +1168,10 @@ class SchedulerJob(BaseJob):
         # Verify integrity also takes care of session.flush
         dag_run.verify_integrity(session=session)
 
-    def _send_dag_callbacks_to_processor(
-        self, dag_run: DagRun, callback: Optional[DagCallbackRequest] = None
-    ):
+    def _send_dag_callbacks_to_processor(self, dag: DAG, callback: Optional[DagCallbackRequest] = None):
         if not self.processor_agent:
             raise ValueError("Processor agent is not started.")
 
-        dag = dag_run.get_dag()
         self._send_sla_callbacks_to_processor(dag)
         if callback:
             self.processor_agent.send_callback_to_execute(callback)
