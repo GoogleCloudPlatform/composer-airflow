@@ -988,7 +988,17 @@ def add_all_provider_packages() -> None:
     add_all_deprecated_provider_packages()
     add_provider_packages_to_extra_requirements(
         "composer",
-        ["apache.beam", "cncf.kubernetes", "google", "http", "mysql", "postgres", "sendgrid", "ssh"],
+        [
+            "apache.beam",
+            "cncf.kubernetes",
+            "google",
+            "hashicorp",
+            "http",
+            "mysql",
+            "postgres",
+            "sendgrid",
+            "ssh",
+        ],
         {
             # google provider 6.0.0 version requires azure provider 3.2.0+, but
             # Airflow 2.1.4 is compatible with azure providers <3.2.0 only.
