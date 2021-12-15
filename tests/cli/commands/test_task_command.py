@@ -184,6 +184,18 @@ class TestCliTasks(unittest.TestCase):
             )
         )
 
+    @mock.patch('airflow.cli.commands.task_command.get_dag', autospec=True)
+    def test_cli_run_wait_dag_not_found_timeout(self, get_dag_mock):
+        # Check that task_run method uses wait_dag_not_found_timeout configuration option.
+        get_dag_mock.side_effect = get_dag
+        with conf_vars({('core', 'wait_dag_not_found_timeout'): '60'}):
+            task_command.task_run(
+                self.parser.parse_args(
+                    ['tasks', 'run', 'example_bash_operator', 'runme_0', '--local', DEFAULT_DATE.isoformat()]
+                )
+            )
+        get_dag_mock.assert_called_with(mock.ANY, 'example_bash_operator', wait_dag_not_found_timeout=60)
+
     @parameterized.expand(
         [
             ("--ignore-all-dependencies",),
