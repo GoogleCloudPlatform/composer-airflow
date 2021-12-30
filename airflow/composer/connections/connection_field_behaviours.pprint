@@ -25,12 +25,8 @@ OrderedDict([('asana',
                               'password': 'Azure Secret'}}),
              ('azure_batch',
               {'hidden_fields': ['schema', 'port', 'host', 'extra'],
-               'placeholders': {'extra__azure_batch__account_url': 'account '
-                                                                   'url',
-                                'login': 'batch account',
-                                'password': 'key'},
-               'relabeling': {'login': 'Azure Batch Account Name',
-                              'password': 'Azure Batch Key'}}),
+               'relabeling': {'login': 'Batch Account Name',
+                              'password': 'Batch Account Access Key'}}),
              ('azure_container_registry',
               {'hidden_fields': ['schema', 'port', 'extra'],
                'placeholders': {'host': 'docker image registry server',
@@ -41,13 +37,7 @@ OrderedDict([('asana',
                               'password': 'Registry Password'}}),
              ('azure_container_volume',
               {'hidden_fields': ['schema', 'port', 'host', 'extra'],
-               'placeholders': {'extra': '{\n'
-                                         ' "key_path": "path to json file for '
-                                         'auth",\n'
-                                         ' "key_json": "specifies json dict '
-                                         'for auth"\n'
-                                         '}',
-                                'extra__azure_container_volume__connection_string': 'connection '
+               'placeholders': {'extra__azure_container_volume__connection_string': 'connection '
                                                                                     'string '
                                                                                     'auth',
                                 'login': 'client_id (token credentials auth)',
@@ -67,39 +57,23 @@ OrderedDict([('asana',
              ('azure_data_explorer',
               {'hidden_fields': ['schema', 'port', 'extra'],
                'placeholders': {'extra__azure_data_explorer__auth_method': 'AAD_APP/AAD_APP_CERT/AAD_CREDS/AAD_DEVICE',
-                                'extra__azure_data_explorer__certificate': 'used '
+                                'extra__azure_data_explorer__certificate': 'Used '
                                                                            'with '
                                                                            'AAD_APP_CERT',
-                                'extra__azure_data_explorer__tenant': 'used '
+                                'extra__azure_data_explorer__tenant': 'Used '
                                                                       'with '
                                                                       'AAD_APP/AAD_APP_CERT/AAD_CREDS',
-                                'extra__azure_data_explorer__thumbprint': 'used '
+                                'extra__azure_data_explorer__thumbprint': 'Used '
                                                                           'with '
                                                                           'AAD_APP_CERT',
-                                'host': 'cluster url',
-                                'login': 'varies with authentication method',
-                                'password': 'varies with authentication '
+                                'login': 'Varies with authentication method',
+                                'password': 'Varies with authentication '
                                             'method'},
-               'relabeling': {'host': 'Data Explorer Cluster Url',
-                              'login': 'Auth Username',
-                              'password': 'Auth Password'}}),
+               'relabeling': {'host': 'Data Explorer Cluster URL',
+                              'login': 'Username'}}),
              ('azure_data_factory',
-              {'hidden_fields': ['schema', 'port', 'host'],
-               'placeholders': {'extra': '{\n'
-                                         ' "resourceGroup": "azure resource '
-                                         'group name",\n'
-                                         ' "factory": "azure data factory '
-                                         'name"\n'
-                                         '}',
-                                'extra__azure_data_factory__subscriptionId': 'subscription '
-                                                                             'id',
-                                'extra__azure_data_factory__tenantId': 'tenant '
-                                                                       'id',
-                                'login': 'client id',
-                                'password': 'secret'},
-               'relabeling': {'extra': 'Extra (optional)',
-                              'login': 'Azure Client ID',
-                              'password': 'Azure Secret'}}),
+              {'hidden_fields': ['schema', 'port', 'host', 'extra'],
+               'relabeling': {'login': 'Client ID', 'password': 'Secret'}}),
              ('azure_data_lake',
               {'hidden_fields': ['schema', 'port', 'host', 'extra'],
                'placeholders': {'extra__azure_data_lake__account_name': 'datalake '
@@ -124,11 +98,9 @@ OrderedDict([('asana',
                                                                      'url or '
                                                                      'token '
                                                                      '(optional)',
-                                'host': 'account url',
                                 'login': 'account name',
                                 'password': 'secret'},
-               'relabeling': {'host': 'Account Name (Active Directory Auth)',
-                              'login': 'Blob Storage Login (optional)',
+               'relabeling': {'login': 'Blob Storage Login (optional)',
                               'password': 'Blob Storage Key (optional)'}}),
              ('cloudant',
               {'hidden_fields': ['port', 'extra'],
@@ -165,6 +137,12 @@ OrderedDict([('asana',
                                  'port',
                                  'extra'],
                'relabeling': {}}),
+             ('pagerduty',
+              {'hidden_fields': ['port', 'login', 'schema', 'host'],
+               'relabeling': {'password': 'Pagerduty API token'}}),
+             ('pagerduty_events',
+              {'hidden_fields': ['port', 'login', 'schema', 'host', 'extra'],
+               'relabeling': {'password': 'Pagerduty Integration key'}}),
              ('qubole',
               {'hidden_fields': ['login', 'schema', 'port', 'extra'],
                'placeholders': {'host': 'https://<env>.qubole.com/api'},
@@ -215,7 +193,7 @@ OrderedDict([('asana',
               {'hidden_fields': ['schema'],
                'relabeling': {'login': 'Username'}}),
              ('wasb',
-              {'hidden_fields': ['schema', 'port', 'host'],
+              {'hidden_fields': ['schema', 'port'],
                'placeholders': {'extra': 'additional options for use with '
                                          'FileService and AzureFileVolume',
                                 'extra__wasb__connection_string': 'connection '
