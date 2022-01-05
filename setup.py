@@ -999,12 +999,7 @@ def add_all_provider_packages() -> None:
             "sendgrid",
             "ssh",
         ],
-        {
-            # google provider 6.0.0 version requires azure provider 3.2.0+, but
-            # Airflow 2.1.4 is compatible with azure providers <3.2.0 only.
-            # TODO: remove it for Airflow 2.2.0+.
-            "google": "<6.0.0",
-        },
+        {},
     )
 
 
