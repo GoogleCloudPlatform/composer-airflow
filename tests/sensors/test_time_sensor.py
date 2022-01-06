@@ -68,3 +68,18 @@ class TestTimeSensorAsync:
         assert exc_info.value.trigger.moment == timezone.datetime(2020, 7, 7, 10)
         assert exc_info.value.method_name == "execute_complete"
         assert exc_info.value.kwargs is None
+
+    @patch.dict("os.environ", {"COMPOSER_VERSION": "1.18.0"})
+    def test_task_fails_to_defer(self):
+        from airflow.exceptions import AirflowException
+
+        with DAG("test_task_fails_to_defer", start_date=timezone.datetime(2020, 1, 1, 23, 0)):
+            op = TimeSensorAsync(task_id="test", target_time=time(10, 0))
+
+        with pytest.raises(AirflowException) as exc_info:
+            op.execute({})
+
+        assert str(exc_info.value) == (
+            "Composer doesn't support deferrable operators yet. Tasks that are using "
+            "deferrable operators will fail to execute with this message."
+        )
