@@ -495,6 +495,11 @@ composer_additional = [
     "google-cloud-pubsublite<1.0.0",
     "pip<20.3.0",
     "pipdeptree",
+    # Only for 2.1.4
+    # Must be installed in this version because one of the tests failing
+    # tests/core/test_configuration.py::TestConf::test_deprecated_values,
+    # in the setuptools>=60.0.0 we have two warnings regarding distutils deprecation.
+    "setuptools<60.0.0",
     "tensorflow==2.2.0",
 ]
 
