@@ -74,3 +74,14 @@ class TestComposerFilter(unittest.TestCase):
             logger.info(message)
 
         self.assertIn(message, temp_stdout.getvalue())
+
+    def test_detecting_dag_concurrency_option_renamed_warning(self):
+        logger = logging.getLogger('airflow.configuration')
+        message = (
+            "The dag_concurrency option in [core] has been renamed to max_active_tasks_per_dag "
+            "- the old setting has been used, but please update your config"
+        )
+        with contextlib.redirect_stdout(io.StringIO()) as temp_stdout:
+            logger.warning(message)
+
+        self.assertNotIn(message, temp_stdout.getvalue())

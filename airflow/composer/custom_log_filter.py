@@ -37,6 +37,14 @@ def _is_providers_hook_missing_attribute_warning(record):
     return PROVIDERS_HOOK_MISSING_ATTRIBUTE_WARNING_RE.match(record.getMessage())
 
 
+def _is_dag_concurrency_option_renamed_warning(record):
+    """Method that detects warning about usage of deprecated [core]dag_concurrency option."""
+    return (
+        'The dag_concurrency option in [core] has been renamed to max_active_tasks_per_dag'
+        in record.getMessage()
+    )
+
+
 class ComposerFilter(logging.Filter):
     """Custom Composer log filter."""
 
@@ -59,6 +67,14 @@ class ComposerFilter(logging.Filter):
         # In case of custom user hooks this warning is useful, in case of provider hooks
         # this warning is useless for Airflow user because they are not able to fix it.
         if _is_providers_hook_missing_attribute_warning(record):
+            return False
+
+        # In Composer default Airflow configuration properties we continue to use
+        # [core]dag_concurrency property, because if we update it to new Airflow property
+        # it will take precedence over custom [core]dag_concurrency set by customer.
+        # Here, we silence this warning message as this message is expected and doesn't
+        # require any action items.
+        if _is_dag_concurrency_option_renamed_warning(record):
             return False
 
         return True
