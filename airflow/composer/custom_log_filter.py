@@ -16,9 +16,19 @@
 import logging
 import os
 import re
+import warnings
 
 PROVIDERS_HOOK_MISSING_ATTRIBUTE_WARNING_RE = re.compile(
     r"The '<class 'airflow.providers[a-zA-Z\.]*Hook'>' is missing [a-z_]* attribute and cannot be registered"
+)
+
+# In Composer default Airflow configuration properties we continue to use
+# [core]dag_concurrency property, because if we update it to the new Airflow property
+# it will take precedence over custom [core]dag_concurrency set by customer.
+# Here, we silence this warning message as this message is expected and doesn't
+# require any action items.
+warnings.filterwarnings(
+    'ignore', r'.*The dag_concurrency option in \[core\] has been renamed to max_active_tasks_per_dag.*'
 )
 
 

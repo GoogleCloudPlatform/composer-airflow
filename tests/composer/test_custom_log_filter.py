@@ -15,11 +15,14 @@
 # specific language governing permissions and limitations
 # under the License.
 import contextlib
+import importlib
 import io
 import logging
 import unittest
+import warnings
 from unittest import mock
 
+from airflow.composer import custom_log_filter
 from airflow.logging_config import configure_logging
 
 
@@ -74,3 +77,18 @@ class TestComposerFilter(unittest.TestCase):
             logger.info(message)
 
         self.assertIn(message, temp_stdout.getvalue())
+
+    def test_ignoring_dag_concurrency_option_renamed_warning(self):
+        # Reload custom_log_filter to apply Composer filters for warning module.
+        # They are removed (presumably by pytest) before running test.
+        importlib.reload(custom_log_filter)
+
+        message = (
+            "The dag_concurrency option in [core] has been renamed to max_active_tasks_per_dag "
+            "- the old setting has been used, but please update your config"
+        )
+        with warnings.catch_warnings(record=True) as warning_list:
+            warnings.warn(message, DeprecationWarning, stacklevel=3)
+
+        warning_list = [w.message.args[0] for w in warning_list]
+        self.assertNotIn(message, warning_list)
