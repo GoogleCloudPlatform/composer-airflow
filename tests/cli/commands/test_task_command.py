@@ -488,6 +488,7 @@ class TestLogsfromTaskRunCommand(unittest.TestCase):
             "workflow": "test_logging_dag",
             "task-id": "test_task",
             "execution-date": "2017-01-01T00:00:00+00:00",
+            "try-number": 1,
         }
         self.assert_log_line("Log from DAG Logger@-@{}".format(json.dumps(workflow_info)), logs_list, count=2)
         self.assert_log_line("Log from TI Logger@-@{}".format(json.dumps(workflow_info)), logs_list, count=2)

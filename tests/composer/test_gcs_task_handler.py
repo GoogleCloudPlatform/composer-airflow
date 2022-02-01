@@ -177,6 +177,7 @@ class TestGCSTaskHandler(unittest.TestCase):
                                 "workflow": "adhoc_airflow",
                                 "task-id": "task_for_testing_gcs_task_handler",
                                 "execution-date": "2020-01-01T00:00:00+00:00",
+                                "try-number": 1,
                             }
                         )
                     ),
@@ -259,6 +260,7 @@ class TestGCSTaskHandler(unittest.TestCase):
                                 "workflow": "adhoc_airflow",
                                 "task-id": "task_for_testing_gcs_task_handler",
                                 "execution-date": "2020-01-01T00:00:00+00:00",
+                                "try-number": 1,
                             }
                         )
                     ),
