@@ -71,8 +71,13 @@ class SqlSensor(BaseSensorOperator):
     def _get_hook(self):
         conn = BaseHook.get_connection(self.conn_id)
 
+        if conn.conn_type == 'google_cloud_platform':
+            raise AirflowException(
+                "The Google Cloud Platform connection type is not supported by SqlSensor. "
+                + "Please, use Google Cloud Bigquery connection type."
+            )
         allowed_conn_type = {
-            'google_cloud_platform',
+            'gcpbigquery',
             'jdbc',
             'mssql',
             'mysql',
