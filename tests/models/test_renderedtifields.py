@@ -273,17 +273,19 @@ class TestRenderedTaskInstanceFields(unittest.TestCase):
             'spec': {
                 'containers': [
                     {
-                        'args': [
-                            'airflow',
-                            'tasks',
-                            'run',
-                            'test_get_k8s_pod_yaml',
-                            'test',
-                            '2019-01-01T00:00:00+00:00',
-                        ],
+                        'args': ['worker'],
                         'image': '',
                         'name': 'base',
-                        'env': [{'name': 'AIRFLOW_IS_K8S_EXECUTOR_POD', 'value': 'True'}],
+                        'env': [
+                            {'name': 'AIRFLOW_IS_K8S_EXECUTOR_POD', 'value': 'True'},
+                            {
+                                'name': 'AIRFLOW_K8S_EXECUTOR_POD_TASK_RUN_COMMAND',
+                                'value': (
+                                    "'airflow' 'tasks' 'run' 'test_get_k8s_pod_yaml' 'test' "
+                                    "'2019-01-01T00:00:00+00:00'"
+                                ),
+                            },
+                        ],
                     }
                 ]
             },

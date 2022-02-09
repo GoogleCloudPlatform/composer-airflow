@@ -351,8 +351,14 @@ class TestKubernetesExecutor(unittest.TestCase):
                             k8s.V1Container(
                                 name="base",
                                 image="airflow:3.6",
-                                args=['airflow', 'tasks', 'run', 'true', 'some_parameter'],
-                                env=[k8s.V1EnvVar(name='AIRFLOW_IS_K8S_EXECUTOR_POD', value='True')],
+                                args=['worker'],
+                                env=[
+                                    k8s.V1EnvVar(name='AIRFLOW_IS_K8S_EXECUTOR_POD', value='True'),
+                                    k8s.V1EnvVar(
+                                        name='AIRFLOW_K8S_EXECUTOR_POD_TASK_RUN_COMMAND',
+                                        value="'airflow' 'tasks' 'run' 'true' 'some_parameter'",
+                                    ),
+                                ],
                             )
                         ],
                         image_pull_secrets=[k8s.V1LocalObjectReference(name='airflow-registry')],

@@ -90,3 +90,14 @@ def refresh_pod_template_file(api_client: ApiClient):
     # version of the file).
     # https://stackoverflow.com/questions/2028874/what-happens-to-an-open-file-handle-on-linux-if-the-pointed-file-gets-moved-or-d
     os.rename(f.name, POD_TEMPLATE_FILE)
+
+
+def get_task_run_command_from_args(args):
+    """Returns command to run Airflow task.
+
+    :param args: list of arguments with command to run Airflow task.
+    :type args: List[str]
+    """
+    # Escape all arguments and concatenate them into string to be used as a command in bash.
+    # https://stackoverflow.com/questions/6306386/how-can-i-escape-an-arbitrary-string-for-use-as-a-command-line-argument-in-bash
+    return " ".join(["'{}'".format(str(arg).replace("'", r"'\''")) for arg in args])

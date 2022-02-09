@@ -32,7 +32,11 @@ from kubernetes.client import (
     V1Probe,
 )
 
-from airflow.composer.kubernetes.executor import POD_TEMPLATE_FILE, refresh_pod_template_file
+from airflow.composer.kubernetes.executor import (
+    POD_TEMPLATE_FILE,
+    get_task_run_command_from_args,
+    refresh_pod_template_file,
+)
 
 
 class TestExecutor(unittest.TestCase):
@@ -157,3 +161,9 @@ class TestExecutor(unittest.TestCase):
             )
             with open(expected_pod_template_file) as f_expected:
                 assert yaml.safe_load(f_expected.read()) == yaml.safe_load(f.read())
+
+    def test_get_task_run_command_from_args(self):
+        assert (
+            get_task_run_command_from_args(["airflow", "tasks", "run", "dag'id"])
+            == "'airflow' 'tasks' 'run' 'dag'\\''id'"
+        )
