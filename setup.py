@@ -492,6 +492,7 @@ composer_additional = [
     "crcmod<2.0",
     "google-apitools",
     "google-cloud-aiplatform",
+    "google-cloud-datastore",
     "google-cloud-pubsublite<1.0.0",
     "pip<20.3.0",
     "pipdeptree",
@@ -1004,7 +1005,13 @@ def add_all_provider_packages() -> None:
             "sendgrid",
             "ssh",
         ],
-        {},
+        {
+            # postgres provider 3.0.0+ the URIs returned by Postgres get_uri() returns postgresql://
+            # instead of postgres:// prefix which is the only supported prefix for the SQLAlchemy 1.4.0+.
+            # restriction needed because some tests failing.
+            # TODO: should be removed in Airflow 2.2.4+
+            "postgres": "<3.0.0"
+        },
     )
 
 
