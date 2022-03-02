@@ -75,6 +75,7 @@ class StreamTaskHandler(logging.StreamHandler):
             'workflow': ti.dag_id,
             'task-id': ti.task_id,
             'execution-date': ti.execution_date.isoformat(),
+            'try-number': str(ti.try_number),
         }
 
     def emit(self, record):
@@ -114,6 +115,7 @@ class FileTaskHandler(logging.Handler):
             'workflow': ti.dag_id,
             'task-id': ti.task_id,
             'execution-date': ti.execution_date.isoformat(),
+            'try-number': str(ti.try_number),
         }
 
     def emit(self, record):
