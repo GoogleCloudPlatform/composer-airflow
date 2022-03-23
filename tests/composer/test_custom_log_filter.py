@@ -59,6 +59,14 @@ class TestComposerFilter(unittest.TestCase):
                 logger.error(message)
         self.assertNotIn(message, temp_stdout.getvalue())
 
+    def test_detecting_refused_to_delete_permission_view_warning(self):
+        logger = logging.getLogger('airflow.www.fab_security')
+        message = 'Refused to delete permission view, assoc with role exists DAG Runs.can_create User'
+
+        with contextlib.redirect_stdout(io.StringIO()) as temp_stdout:
+            logger.warning(message)
+        self.assertNotIn(message, temp_stdout.getvalue())
+
     def test_detecting_providers_hook_missing_attribute_warning(self):
         logger = logging.getLogger('airflow.providers_manager')
         message = (
