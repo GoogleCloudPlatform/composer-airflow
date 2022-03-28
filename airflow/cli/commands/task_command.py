@@ -51,6 +51,8 @@ from airflow.utils.log.logging_mixin import StreamLogWriter
 from airflow.utils.net import get_hostname
 from airflow.utils.session import create_session, provide_session
 
+log = logging.getLogger(__name__)
+
 
 def _get_dag_run(dag, exec_date_or_run_id, create_if_necssary, session):
     dag_run = dag.get_dagrun(run_id=exec_date_or_run_id, session=session)
@@ -293,7 +295,7 @@ def task_run(args, dag=None):
 
     hostname = get_hostname()
 
-    print(f"Running {ti} on host {hostname}")
+    log.info("Running %s on host %s", ti, hostname)
 
     if args.interactive:
         _run_task_by_selected_method(args, dag, ti)
