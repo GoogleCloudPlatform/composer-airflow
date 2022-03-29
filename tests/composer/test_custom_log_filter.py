@@ -64,6 +64,14 @@ class TestComposerFilter(unittest.TestCase):
             logger.warning(message)
         self.assertNotIn(message, temp_stdout.getvalue())
 
+    def test_detecting_no_user_yet_created_warning(self):
+        logger = logging.getLogger('airflow.www.fab_security')
+        message = 'No user yet created, use flask fab command to do it.'
+
+        with contextlib.redirect_stdout(io.StringIO()) as temp_stdout:
+            logger.warning(message)
+        self.assertNotIn(message, temp_stdout.getvalue())
+
     def test_detecting_providers_hook_missing_attribute_warning(self):
         logger = logging.getLogger('airflow.providers_manager')
         message = (

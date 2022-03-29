@@ -37,6 +37,11 @@ def _is_refused_to_delete_permission_view_warning(record):
     return record.getMessage().startswith('Refused to delete permission view, assoc with role exists ')
 
 
+def _is_no_user_yet_created_warning(record):
+    """Method that detects no user yet created warning."""
+    return record.getMessage() == 'No user yet created, use flask fab command to do it.'
+
+
 def _is_providers_hook_missing_attribute_warning(record):
     """Method that detects missing attribute warning for provider hooks."""
     return PROVIDERS_HOOK_MISSING_ATTRIBUTE_WARNING_RE.match(record.getMessage())
@@ -62,6 +67,11 @@ class ComposerFilter(logging.Filter):
         # According to https://github.com/apache/airflow/issues/10331#issuecomment-758108624
         # these warning messages are harmless and can be ignored.
         if _is_refused_to_delete_permission_view_warning(record):
+            return False
+
+        # This warning is printed on start up of webserver in case no users are yet registered
+        # in Airflow RBAC. This message can be silent as it is not useful.
+        if _is_no_user_yet_created_warning(record):
             return False
 
         # Warning about missing attribute for hook doesn't mean this hook is not usable,
