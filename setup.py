@@ -494,7 +494,6 @@ composer_additional = [
     "google-cloud-aiplatform",
     "google-cloud-datastore",
     "google-cloud-pubsublite<1.0.0",
-    "keyrings.google-artifactregistry-auth",
     "pip<20.3.0",
     "pipdeptree",
     # Only for 2.1.4
