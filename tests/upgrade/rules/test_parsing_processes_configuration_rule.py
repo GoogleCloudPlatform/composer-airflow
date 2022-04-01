@@ -17,33 +17,34 @@
 from unittest import TestCase
 from unittest.mock import patch
 
-from airflow.upgrade.rules.legacy_ui_deprecated import LegacyUIDeprecated
-from tests.test_utils.config import conf_vars
+from airflow.upgrade.rules.parsing_processes_configuration_rule import ParsingProcessesConfigurationRule
 
 
-class TestLegacyUIDeprecated(TestCase):
-    @patch('airflow.configuration.conf.get')
-    def test_invalid_check(self, conf_get):
-        rule = LegacyUIDeprecated()
-
-        assert isinstance(rule.description, str)
-        assert isinstance(rule.title, str)
-
-        msg = (
-            "rbac in airflow.cfg must be explicitly set empty as"
-            " RBAC mechanism is enabled by default."
-        )
-        for false_value in ("False", "false", "f", "0"):
-            conf_get.return_value = false_value
-            response = rule.check()
-            assert response == msg
-
-    @conf_vars({("webserver", "rbac"): ""})
-    def test_valid_check(self):
-        rule = LegacyUIDeprecated()
+class TestParsingProcessesConfigurationRule(TestCase):
+    @patch('airflow.configuration.conf.has_option')
+    def test_check_new_config(self, conf_has_option):
+        rule = ParsingProcessesConfigurationRule()
 
         assert isinstance(rule.description, str)
         assert isinstance(rule.title, str)
+
+        conf_has_option.side_effect = [False, True]
 
         response = rule.check()
         assert response is None
+
+    @patch('airflow.configuration.conf.get')
+    @patch('airflow.configuration.conf.has_option')
+    def test_check_old_config(self, conf_has_option, conf_get):
+        rule = ParsingProcessesConfigurationRule()
+
+        assert isinstance(rule.description, str)
+        assert isinstance(rule.title, str)
+
+        conf_has_option.side_effect = [True, False]
+        conf_get.side_effect = ["DUMMY"]
+
+        response = rule.check()
+        assert response == \
+               ["Please rename the max_threads configuration in the "
+                "[scheduler] section to parsing_processes."]

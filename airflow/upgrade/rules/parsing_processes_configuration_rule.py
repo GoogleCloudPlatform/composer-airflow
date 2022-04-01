@@ -21,16 +21,21 @@ from airflow.configuration import conf
 from airflow.upgrade.rules.base_rule import BaseRule
 
 
-class LegacyUIDeprecated(BaseRule):
-    title = "Legacy UI is deprecated by default"
+class ParsingProcessesConfigurationRule(BaseRule):
+    title = "Rename max_threads to parsing_processes"
 
-    description = "Legacy UI is deprecated. FAB RBAC is enabled by default in order to increase security."
+    description = "The max_threads configuration in the [scheduler] section was renamed to parsing_processes."
 
     def check(self):
-        if conf.has_option("webserver", "rbac"):
-            rbac = conf.get("webserver", "rbac").strip().lower()
-            if rbac in ("f", "false", "0"):
-                return (
-                    "rbac in airflow.cfg must be explicitly set empty as"
-                    " RBAC mechanism is enabled by default."
-                )
+        default = 2
+
+        old_config_exists = conf.has_option("scheduler", "max_threads")
+        new_config_exists = conf.has_option("scheduler", "parsing_processes")
+
+        if old_config_exists and not new_config_exists:
+            old_config_value = conf.get("scheduler", "max_threads")
+            if old_config_value == default:
+                return None
+            return ["Please rename the max_threads configuration in the "
+                    "[scheduler] section to parsing_processes."]
+        return None
