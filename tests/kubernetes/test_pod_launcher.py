@@ -54,6 +54,7 @@ class TestPodLauncher(unittest.TestCase):
                     _preload_content=False,
                     container="base",
                     follow=True,
+                    timestamps=False,
                     name=mock.sentinel.metadata.name,
                     namespace=mock.sentinel.metadata.namespace,
                     tail_lines=10,
@@ -62,6 +63,7 @@ class TestPodLauncher(unittest.TestCase):
                     _preload_content=False,
                     container="base",
                     follow=True,
+                    timestamps=False,
                     name=mock.sentinel.metadata.name,
                     namespace=mock.sentinel.metadata.namespace,
                     tail_lines=10,
@@ -83,7 +85,7 @@ class TestPodLauncher(unittest.TestCase):
     def test_read_pod_logs_successfully_with_tail_lines(self):
         mock.sentinel.metadata = mock.MagicMock()
         self.mock_kube_client.read_namespaced_pod_log.side_effect = [mock.sentinel.logs]
-        logs = self.pod_launcher.read_pod_logs(mock.sentinel, 100)
+        logs = self.pod_launcher.read_pod_logs(mock.sentinel, tail_lines=100)
         self.assertEqual(mock.sentinel.logs, logs)
         self.mock_kube_client.read_namespaced_pod_log.assert_has_calls(
             [
@@ -91,12 +93,32 @@ class TestPodLauncher(unittest.TestCase):
                     _preload_content=False,
                     container="base",
                     follow=True,
-                    name=mock.sentinel.metadata.name,
+                    timestamps=False,name=mock.sentinel.metadata.name,
                     namespace=mock.sentinel.metadata.namespace,
                     tail_lines=100,
                 ),
             ]
         )
+
+    def test_read_pod_logs_successfully_with_since_seconds(self):
+        mock.sentinel.metadata = mock.MagicMock()
+        self.mock_kube_client.read_namespaced_pod_log.side_effect = [
+            mock.sentinel.logs
+        ]
+        logs = self.pod_launcher.read_pod_logs(mock.sentinel, since_seconds=2)
+        self.assertEqual(mock.sentinel.logs, logs)
+        self.mock_kube_client.read_namespaced_pod_log.assert_has_calls([
+            mock.call(
+                _preload_content=False,
+                container='base',
+                follow=True,
+                timestamps=False,
+                name=mock.sentinel.metadata.name,
+                namespace=mock.sentinel.metadata.namespace,
+                since_seconds=2,
+                tail_lines=10
+            ),
+        ])
 
     def test_read_pod_events_successfully_returns_events(self):
         mock.sentinel.metadata = mock.MagicMock()
@@ -174,6 +196,17 @@ class TestPodLauncher(unittest.TestCase):
         ]
         self.assertRaises(AirflowException, self.pod_launcher.read_pod, mock.sentinel)
 
+    def test_parse_log_line(self):
+        timestamp, message = \
+            self.pod_launcher.parse_log_line('2020-10-08T14:16:17.793417674Z Valid message\n')
+
+        self.assertEqual(timestamp, '2020-10-08T14:16:17.793417674Z')
+        self.assertEqual(message, 'Valid message')
+
+        self.assertRaises(
+            Exception,
+            self.pod_launcher.parse_log_line('2020-10-08T14:16:17.793417674ZInvalid message\n'),
+        )
 
 class TestPodLauncherHelper(unittest.TestCase):
     def test_convert_to_airflow_pod(self):
