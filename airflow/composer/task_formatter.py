@@ -43,11 +43,14 @@ class TaskFormatter(logging.Formatter):
 
     def __init__(self, fmt: str = None, *args, **kwargs):
         fmt_task = (fmt or "%(message)s") + f"%({_WORKFLOW_INFO_RECORD_KEY})s"
-        super().__init__(fmt_task, *args, **kwargs)
+        self.workflow_info_formatter = logging.Formatter(fmt_task, *args, **kwargs)
+        super().__init__(fmt, *args, **kwargs)
 
     def format(self, record: logging.LogRecord):
-        formatted_message = super().format(record)
-        if hasattr(record, _WORKFLOW_INFO_RECORD_KEY) and (record.stack_info or record.exc_info):
+        if not hasattr(record, _WORKFLOW_INFO_RECORD_KEY):
+            return super().format(record)
+        formatted_message = self.workflow_info_formatter.format(record)
+        if record.stack_info or record.exc_info:
             # Exception or stack info are emmited as separate log entries
             # from the perspective of Cloud Logging and have to be annotated
             # with metadata separately.

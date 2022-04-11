@@ -30,11 +30,8 @@ TEST_TASK_FORMATTER_CONFIG['handlers']['task_console']['stream'] = io.StringIO()
 
 
 class TestTaskFormatter(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        logging.config.dictConfig(TEST_TASK_FORMATTER_CONFIG)
-
     def setUp(self):
+        logging.config.dictConfig(TEST_TASK_FORMATTER_CONFIG)
         date = datetime(2020, 1, 1)
         self.dag = DAG('dag_for_testing_composer_task_formatter', start_date=date)
         self.dag.create_dagrun(
@@ -67,7 +64,7 @@ class TestTaskFormatter(unittest.TestCase):
 
     def test_handles_missing_metadata(self):
         self.ti.log.info('sample-message')
-        self.assertRegex(self.stream.getvalue(), '.*INFO - sample-message')
+        self.assertRegex(self.stream.getvalue(), '.*INFO - sample-message$')
 
     def test_appends_metadata_to_exception(self):
         self.ti.init_run_context()
