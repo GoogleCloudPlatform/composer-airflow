@@ -107,9 +107,12 @@ class TestGCSTaskHandler(unittest.TestCase):
         self.assertEqual(
             log,
             (
-                "*** Log file is not found: gs://bucket/remote/log/location/1.log. The task might not have "
-                "been executed or worker executing it might have finished abnormally (e.g. was evicted)\n"
-                "*** 404 File is not found!"
+                "*** Log file is not found: gs://bucket/remote/log/location/1.log.\n"
+                "*** The task might not have been executed or worker executing it might "
+                "have finished abnormally (e.g. was evicted).\n"
+                "*** Please, refer to "
+                "https://cloud.google.com/composer/docs/how-to/using/troubleshooting-dags#common_issues "
+                "hints to learn what might be possible reasons for a missing log."
             ),
         )
         self.assertDictEqual(metadata, {"end_of_log": True})
