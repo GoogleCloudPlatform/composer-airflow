@@ -161,12 +161,14 @@ class GCSTaskHandler(FileTaskHandler, LoggingMixin):
             remote_log = strip_separator_from_log(remote_log)
             log = f'*** Reading remote log from {remote_loc}.\n{remote_log}\n'
             return log, {'end_of_log': True}
-        except NotFound as e:
+        except NotFound:
             log = (
-                '*** Log file is not found: {}. The task might not have been executed or worker '
-                'executing it might have finished abnormally (e.g. was evicted)\n*** {}'.format(
-                    remote_loc, str(e)
-                )
+                '*** Log file is not found: {}.\n'
+                '*** The task might not have been executed or worker executing it '
+                'might have finished abnormally (e.g. was evicted).\n'
+                '*** Please, refer to '
+                'https://cloud.google.com/composer/docs/how-to/using/troubleshooting-dags#common_issues '
+                'hints to learn what might be possible reasons for a missing log.'.format(remote_loc)
             )
             self.log.error(log)
             return log, {'end_of_log': True}
