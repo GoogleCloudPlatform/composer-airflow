@@ -18,6 +18,73 @@
 Changelog
 ---------
 
+7.0.0
+.....
+
+Breaking changes
+~~~~~~~~~~~~~~~~
+
+* ``apache-airflow-providers-google uses deprecated Google Ads API V8 (#22111)``
+
+.. warning:: The underlying google-ads library has been updated
+
+   This drops support for versions v6 and v7 of the Google Ads API, and updates
+   the default version of the Google Ads API from the deprecated v8 to v10.
+
+   For more information, see `Deprecation and sunset <https://developers.google.com/google-ads/api/docs/sunset-dates>`_
+   and `Upgrading to the newest version <https://developers.google.com/google-ads/api/docs/version-migration>`_
+
+2022.5.15+composer (Only for Composer)
+.....
+
+Breaking changes
+~~~~~~~~~~~~~~~~
+
+* ``Upgrade to support Google Ads v10 (#22965)``
+
+Features
+~~~~~~~~
+
+* ``[FEATURE] google provider - BigQueryInsertJobOperator log query (#23648)``
+* ``[FEATURE] google provider - split GkeStartPodOperator execute (#23518)``
+* ``Add exportContext.offload flag to CLOUD_SQL_EXPORT_VALIDATION. (#23614)``
+* ``Create links for BiqTable operators (#23164)``
+* ``implements #22859 - Add .sql as templatable extension (#22920)``
+* ``'GCSFileTransformOperator': New templated fields 'source_object', 'destination_object' (#23328)``
+
+Bug Fixes
+~~~~~~~~~
+
+* ``Fix 'PostgresToGCSOperator' does not allow nested JSON (#23063)``
+* ``Fix GCSToGCSOperator ignores replace parameter when there is no wildcard (#23340)``
+* ``update processor to fix broken download URLs (#23299)``
+* ``'LookerStartPdtBuildOperator', 'LookerCheckPdtBuildSensor' : fix empty materialization id handling (#23025)``
+* ``Change ComputeSSH to throw provider import error instead paramiko (#23035)``
+* ``Fix cancel_on_kill after execution timeout for DataprocSubmitJobOperator (#22955)``
+* ``Fix select * query xcom push for BigQueryGetDataOperator (#22936)``
+* ``MSSQLToGCSOperator fails: datetime is not JSON Serializable (#22882)``
+
+Misc
+~~~~
+
+* ``Add Stackdriver assets and migrate system tests to AIP-47 (#23320)``
+* ``CloudTasks assets & system tests migration (AIP-47) (#23282)``
+* ``TextToSpeech assets & system tests migration (AIP-47) (#23247)``
+* ``Fix code-snippets in google provider (#23438)``
+* ``Bigquery assets (#23165)``
+* ``Remove redundant docstring in 'BigQueryUpdateTableSchemaOperator' (#23349)``
+* ``Migrate gcs to new system tests design (#22778)``
+* ``add missing docstring in 'BigQueryHook.create_empty_table' (#23270)``
+* ``Cleanup Google provider CHANGELOG.rst (#23390)``
+* ``migrate system test gcs_to_bigquery into new design (#22753)``
+* ``Add example DAG for demonstrating usage of GCS sensors (#22808)``
+
+.. Review and move the new changes to one of the sections above:
+   * ``Clean up in-line f-string concatenation (#23591)``
+   * ``Bump pre-commit hook versions (#22887)``
+   * ``Use new Breese for building, pulling and verifying the images. (#23104)``
+   * ``Fix new MyPy errors in main (#22884)``
+
 6.8.0
 .....
 
