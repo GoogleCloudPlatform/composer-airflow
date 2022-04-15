@@ -38,6 +38,7 @@ from airflow.models.xcom import XCom
 from airflow.operators.sql import SQLCheckOperator, SQLIntervalCheckOperator, SQLValueCheckOperator
 from airflow.providers.google.cloud.hooks.bigquery import BigQueryHook, BigQueryJob
 from airflow.providers.google.cloud.hooks.gcs import GCSHook, _parse_gcs_url
+from airflow.providers.google.cloud.links.bigquery import BigQueryDatasetLink, BigQueryTableLink
 
 if TYPE_CHECKING:
     from airflow.models.taskinstance import TaskInstanceKey
@@ -467,6 +468,14 @@ class BigQueryGetDataOperator(BaseOperator):
             impersonation_chain=self.impersonation_chain,
         )
 
+        if not self.selected_fields:
+            schema: Dict[str, list] = hook.get_schema(
+                dataset_id=self.dataset_id,
+                table_id=self.table_id,
+            )
+            if "fields" in schema:
+                self.selected_fields = ','.join([field["name"] for field in schema["fields"]])
+
         rows = hook.list_rows(
             dataset_id=self.dataset_id,
             table_id=self.table_id,
@@ -841,6 +850,7 @@ class BigQueryCreateEmptyTableOperator(BaseOperator):
     )
     template_fields_renderers = {"table_resource": "json", "materialized_view": "json"}
     ui_color = BigQueryUIColors.TABLE.value
+    operator_extra_links = (BigQueryTableLink(),)
 
     def __init__(
         self,
@@ -921,6 +931,13 @@ class BigQueryCreateEmptyTableOperator(BaseOperator):
                 encryption_configuration=self.encryption_configuration,
                 table_resource=self.table_resource,
                 exists_ok=self.exists_ok,
+            )
+            BigQueryTableLink.persist(
+                context=context,
+                task_instance=self,
+                dataset_id=table.to_api_repr()["tableReference"]["datasetId"],
+                project_id=table.to_api_repr()["tableReference"]["projectId"],
+                table_id=table.to_api_repr()["tableReference"]["tableId"],
             )
             self.log.info(
                 'Table %s.%s.%s created successfully', table.project, table.dataset_id, table.table_id
@@ -1020,6 +1037,7 @@ class BigQueryCreateExternalTableOperator(BaseOperator):
     )
     template_fields_renderers = {"table_resource": "json"}
     ui_color = BigQueryUIColors.TABLE.value
+    operator_extra_links = (BigQueryTableLink(),)
 
     def __init__(
         self,
@@ -1137,8 +1155,15 @@ class BigQueryCreateExternalTableOperator(BaseOperator):
             impersonation_chain=self.impersonation_chain,
         )
         if self.table_resource:
-            bq_hook.create_empty_table(
+            table = bq_hook.create_empty_table(
                 table_resource=self.table_resource,
+            )
+            BigQueryTableLink.persist(
+                context=context,
+                task_instance=self,
+                dataset_id=table.to_api_repr()["tableReference"]["datasetId"],
+                project_id=table.to_api_repr()["tableReference"]["projectId"],
+                table_id=table.to_api_repr()["tableReference"]["tableId"],
             )
             return
 
@@ -1154,7 +1179,7 @@ class BigQueryCreateExternalTableOperator(BaseOperator):
 
         source_uris = [f"gs://{self.bucket}/{source_object}" for source_object in self.source_objects]
 
-        bq_hook.create_external_table(
+        table = bq_hook.create_external_table(
             external_project_dataset_table=self.destination_project_dataset_table,
             schema_fields=schema_fields,
             source_uris=source_uris,
@@ -1170,6 +1195,13 @@ class BigQueryCreateExternalTableOperator(BaseOperator):
             src_fmt_configs=self.src_fmt_configs,
             labels=self.labels,
             encryption_configuration=self.encryption_configuration,
+        )
+        BigQueryTableLink.persist(
+            context=context,
+            task_instance=self,
+            dataset_id=table.to_api_repr()["tableReference"]["datasetId"],
+            project_id=table.to_api_repr()["tableReference"]["projectId"],
+            table_id=table.to_api_repr()["tableReference"]["tableId"],
         )
 
 
@@ -1314,6 +1346,7 @@ class BigQueryCreateEmptyDatasetOperator(BaseOperator):
     )
     template_fields_renderers = {"dataset_reference": "json"}
     ui_color = BigQueryUIColors.DATASET.value
+    operator_extra_links = (BigQueryDatasetLink(),)
 
     def __init__(
         self,
@@ -1359,12 +1392,18 @@ class BigQueryCreateEmptyDatasetOperator(BaseOperator):
         )
 
         try:
-            bq_hook.create_empty_dataset(
+            dataset = bq_hook.create_empty_dataset(
                 project_id=self.project_id,
                 dataset_id=self.dataset_id,
                 dataset_reference=self.dataset_reference,
                 location=self.location,
                 exists_ok=self.exists_ok,
+            )
+            BigQueryDatasetLink.persist(
+                context=context,
+                task_instance=self,
+                dataset_id=dataset["datasetReference"]["datasetId"],
+                project_id=dataset["datasetReference"]["projectId"],
             )
         except Conflict:
             dataset_id = self.dataset_reference.get("datasetReference", {}).get("datasetId", self.dataset_id)
@@ -1406,6 +1445,7 @@ class BigQueryGetDatasetOperator(BaseOperator):
         'impersonation_chain',
     )
     ui_color = BigQueryUIColors.DATASET.value
+    operator_extra_links = (BigQueryDatasetLink(),)
 
     def __init__(
         self,
@@ -1434,7 +1474,14 @@ class BigQueryGetDatasetOperator(BaseOperator):
         self.log.info('Start getting dataset: %s:%s', self.project_id, self.dataset_id)
 
         dataset = bq_hook.get_dataset(dataset_id=self.dataset_id, project_id=self.project_id)
-        return dataset.to_api_repr()
+        dataset = dataset.to_api_repr()
+        BigQueryDatasetLink.persist(
+            context=context,
+            task_instance=self,
+            dataset_id=dataset["datasetReference"]["datasetId"],
+            project_id=dataset["datasetReference"]["projectId"],
+        )
+        return dataset
 
 
 class BigQueryGetDatasetTablesOperator(BaseOperator):
@@ -1625,6 +1672,7 @@ class BigQueryUpdateTableOperator(BaseOperator):
     )
     template_fields_renderers = {"table_resource": "json"}
     ui_color = BigQueryUIColors.TABLE.value
+    operator_extra_links = (BigQueryTableLink(),)
 
     def __init__(
         self,
@@ -1656,13 +1704,23 @@ class BigQueryUpdateTableOperator(BaseOperator):
             impersonation_chain=self.impersonation_chain,
         )
 
-        return bq_hook.update_table(
+        table = bq_hook.update_table(
             table_resource=self.table_resource,
             fields=self.fields,
             dataset_id=self.dataset_id,
             table_id=self.table_id,
             project_id=self.project_id,
         )
+
+        BigQueryTableLink.persist(
+            context=context,
+            task_instance=self,
+            dataset_id=table["tableReference"]["datasetId"],
+            project_id=table["tableReference"]["projectId"],
+            table_id=table["tableReference"]["tableId"],
+        )
+
+        return table
 
 
 class BigQueryUpdateDatasetOperator(BaseOperator):
@@ -1708,6 +1766,7 @@ class BigQueryUpdateDatasetOperator(BaseOperator):
     )
     template_fields_renderers = {"dataset_resource": "json"}
     ui_color = BigQueryUIColors.DATASET.value
+    operator_extra_links = (BigQueryDatasetLink(),)
 
     def __init__(
         self,
@@ -1744,7 +1803,15 @@ class BigQueryUpdateDatasetOperator(BaseOperator):
             dataset_id=self.dataset_id,
             fields=fields,
         )
-        return dataset.to_api_repr()
+
+        dataset = dataset.to_api_repr()
+        BigQueryDatasetLink.persist(
+            context=context,
+            task_instance=self,
+            dataset_id=dataset["datasetReference"]["datasetId"],
+            project_id=dataset["datasetReference"]["projectId"],
+        )
+        return dataset
 
 
 class BigQueryDeleteTableOperator(BaseOperator):
@@ -1863,6 +1930,7 @@ class BigQueryUpsertTableOperator(BaseOperator):
     )
     template_fields_renderers = {"table_resource": "json"}
     ui_color = BigQueryUIColors.TABLE.value
+    operator_extra_links = (BigQueryTableLink(),)
 
     def __init__(
         self,
@@ -1904,10 +1972,17 @@ class BigQueryUpsertTableOperator(BaseOperator):
             location=self.location,
             impersonation_chain=self.impersonation_chain,
         )
-        hook.run_table_upsert(
+        table = hook.run_table_upsert(
             dataset_id=self.dataset_id,
             table_resource=self.table_resource,
             project_id=self.project_id,
+        )
+        BigQueryTableLink.persist(
+            context=context,
+            task_instance=self,
+            dataset_id=table["tableReference"]["datasetId"],
+            project_id=table["tableReference"]["projectId"],
+            table_id=table["tableReference"]["tableId"],
         )
 
 
@@ -1947,8 +2022,6 @@ class BigQueryUpdateTableSchemaOperator(BaseOperator):
     :param project_id: The name of the project where we want to update the dataset.
         Don't need to provide, if projectId in dataset_reference.
     :param gcp_conn_id: (Optional) The connection ID used to connect to Google Cloud.
-    :param bigquery_conn_id: (Deprecated) The connection ID used to connect to Google Cloud.
-        This parameter has been deprecated. You should pass the gcp_conn_id parameter instead.
     :param delegate_to: The account to impersonate, if any.
         For this to work, the service account making the request must have domain-wide
         delegation enabled.
@@ -1972,6 +2045,7 @@ class BigQueryUpdateTableSchemaOperator(BaseOperator):
     )
     template_fields_renderers = {"schema_fields_updates": "json"}
     ui_color = BigQueryUIColors.TABLE.value
+    operator_extra_links = (BigQueryTableLink(),)
 
     def __init__(
         self,
@@ -2003,13 +2077,22 @@ class BigQueryUpdateTableSchemaOperator(BaseOperator):
             impersonation_chain=self.impersonation_chain,
         )
 
-        return bq_hook.update_table_schema(
+        table = bq_hook.update_table_schema(
             schema_fields_updates=self.schema_fields_updates,
             include_policy_tags=self.include_policy_tags,
             dataset_id=self.dataset_id,
             table_id=self.table_id,
             project_id=self.project_id,
         )
+
+        BigQueryTableLink.persist(
+            context=context,
+            task_instance=self,
+            dataset_id=table["tableReference"]["datasetId"],
+            project_id=table["tableReference"]["projectId"],
+            table_id=table["tableReference"]["tableId"],
+        )
+        return table
 
 
 class BigQueryInsertJobOperator(BaseOperator):
@@ -2070,9 +2153,13 @@ class BigQueryInsertJobOperator(BaseOperator):
         "job_id",
         "impersonation_chain",
     )
-    template_ext: Sequence[str] = (".json",)
+    template_ext: Sequence[str] = (
+        ".json",
+        ".sql",
+    )
     template_fields_renderers = {"configuration": "json", "configuration.query.query": "sql"}
     ui_color = BigQueryUIColors.QUERY.value
+    operator_extra_links = (BigQueryTableLink(),)
 
     def __init__(
         self,
@@ -2157,6 +2244,7 @@ class BigQueryInsertJobOperator(BaseOperator):
         job_id = self._job_id(context)
 
         try:
+            self.log.info(f"Executing: {self.configuration}")
             job = self._submit_job(hook, job_id)
             self._handle_job_error(job)
         except Conflict:
@@ -2178,6 +2266,14 @@ class BigQueryInsertJobOperator(BaseOperator):
                     f"Or, if you want to reattach in this scenario add {job.state} to `reattach_states`"
                 )
 
+        table = job.to_api_repr()["configuration"]["query"]["destinationTable"]
+        BigQueryTableLink.persist(
+            context=context,
+            task_instance=self,
+            dataset_id=table["datasetId"],
+            project_id=table["projectId"],
+            table_id=table["tableId"],
+        )
         self.job_id = job.job_id
         return job.job_id
 
