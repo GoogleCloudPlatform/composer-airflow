@@ -15,67 +15,51 @@
 import datetime
 import os
 import unittest
-from multiprocessing import Lock, Manager
 
 from airflow import settings
-from airflow.composer.scheduler_airflow_local_settings import _dag_to_filepath, task_policy
+from airflow.composer.scheduler_airflow_local_settings import dag_policy
 from airflow.models import DAG
-from airflow.operators.dummy import DummyOperator
-from airflow.security.permissions import ACTION_CAN_EDIT, ACTION_CAN_READ, RESOURCE_DAG_PREFIX
-from airflow.www.app import cached_app
+from airflow.security.permissions import ACTION_CAN_EDIT, ACTION_CAN_READ
 from tests.test_utils.config import conf_vars
 
 
 class TestSchedulerAirflowLocalSettings(unittest.TestCase):
     @conf_vars({("webserver", "rbac_autoregister_per_folder_roles"): "True"})
-    def test_task_policy(self):
-        # Prepare security manager.
-        appbuilder = cached_app().appbuilder  # pylint: disable=no-member
-        appbuilder.sm.lock = Lock()
-        appbuilder.sm.dag_to_role = Manager().dict()
-
+    def test_dag_rbac_per_folder_policy(self):
         role_a_dag = DAG(
             dag_id='role_a_dag',
             start_date=datetime.datetime(2017, 1, 1),
         )
         role_a_dag.fileloc = os.path.join(settings.DAGS_FOLDER, 'role_a/dag.py')
-        role_a_task = DummyOperator(
-            task_id='dummy',
-            dag=role_a_dag,
+        role_b_dag = DAG(
+            dag_id='role_b_dag',
+            start_date=datetime.datetime(2017, 1, 1),
+            access_control={
+                'role_b': {'test_permission'},
+                'admin': {'admin_permission'},
+            },
         )
+        role_b_dag.fileloc = os.path.join(settings.DAGS_FOLDER, 'role_b/dag.py')
         root_dag = DAG(
             dag_id='root_dag',
             start_date=datetime.datetime(2017, 1, 1),
         )
         root_dag.fileloc = os.path.join(settings.DAGS_FOLDER, 'dag.py')
-        root_task = DummyOperator(
-            task_id='dummy',
-            dag=root_dag,
-        )
         role_length_exceed_dag = DAG(
             dag_id='role_length_exceed_dag',
             start_date=datetime.datetime(2017, 1, 1),
         )
         role_length_exceed_dag.fileloc = os.path.join(settings.DAGS_FOLDER, 'role_{}/dag.py'.format('x' * 70))
-        role_length_exceed_task = DummyOperator(
-            task_id='dummy',
-            dag=role_length_exceed_dag,
-        )
 
-        task_policy(role_a_task)
-        task_policy(root_task)
-        task_policy(role_length_exceed_task)
+        dag_policy(role_a_dag)
+        dag_policy(role_b_dag)
+        dag_policy(root_dag)
+        dag_policy(role_length_exceed_dag)
 
-        assert _dag_to_filepath == {
-            'role_a_dag': role_a_dag.fileloc,
-            'root_dag': root_dag.fileloc,
-            'role_length_exceed_dag': role_length_exceed_dag.fileloc,
+        assert role_a_dag.access_control == {'role_a': {ACTION_CAN_EDIT, ACTION_CAN_READ}}
+        assert role_b_dag.access_control == {
+            'role_b': {'test_permission', ACTION_CAN_EDIT, ACTION_CAN_READ},
+            'admin': {'admin_permission'},
         }
-
-        role_a = appbuilder.sm.find_role('role_a')
-        permissions = set()
-        for perm in role_a.permissions:
-            if perm.view_menu.name != f'{RESOURCE_DAG_PREFIX}role_a_dag':
-                continue
-            permissions.add(perm.permission.name)
-        assert permissions == {ACTION_CAN_READ, ACTION_CAN_EDIT}
+        assert root_dag.access_control is None
+        assert role_length_exceed_dag.access_control is None
