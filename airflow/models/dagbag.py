@@ -643,12 +643,15 @@ class DagBag(LoggingMixin):
                     return True
             return False
 
-        if dag.access_control or needs_perm_views(dag.dag_id):
+        rbac_autoregister_per_folder_roles = conf.getboolean(
+            "webserver", "rbac_autoregister_per_folder_roles", fallback=False
+        )
+        if rbac_autoregister_per_folder_roles or dag.access_control or needs_perm_views(dag.dag_id):
             self.log.debug("Syncing DAG permissions: %s to the DB", dag.dag_id)
             from airflow.www.security import ApplessAirflowSecurityManager
 
             security_manager = ApplessAirflowSecurityManager(session=session)
-            if conf.getboolean("webserver", "rbac_autoregister_per_folder_roles", fallback=False):
+            if rbac_autoregister_per_folder_roles:
                 # Create roles in RBAC tables if they do not exist.
                 for _role in dag.access_control or {}:
                     security_manager.add_role(_role)

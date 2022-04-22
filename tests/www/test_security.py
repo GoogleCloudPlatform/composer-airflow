@@ -35,6 +35,7 @@ from airflow.www import app as application
 from airflow.www.utils import CustomSQLAInterface
 from tests.test_utils import api_connexion_utils
 from tests.test_utils.asserts import assert_queries_count
+from tests.test_utils.config import conf_vars
 from tests.test_utils.db import clear_db_dags, clear_db_runs
 from tests.test_utils.mock_security_manager import MockSecurityManager
 
@@ -440,6 +441,40 @@ class TestSecurity(unittest.TestCase):
             is not None
         )
 
+    def test_sync_perm_for_dag_rbac_autoregister_per_folder_roles(self):
+        # Initialize new app with security manager, as self.security_manager is broken
+        # by one of community tests.
+        _app = application.create_app(testing=True)
+        _security_manager = _app.appbuilder.sm
+
+        test_dag_id = 'TEST_DAG_STALE_PERMISSIONS'
+        prefixed_test_dag_id = f'DAG:{test_dag_id}'
+
+        test_role = 'role_stale_permissions'
+        _security_manager.add_role(test_role)
+
+        def _test_role_has_permission():
+            _role = _security_manager.find_role(test_role)
+            return any(
+                _perm.view_menu.name == prefixed_test_dag_id
+                and _perm.permission.name == permissions.ACTION_CAN_READ
+                for _perm in _role.permissions
+            )
+
+        _security_manager.sync_perm_for_dag(
+            test_dag_id, access_control={test_role: {permissions.ACTION_CAN_READ}}
+        )
+        assert _test_role_has_permission()
+
+        # test permissions not revoked (default Airflow behaviour)
+        _security_manager.sync_perm_for_dag(test_dag_id, access_control=None)
+        assert _test_role_has_permission()
+
+        # test permissions revoked
+        with conf_vars({('webserver', 'rbac_autoregister_per_folder_roles'): 'True'}):
+            _security_manager.sync_perm_for_dag(test_dag_id, access_control=None)
+            assert not _test_role_has_permission()
+
     @mock.patch('airflow.www.security.AirflowSecurityManager._has_perm')
     @mock.patch('airflow.www.security.AirflowSecurityManager._has_role')
     def test_has_all_dag_access(self, mock_has_role, mock_has_perm):
@@ -627,6 +662,26 @@ class TestSecurity(unittest.TestCase):
         del dagbag.dags["has_access_control"]
         with assert_queries_count(1):  # one query to get all perms; dagbag is mocked
             self.security_manager.create_dag_specific_permissions()
+
+    @mock.patch('airflow.www.security.DagBag')
+    def test_create_dag_specific_permissions_rbac_autoregister_per_folder_roles(self, dagbag_mock):
+        test_dag_id = 'test_dag'
+        dagbag_mock.return_value = mock.Mock(dags={test_dag_id: DAG(test_dag_id)})
+
+        with mock.patch.object(
+            self.security_manager, '_sync_dag_view_permissions'
+        ) as mock_sync_dag_view_permissions:
+            # verify default Airflow behaviour
+            self.security_manager.create_dag_specific_permissions()
+            mock_sync_dag_view_permissions.assert_not_called()
+
+            # verify sync_perm_for_dag is called even if access_control is empty
+            # in case RBAC per folder feature is enabled
+            with conf_vars({('webserver', 'rbac_autoregister_per_folder_roles'): 'True'}):
+                self.security_manager.create_dag_specific_permissions()
+                mock_sync_dag_view_permissions.assert_called_once_with(
+                    self.security_manager.prefixed_dag_id(test_dag_id), None
+                )
 
     def test_get_all_permissions(self):
         with assert_queries_count(1):
