@@ -1078,7 +1078,16 @@ def add_all_provider_packages() -> None:
             "sendgrid",
             "ssh",
         ],
-        {},
+        {
+            # TODO: (should be removed in Airflow 2.3.0+) package is not compatible with Airflow 2.2.5 and
+            # was released before Airflow 2.3.0 release
+            "cncf.kubernetes": "<4.0.0",
+            # postgres provider 3.0.0+ the URIs returned by Postgres get_uri() returns postgresql://
+            # instead of postgres:// prefix which is the only supported prefix for the SQLAlchemy 1.4.0+.
+            # restriction needed because some tests failing.
+            # TODO: should be removed in Airflow 2.2.6+
+            "postgres": "<3.0.0",
+        },
     )
 
 
