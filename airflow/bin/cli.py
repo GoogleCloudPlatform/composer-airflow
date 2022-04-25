@@ -407,7 +407,7 @@ def variables_delete(args):
 
 
 def variables_set(args):
-    _vars_wrapper(args, set=args.key)
+    _vars_wrapper(args, set=(args.key, args.value))
 
 
 def variables_import(args):
