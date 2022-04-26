@@ -107,6 +107,9 @@ OrderedDict([('asana',
                'relabeling': {'host': 'Account',
                               'login': 'Username (or API Key)',
                               'schema': 'Database'}}),
+             ('dbt_cloud',
+              {'hidden_fields': ['host', 'port', 'schema', 'extra'],
+               'relabeling': {'login': 'Account ID', 'password': 'API Token'}}),
              ('docker',
               {'hidden_fields': ['schema'],
                'relabeling': {'host': 'Registry URL', 'login': 'Username'}}),
@@ -118,6 +121,13 @@ OrderedDict([('asana',
                                  'port',
                                  'extra'],
                'relabeling': {}}),
+             ('github',
+              {'hidden_fields': ['schema', 'port', 'login', 'extra'],
+               'placeholders': {'host': 'https://{hostname}/api/v3 (for Github '
+                                        'Enterprise Connection)',
+                                'password': 'token credentials auth'},
+               'relabeling': {'host': 'Github Enterprise Url (Optional)',
+                              'password': 'Github Access Token'}}),
              ('google_cloud_platform',
               {'hidden_fields': ['host',
                                  'schema',
@@ -165,23 +175,28 @@ OrderedDict([('asana',
                                          '}',
                                 'extra__snowflake__account': 'snowflake '
                                                              'account name',
-                                'extra__snowflake__aws_access_key_id': 'aws '
-                                                                       'access '
-                                                                       'key id '
-                                                                       '(S3ToSnowflakeOperator)',
-                                'extra__snowflake__aws_secret_access_key': 'aws '
-                                                                           'secret '
-                                                                           'access '
-                                                                           'key '
-                                                                           '(S3ToSnowflakeOperator)',
                                 'extra__snowflake__database': 'snowflake db '
                                                               'name',
+                                'extra__snowflake__insecure_mode': 'insecure '
+                                                                   'mode',
+                                'extra__snowflake__private_key_content': 'Content '
+                                                                         'to '
+                                                                         'snowflake '
+                                                                         'private '
+                                                                         'key '
+                                                                         '(PEM '
+                                                                         'format)',
+                                'extra__snowflake__private_key_file': 'Path of '
+                                                                      'snowflake '
+                                                                      'private '
+                                                                      'key '
+                                                                      '(PEM '
+                                                                      'Format)',
                                 'extra__snowflake__region': 'snowflake hosted '
                                                             'region',
                                 'extra__snowflake__role': 'snowflake role',
                                 'extra__snowflake__warehouse': 'snowflake '
                                                                'warehouse name',
-                                'host': 'snowflake hostname',
                                 'login': 'snowflake username',
                                 'password': 'snowflake password',
                                 'schema': 'snowflake schema'},
