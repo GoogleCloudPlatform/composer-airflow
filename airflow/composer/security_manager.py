@@ -73,12 +73,8 @@ def _decode_inverting_proxy_jwt(inverting_proxy_jwt):
     try:
         credentials, _ = auth.default(scopes=["https://www.googleapis.com/auth/cloud-platform"])
         authed_session = AuthorizedSession(credentials)
-        headers = {
-            "X-Inverting-Proxy-Backend-ID":
-                conf.get("webserver", "inverting_proxy_backend_id")
-        }
-        response = authed_session.request(
-            "GET", conf.get("webserver", "jwt_public_key_url"), headers=headers)
+        headers = {"X-Inverting-Proxy-Backend-ID": conf.get("webserver", "inverting_proxy_backend_id")}
+        response = authed_session.request("GET", conf.get("webserver", "jwt_public_key_url"), headers=headers)
         if response.status_code != 200:
             log.error("Failed to fetch public key for JWT verification, status: %s", response.status_code)
             return None, None
@@ -261,7 +257,7 @@ class ComposerAirflowSecurityManager(AirflowSecurityManager):
             # don't have access to any DAGs by default.
             self.ROLE_CONFIGS.append(
                 {
-                    "role": "NoDags",
+                    "role": "UserNoDags",
                     "perms": [
                         p
                         for p in self.VIEWER_PERMISSIONS + self.USER_PERMISSIONS
@@ -269,8 +265,3 @@ class ComposerAirflowSecurityManager(AirflowSecurityManager):
                     ],
                 }
             )
-            # Note that the role hasn't been added to EXISTING_ROLES in
-            # security.py. This means that AirflowSecurityManager will keep
-            # synchronizing permissions from User role to NoDags role (
-            # including per-DAG permissions, if added manually by admins to
-            # User role, but excluding permissions on all_dags).

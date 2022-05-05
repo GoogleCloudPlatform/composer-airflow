@@ -229,10 +229,10 @@ class TestBase(unittest.TestCase):
         assert resp.get_data() == b"Not authorized or account inactive"
         assert resp.status_code == 403
 
-    def test_nodags_role(self):
+    def test_user_no_dags_role(self):
         self.assertIn(
             {
-                "role": "NoDags",
+                "role": "UserNoDags",
                 "perms": [
                     p
                     for p in self.sm.VIEWER_PERMISSIONS + self.sm.USER_PERMISSIONS
