@@ -1082,6 +1082,10 @@ def add_all_provider_packages() -> None:
             # TODO: (should be removed in Airflow 2.3.0+) package is not compatible with Airflow 2.2.5 and
             # was released before Airflow 2.3.0 release
             "cncf.kubernetes": "<4.0.0",
+            # TODO: (should be removed in Airflow 2.3.0+ and in current Airflow version once we decide to
+            # release 7.0.0+ package in Composer) this is our internal release because customers are
+            # not ready to migrate to google provider package 7.0.0+
+            "google": "==2022.5.18+composer",
             # postgres provider 3.0.0+ the URIs returned by Postgres get_uri() returns postgresql://
             # instead of postgres:// prefix which is the only supported prefix for the SQLAlchemy 1.4.0+.
             # restriction needed because some tests failing.
