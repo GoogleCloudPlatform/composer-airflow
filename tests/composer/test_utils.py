@@ -15,7 +15,7 @@
 import unittest
 from unittest import mock
 
-from airflow.composer.utils import get_composer_version, is_composer_v1
+from airflow.composer.utils import get_composer_version, is_composer_v1, is_triggerer_enabled
 
 
 class TestUtils(unittest.TestCase):
@@ -32,3 +32,7 @@ class TestUtils(unittest.TestCase):
 
         with mock.patch.dict("os.environ", clear=True):
             self.assertTrue(is_composer_v1())
+
+    def test_is_triggerer_enabled_default(self):
+        self.assertFalse(is_triggerer_enabled())
+

@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import os
+from airflow.configuration import conf
 
 
 def get_composer_version():
@@ -20,6 +21,9 @@ def get_composer_version():
     # FIXME: update Kokoro tests to avoid handling of unknown Composer version here.
     return os.environ.get("COMPOSER_VERSION")
 
+def is_triggerer_enabled():
+    enable_triggerer = conf.getboolean("composer", "enable_triggerer", fallback=False)
+    return enable_triggerer
 
 def is_composer_v1():
     """Determines if Airflow is running under Composer v1."""
