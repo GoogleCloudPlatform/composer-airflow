@@ -19,6 +19,10 @@ from typing import Dict
 
 _LOG_SEPARATOR = "@-@"
 _WORKFLOW_INFO_RECORD_KEY = "workflow_info"
+# Max size of Cloud Logging log entry is ~256K ~ 65000 4-byte chars ~260000 1-byte chars.
+# Given that log entry also includes label and 4096 characters is a full screen
+# of text, splitting them at 4096 should be fine.
+_LOG_LINE_SPLIT_LENGTH = 4096
 
 
 def strip_separator_from_log(log: str):
@@ -41,18 +45,23 @@ def set_task_log_info(record: logging.LogRecord, workflow_info: Dict[str, str]) 
 class TaskFormatter(logging.Formatter):
     """Formatter that appends additional task metadata for Cloud Logging."""
 
-    def __init__(self, fmt: str = None, *args, **kwargs):
-        fmt_task = (fmt or "%(message)s") + f"%({_WORKFLOW_INFO_RECORD_KEY})s"
-        self.workflow_info_formatter = logging.Formatter(fmt_task, *args, **kwargs)
-        super().__init__(fmt, *args, **kwargs)
-
     def format(self, record: logging.LogRecord):
-        if not hasattr(record, _WORKFLOW_INFO_RECORD_KEY):
-            return super().format(record)
-        formatted_message = self.workflow_info_formatter.format(record)
-        if record.stack_info or record.exc_info:
-            # Exception or stack info are emmited as separate log entries
-            # from the perspective of Cloud Logging and have to be annotated
-            # with metadata separately.
-            formatted_message += getattr(record, _WORKFLOW_INFO_RECORD_KEY)
-        return formatted_message
+        formatted_message = super().format(record)
+        lines_to_escape = [
+            formatted_message[i : i + _LOG_LINE_SPLIT_LENGTH]
+            for i in range(0, len(formatted_message), _LOG_LINE_SPLIT_LENGTH)
+        ]
+        # New lines are mostly translated into a new log entry in Cloud Logging.
+        # But for some patterns that do not apply as GKE logging processor can
+        # combine some of the lines, for ex. Python error traces.
+        # To keep logging consitent, escape all new line characters and
+        # translate them back in composer-fluentd. This way log entries will be
+        # consistent even if they are multi-line and/or have exception traces.
+        escaped_lines = map(
+            lambda line: line.replace("\\", "\\\\").replace("\n", "\\n").replace("\r", "\\r"),
+            lines_to_escape,
+        )
+        if hasattr(record, _WORKFLOW_INFO_RECORD_KEY):
+            workflow_annotation = getattr(record, _WORKFLOW_INFO_RECORD_KEY)
+            escaped_lines = map(lambda line: line + workflow_annotation, escaped_lines)
+        return "\n".join(escaped_lines)
