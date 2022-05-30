@@ -69,7 +69,7 @@ class TestTimeSensorAsync:
         assert exc_info.value.method_name == "execute_complete"
         assert exc_info.value.kwargs is None
 
-    @patch.dict("os.environ", {"COMPOSER_VERSION": "1.18.0"})
+    @patch.dict("os.environ", {"COMPOSER_VERSION": "2.15.2"})
     def test_task_fails_to_defer(self):
         from airflow.exceptions import AirflowException
 
@@ -83,3 +83,25 @@ class TestTimeSensorAsync:
             "Composer doesn't support deferrable operators yet. Tasks that are using "
             "deferrable operators will fail to execute with this message."
         )
+
+    @patch.dict("os.environ", {"COMPOSER_VERSION": "2.15.2"})
+    def test_task_is_deferred_when_triggerer_enabled(self):
+        with DAG("test_task_is_deferred",
+                 start_date=timezone.datetime(2020, 1, 1, 23, 0)):
+            op = TimeSensorAsync(task_id="test", target_time=time(10, 0))
+
+        with patch("airflow.configuration.conf.getboolean", autospec=True) \
+            as mock:
+
+            def mock_get_boolean(section, key, **kwargs):
+                return section == "composer" and key == "enable_triggerer"
+
+            mock.side_effect = mock_get_boolean
+            with pytest.raises(TaskDeferred) as exc_info:
+                op.execute({})
+
+            mock.assert_called_once_with(section="composer",
+                                         key="enable_triggerer",
+                                         fallback=False)
+
+        assert isinstance(exc_info.value.trigger, DateTimeTrigger)
