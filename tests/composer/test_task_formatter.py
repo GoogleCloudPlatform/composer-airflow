@@ -29,6 +29,10 @@ TEST_TASK_FORMATTER_CONFIG = copy.deepcopy(airflow_local_settings.DEFAULT_LOGGIN
 TEST_TASK_FORMATTER_CONFIG['handlers']['task_console']['stream'] = io.StringIO()
 
 
+def get_long_message():
+    return 'a' * 4096 + 'b' * 4096 + 'ccc'
+
+
 class TestTaskFormatter(unittest.TestCase):
     def setUp(self):
         logging.config.dictConfig(TEST_TASK_FORMATTER_CONFIG)
@@ -73,13 +77,61 @@ class TestTaskFormatter(unittest.TestCase):
 
         self.assertRegex(
             self.stream.getvalue(),
-            '.*ERROR - sample-exception@-@{'
+            r'(?s:.*ERROR - sample-exception\\n'
+            + 'Traceback.*'
+            + 'AssertionError@-@{"workflow": "dag_for_testing_composer_task_formatter", '
+            + '"task-id": "task_for_testing_composer_task_formatter", '
+            + '"execution-date": "2020-01-01T00:00:00\\+00:00", "try-number": "1"}\n)',
+        )
+
+    def test_persists_esacaped_characters(self):
+        self.ti.init_run_context()
+        self.ti.log.info('message with \\n escape characters and \n new \r lines \t')
+
+        self.assertRegex(
+            self.stream.getvalue(),
+            r'.* INFO - message with \\\\n escape characters and \\n '
+            + r'new \\r lines \t@-@{'
             + '"workflow": "dag_for_testing_composer_task_formatter", '
             + '"task-id": "task_for_testing_composer_task_formatter", '
             + r'"execution-date": "2020-01-01T00:00:00\+00:00", '
-            + '"try-number": "1"}\n'
-            + 'Traceback(?s).*'
-            + 'AssertionError@-@{"workflow": "dag_for_testing_composer_task_formatter", '
+            + '"try-number": "1"}\n',
+        )
+
+    def test_splits_and_appends_metadata_to_long_lines(self):
+        self.ti.init_run_context()
+        self.ti.log.info(get_long_message())
+
+        value = self.stream.getvalue()
+        lines = value.split('\n')
+        self.assertEqual(len(lines), 4)
+        self.assertEqual(lines[-1], '')
+        lines = lines[:-1]
+        expected_annotation = (
+            '@-@{'
+            + '"workflow": "dag_for_testing_composer_task_formatter", '
             + '"task-id": "task_for_testing_composer_task_formatter", '
-            + '"execution-date": "2020-01-01T00:00:00\\+00:00", "try-number": "1"}\n',
+            + r'"execution-date": "2020-01-01T00:00:00+00:00", '
+            + '"try-number": "1"}'
+        )
+        for line in lines:
+            self.assertLessEqual(len(line), 4096 + len(expected_annotation))
+            self.assertRegex(
+                line,
+                '.*@-@{'
+                + '"workflow": "dag_for_testing_composer_task_formatter", '
+                + '"task-id": "task_for_testing_composer_task_formatter", '
+                + r'"execution-date": "2020-01-01T00:00:00\+00:00", '
+                + '"try-number": "1"}',
+            )
+
+    def test_persists_all_characters_in_split_lines(self):
+        self.ti.init_run_context()
+        self.ti.log.info(get_long_message())
+
+        value = self.stream.getvalue()
+        lines = value.split('\n')
+        lines = lines[:-1]
+        self.assertEqual(
+            get_long_message(), ''.join([line.split('@-@')[0].split('INFO - ')[-1] for line in lines])
         )
