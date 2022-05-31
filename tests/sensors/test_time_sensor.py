@@ -94,13 +94,14 @@ class TestTimeSensorAsync:
             as mock:
 
             def mock_get_boolean(section, key, **kwargs):
-                return section == "composer" and key == "enable_triggerer"
+                return (section == "composer_internal" and
+                        key == "enable_triggerer")
 
             mock.side_effect = mock_get_boolean
             with pytest.raises(TaskDeferred) as exc_info:
                 op.execute({})
 
-            mock.assert_called_once_with(section="composer",
+            mock.assert_called_once_with(section="composer_internal",
                                          key="enable_triggerer",
                                          fallback=False)
 

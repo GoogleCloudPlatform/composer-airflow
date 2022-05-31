@@ -22,7 +22,9 @@ def get_composer_version():
     return os.environ.get("COMPOSER_VERSION")
 
 def is_triggerer_enabled():
-    enable_triggerer = conf.getboolean("composer", "enable_triggerer", fallback=False)
+    enable_triggerer = conf.getboolean("composer_internal",
+                                       "enable_triggerer",
+                                       fallback=False)
     return enable_triggerer
 
 def is_composer_v1():
