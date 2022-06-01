@@ -25,24 +25,40 @@ from typing import Optional
 
 import requests
 
+from airflow.composer.task_formatter import set_task_log_info
 from airflow.configuration import conf
 from airflow.configuration import AirflowConfigException
 from airflow.utils.file import mkdirs
 from airflow.utils.helpers import parse_template_string
 
 
-def append_composer_suffix(record, info):
-    # @-@: special delimiter for appending workflow info.
-    delimiter = '@-@'
-    if info and delimiter not in str(record.args) and delimiter not in str(record.msg):
-        record.msg = str(record.msg) + delimiter + json.dumps(info)
-    return record
+class WorkflowContextProcessor:
+    """Helper processor for adding workflow information to log records."""
+    def __init__(self):
+        self.workflow_info: Dict[str, str] = {}
+
+    def set_context(self, ti: "TaskInstance"):
+        """
+        Provide task_instance context.
+        :param ti: task instance object
+        """
+        self.workflow_info = {
+            'workflow': ti.dag_id,
+            'task-id': ti.task_id,
+            'execution-date': ti.execution_date.isoformat(),
+            'try-number': str(ti.try_number),
+        }
+
+    def add_context_to_record(self, record: logging.LogRecord):
+        """Add workflow context to log record."""
+        if self.workflow_info:
+            set_task_log_info(record, self.workflow_info)
 
 
 class StreamTaskHandler(logging.StreamHandler):
     def __init__(self, *args, **kwargs):
         super(StreamTaskHandler, self).__init__(*args, **kwargs)
-        self.workflow_info = {}
+        self.workflow_context_processor = WorkflowContextProcessor()
 
     def set_context(self, ti):
         """
@@ -50,14 +66,10 @@ class StreamTaskHandler(logging.StreamHandler):
 
         :param ti: task instance object
         """
-        self.workflow_info = {
-            'workflow': ti.dag_id,
-            'task-id': ti.task_id,
-            'execution-date': ti.execution_date.isoformat()
-        }
+        self.workflow_context_processor.set_context(ti)
 
     def emit(self, record):
-        record = append_composer_suffix(record, self.workflow_info)
+        self.workflow_context_processor.add_context_to_record(record)
         super(StreamTaskHandler, self).emit(record)
 
 
@@ -77,7 +89,7 @@ class FileTaskHandler(logging.Handler):
         self.local_base = base_log_folder
         self.filename_template, self.filename_jinja_template = \
             parse_template_string(filename_template)
-        self.workflow_info = {}
+        self.workflow_context_processor = WorkflowContextProcessor()
 
     def set_context(self, ti):
         """
@@ -90,14 +102,10 @@ class FileTaskHandler(logging.Handler):
         if self.formatter:
             self.handler.setFormatter(self.formatter)
         self.handler.setLevel(self.level)
-        self.workflow_info = {
-            'workflow': ti.dag_id,
-            'task-id': ti.task_id,
-            'execution-date': ti.execution_date.isoformat()
-        }
+        self.workflow_context_processor.set_context(ti)
 
     def emit(self, record):
-        record = append_composer_suffix(record, self.workflow_info)
+        self.workflow_context_processor.add_context_to_record(record)
         if self.handler:
             self.handler.emit(record)
 

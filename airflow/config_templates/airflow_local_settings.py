@@ -73,6 +73,10 @@ DEFAULT_LOGGING_CONFIG = {
             'format': COLORED_LOG_FORMAT if COLORED_LOG else LOG_FORMAT,
             FORMATTER_CLASS_KEY: COLORED_FORMATTER_CLASS if COLORED_LOG else 'logging.Formatter'
         },
+        'composer_airflow_task': {
+            'format': LOG_FORMAT,
+            '()': 'airflow.composer.task_formatter.TaskFormatter',
+        },
     },
     'filters': {
         'redis_warning': {
@@ -88,7 +92,7 @@ DEFAULT_LOGGING_CONFIG = {
         },
         'task_console': {
             'class': 'airflow.utils.log.file_task_handler.StreamTaskHandler',
-            'formatter': 'airflow',
+            'formatter': 'composer_airflow_task',
             'stream': 'ext://sys.__stdout__'
         },
         'task': {
