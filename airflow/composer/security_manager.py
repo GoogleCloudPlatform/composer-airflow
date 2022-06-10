@@ -241,13 +241,6 @@ class ComposerAirflowSecurityManager(AirflowSecurityManager):
 
     authremoteuserview = ComposerAuthRemoteUserView
 
-    # Hide User's Statistics page, which is broken due to a bug in
-    # Flask-AppBuilder:
-    # https://github.com/dpgaspar/Flask-AppBuilder/issues/1442.
-    # The issue has already been fixed there but Airflow 1.10.* depends on an
-    # older version of Flask-AppBuilder.
-    userstatschartview = None
-
     def __init__(self, appbuilder):
         super().__init__(appbuilder)
         if conf.getboolean("webserver", "rbac_autoregister_per_folder_roles", fallback=False):
