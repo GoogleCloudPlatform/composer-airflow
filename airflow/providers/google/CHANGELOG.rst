@@ -34,7 +34,14 @@ Breaking changes
    For more information, see `Deprecation and sunset <https://developers.google.com/google-ads/api/docs/sunset-dates>`_
    and `Upgrading to the newest version <https://developers.google.com/google-ads/api/docs/version-migration>`_
 
-2022.5.15+composer (Only for Composer)
+2022.6.14+composer (Only for Composer)
+.....
+
+Cherry-picked changes from the community:
+* https://github.com/apache/airflow/pull/24416
+* https://github.com/apache/airflow/pull/23078
+
+2022.5.18+composer (Only for Composer)
 .....
 
 Breaking changes
