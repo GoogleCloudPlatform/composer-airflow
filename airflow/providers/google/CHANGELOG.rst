@@ -34,6 +34,12 @@ Breaking changes
    For more information, see `Deprecation and sunset <https://developers.google.com/google-ads/api/docs/sunset-dates>`_
    and `Upgrading to the newest version <https://developers.google.com/google-ads/api/docs/version-migration>`_
 
+2022.6.22+composer (Only for Composer)
+.....
+
+Support Airflow 2.1.4 compatibility, use 'execution_date'
+instead of 'logical_date' which does not exist in Airflow 2.1.4
+
 2022.6.14+composer (Only for Composer)
 .....
 
