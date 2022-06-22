@@ -490,6 +490,8 @@ zendesk = [
 ]
 composer_additional = [
     "crcmod<2.0",
+    # in the newest version one of the deprecated methods was removed which gives a import error.
+    "cryptography==36.0.2",
     "google-apitools",
     "google-cloud-aiplatform",
     "google-cloud-datastore",
@@ -1013,7 +1015,7 @@ def add_all_provider_packages() -> None:
             # TODO: (should be removed in Airflow 2.3.0+ and in current Airflow version once we decide to
             # release 7.0.0+ package in Composer) this is our internal release because customers are
             # not ready to migrate to google provider package 7.0.0+
-            "google": "==2022.6.14+composer",
+            "google": "==2022.6.22+composer",
             "hashicorp": "<3.0.0",  # >= 3.0.0 is not supported by the 2.1.4
             "http": "<3.0.0",  # >= 3.0.0 is not supported by the 2.1.4
             "mysql": "<3.0.0",  # >= 3.0.0 is not supported by the 2.1.4
