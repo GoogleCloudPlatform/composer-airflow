@@ -196,11 +196,19 @@ class BigQueryToGCSOperator(BaseOperator):
         self.hook = hook
 
         configuration = self._prepare_configuration()
+
+        if "logical_date" not in context:
+            # In the Airflow 2.1.4 the logical_date is not available in the context so we need to use old
+            # version of it
+            logical_date = context["execution_date"]
+        else:
+            logical_date = context["logical_date"]
+
         job_id = hook.generate_job_id(
             job_id=self.job_id,
             dag_id=self.dag_id,
             task_id=self.task_id,
-            logical_date=context["logical_date"],
+            logical_date=logical_date,
             configuration=configuration,
             force_rerun=self.force_rerun,
         )
