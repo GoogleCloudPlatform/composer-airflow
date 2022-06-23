@@ -169,6 +169,26 @@ DEFAULT_DAG_PARSING_LOGGING_CONFIG: Dict[str, Dict[str, Dict[str, Any]]] = {
     },
 }
 
+# Experimental release of logs in Cloud Logging only for go/cc2-gcsfuse-ooms
+if os.environ.get('EXPERIMENTAL_CLOUD_LOGGING_ONLY') == 'True':
+    COMPOSER_TASK_HANDLER: Dict[str, Dict[str, str]] = {
+        'task': {
+            'class': 'airflow.composer.composer_task_handler.ComposerTaskHandler',
+            'formatter': 'composer_airflow_task',
+            'stream': 'ext://sys.__stdout__',
+        },
+    }
+    AIRFLOW_TASK_LOGGER: Dict[str, Dict[str, str]] = {
+        'airflow.task': {
+            'handlers': ['task'],
+            'level': LOG_LEVEL,
+            'propagate': False,
+            'filters': ['mask_secrets'],
+        },
+    }
+    DEFAULT_LOGGING_CONFIG['loggers'].update(AIRFLOW_TASK_LOGGER)
+    DEFAULT_LOGGING_CONFIG['handlers'].update(COMPOSER_TASK_HANDLER)
+
 # Only update the handlers and loggers when CONFIG_PROCESSOR_MANAGER_LOGGER is set.
 # This is to avoid exceptions when initializing RotatingFileHandler multiple times
 # in multiple processes.
@@ -190,7 +210,7 @@ if os.environ.get('CONFIG_PROCESSOR_MANAGER_LOGGER') == 'True':
 
 REMOTE_LOGGING: bool = conf.getboolean('logging', 'remote_logging')
 
-if REMOTE_LOGGING:
+if REMOTE_LOGGING and os.environ.get('EXPERIMENTAL_CLOUD_LOGGING_ONLY') != 'True':
 
     ELASTICSEARCH_HOST: str = conf.get('elasticsearch', 'HOST')
 
