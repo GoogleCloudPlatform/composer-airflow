@@ -1,0 +1,172 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+import io
+import logging
+import unittest
+from unittest import mock
+
+from google.cloud.logging_v2.types import ListLogEntriesRequest, ListLogEntriesResponse, LogEntry
+from google.logging.type import log_severity_pb2
+from google.protobuf import timestamp_pb2
+
+from airflow.composer.composer_task_handler import ComposerTaskHandler
+from airflow.composer.task_formatter import TaskFormatter
+from airflow.models import TaskInstance
+from airflow.models.dag import DAG
+from airflow.operators.dummy import DummyOperator
+from airflow.utils import timezone
+from airflow.utils.state import State
+
+
+def _create_list_log_entries_response_mock(messages, token):
+    dummy_timestamp = timestamp_pb2.Timestamp()
+    dummy_timestamp.FromJsonString("2022-01-01T00:00:10+00:00")
+    return ListLogEntriesResponse(
+        entries=[
+            LogEntry(
+                timestamp=dummy_timestamp,
+                text_payload=message,
+                severity=log_severity_pb2.INFO,
+                labels={"process": "taskinstance.py:90"},
+            )
+            for message in messages
+        ],
+        next_page_token=token,
+    )
+
+
+def _remove_stackdriver_handlers():
+    for handler_ref in reversed(logging._handlerList[:]):
+        handler = handler_ref()
+        if not isinstance(handler, ComposerTaskHandler):
+            continue
+        logging._removeHandlerRef(handler_ref)
+        del handler
+
+
+class TestComposerLoggingHandlerTask(unittest.TestCase):
+    maxDiff = None
+
+    def setUp(self) -> None:
+        self.composerTaskHandler = ComposerTaskHandler()
+        self.logger = logging.getLogger("logger")
+
+        date = timezone.datetime(2022, 1, 1)
+        self.dag = DAG('dag_for_testing_composer_task_handler', start_date=date)
+        task = DummyOperator(task_id='task_for_testing_composer_log_handler', dag=self.dag)
+        self.ti = TaskInstance(task=task, execution_date=date, state=State.RUNNING)
+        self.ti.start_date = date
+        self.ti.end_date = timezone.datetime(2022, 1, 3)
+        self.ti.try_number = 1
+        self.addCleanup(self.dag.clear)
+        self.addCleanup(_remove_stackdriver_handlers)
+
+    @mock.patch('airflow.composer.composer_task_handler.get_credentials_and_project_id')
+    @mock.patch('airflow.composer.composer_task_handler.LoggingServiceV2Client')
+    def test_should_read_logs_for_single_try(self, mock_client, mock_get_creds_and_project_id):
+        mock_client.return_value.list_log_entries.return_value.pages = iter(
+            [_create_list_log_entries_response_mock(["MSG1", "MSG2"], None)]
+        )
+        mock_get_creds_and_project_id.return_value = ('creds', 'project_id')
+
+        self.composerTaskHandler.read(self.ti, 1)
+        mock_client.return_value.list_log_entries.assert_called_once_with(
+            request=ListLogEntriesRequest(
+                resource_names=["projects/project_id"],
+                filter=(
+                    'resource.type="cloud_composer_environment"\n'
+                    'logName="projects/project_id/logs/airflow-worker"\n'
+                    'timestamp>="2022-01-01T00:00:00+00:00"\n'
+                    'timestamp<="2022-01-03T00:00:00+00:00"\n'
+                    'labels.task-id="task_for_testing_composer_log_handler"\n'
+                    'labels.workflow="dag_for_testing_composer_task_handler"\n'
+                    'labels.execution-date="2022-01-01T00:00:00+00:00"\n'
+                    'labels.try-number="1"'
+                ),
+                order_by='timestamp asc',
+                page_size=1000,
+                page_token=None,
+            )
+        )
+
+    @mock.patch('airflow.composer.composer_task_handler.get_credentials_and_project_id')
+    @mock.patch('airflow.composer.composer_task_handler.LoggingServiceV2Client')
+    def test_should_read_logs_for_all_tries(self, mock_client, mock_get_creds_and_project_id):
+        mock_get_creds_and_project_id.return_value = ('creds', 'project_id')
+
+        self.composerTaskHandler.read(self.ti)
+        mock_client.return_value.list_log_entries.assert_called_once_with(
+            request=ListLogEntriesRequest(
+                resource_names=["projects/project_id"],
+                filter=(
+                    'resource.type="cloud_composer_environment"\n'
+                    'logName="projects/project_id/logs/airflow-worker"\n'
+                    'timestamp>="2022-01-01T00:00:00+00:00"\n'
+                    'timestamp<="2022-01-03T00:00:00+00:00"\n'
+                    'labels.task-id="task_for_testing_composer_log_handler"\n'
+                    'labels.workflow="dag_for_testing_composer_task_handler"\n'
+                    'labels.execution-date="2022-01-01T00:00:00+00:00"'
+                ),
+                order_by='timestamp asc',
+                page_size=1000,
+                page_token=None,
+            )
+        )
+
+    @mock.patch('airflow.composer.composer_task_handler.get_credentials_and_project_id')
+    @mock.patch('airflow.composer.composer_task_handler.LoggingServiceV2Client')
+    def test_log_entries_are_formatted_in_expected_format(self, mock_client, mock_get_creds_and_project_id):
+        mock_client.return_value.list_log_entries.return_value.pages = iter(
+            [_create_list_log_entries_response_mock(["MSG1", "MSG2"], None)]
+        )
+        mock_get_creds_and_project_id.return_value = ('creds', 'project_id')
+
+        logs, metadata = self.composerTaskHandler.read(self.ti, 1)
+
+        assert [
+            (
+                (
+                    'default-hostname',
+                    '[2022-01-01 00:00:10+00:00] {taskinstance.py:90} INFO - MSG1\n'
+                    '[2022-01-01 00:00:10+00:00] {taskinstance.py:90} INFO - MSG2',
+                ),
+            )
+        ] == logs
+        assert [{'end_of_log': True}] == metadata
+
+    def test_should_write_logs_to_stream(self):
+        captured_output = io.StringIO(newline=None)
+        composer_task_handler2 = ComposerTaskHandler(stream=captured_output)
+        composer_task_handler2.setFormatter(TaskFormatter())
+        composer_task_handler2.set_context(self.ti)
+        composer_task_handler2.emit(
+            logging.LogRecord(
+                name="NAME",
+                level="DEBUG",
+                pathname=None,
+                lineno=None,
+                msg="MESSAGE",
+                args=None,
+                exc_info=None,
+            )
+        )
+        composer_task_handler2.close()
+
+        self.assertEqual(
+            'MESSAGE@-@{"workflow": "dag_for_testing_composer_task_handler", "task-id": "task_for_testing_composer_log_handler", "execution-date": "2022-01-01T00:00:00+00:00", "try-number": "1"}\n',
+            captured_output.getvalue(),
+        )

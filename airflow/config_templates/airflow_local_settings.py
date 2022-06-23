@@ -169,6 +169,26 @@ DEFAULT_DAG_PARSING_LOGGING_CONFIG: Dict[str, Dict[str, Dict[str, Any]]] = {
     },
 }
 
+if os.environ.get('USE_COMPOSER_LOGGING_HANDLER') == 'True':
+    COMPOSER_TASK_HANDLER: Dict[str, Dict[str, str]] = {
+        'task': {
+            'class': 'airflow.composer.composer_task_handler.ComposerTaskHandler',
+            'formatter': 'composer_airflow_task',
+            'stream': 'ext://sys.__stdout__',
+        },
+    }
+    AIRFLOW_TASK_LOGGER: Dict[str, Dict[str, str]] = {
+        'airflow.task': {
+            'handlers': ['task'],
+            'level': LOG_LEVEL,
+            'propagate': False,
+            'filters': ['mask_secrets'],
+        },
+    }
+    DEFAULT_LOGGING_CONFIG['loggers'].update(AIRFLOW_TASK_LOGGER)
+    DEFAULT_LOGGING_CONFIG['handlers'].update(COMPOSER_TASK_HANDLER)
+
+
 # Only update the handlers and loggers when CONFIG_PROCESSOR_MANAGER_LOGGER is set.
 # This is to avoid exceptions when initializing RotatingFileHandler multiple times
 # in multiple processes.
@@ -227,7 +247,9 @@ if REMOTE_LOGGING:
 
         DEFAULT_LOGGING_CONFIG['handlers'].update(CLOUDWATCH_REMOTE_HANDLERS)
     elif REMOTE_BASE_LOG_FOLDER.startswith('gs://'):
-        if os.environ.get("AIRFLOW_WEBSERVER", None) == "True":
+        if (os.environ.get("AIRFLOW_WEBSERVER", None) == "True") and (
+            os.environ.get('USE_COMPOSER_LOGGING_HANDLER') != 'True'
+        ):
             # We need to configure this logger only for webserver.
             # Logs from worker/scheduler are synced using gcsfuse
             key_path = conf.get('logging', 'GOOGLE_KEY_PATH', fallback=None)
