@@ -1086,6 +1086,13 @@ def add_all_provider_packages() -> None:
             # release 7.0.0+ package in Composer) this is our internal release because customers are
             # not ready to migrate to google provider package 7.0.0+
             "google": "==2022.6.22+composer",
+            # mysql provider 2.2.1+ versions doesn't have get_uri() method inside MySqlHook.
+            # This means that method from DbApiHook class will be used instead which doesn't have functional
+            # for adding extra parameters to URI.
+            # TODO: (should be removed in Airflow 2.3.0+) since Airflow 2.3.0+ get_uri() method in DbApiHook
+            # starts to call get_uri() method on a connection object which has functional for adding extra
+            # parameters to URI.
+            "mysql": "<2.2.1",
             # postgres provider 3.0.0+ the URIs returned by Postgres get_uri() returns postgresql://
             # instead of postgres:// prefix which is the only supported prefix for the SQLAlchemy 1.4.0+.
             # restriction needed because some tests failing.
