@@ -552,6 +552,8 @@ composer_additional = [
     "gcsfs",
     "google-apitools",
     "google-cloud-aiplatform",
+    # This package is hosted from AR repository, it is not available in public pypi.
+    "google-cloud-datacatalog-lineage-producer-client",
     "google-cloud-datastore",
     "google-cloud-filestore",
     # higher version of package have conflict in the dependencies with the google-ads package
@@ -878,6 +880,10 @@ devel_all = list(set(_all_requirements + doc + devel + devel_hadoop))
 PACKAGES_EXCLUDED_FOR_ALL = []
 PACKAGES_EXCLUDED_FOR_ALL.extend(
     [
+        # Exclude this package from devel_all/devel_ci extras, it is not needed there and
+        # since this package is hosted from AR repo it requires setting up authentication
+        # that we can avoid if we will not install it.
+        'google-cloud-datacatalog-lineage-producer-client',
         'snakebite',
     ]
 )
