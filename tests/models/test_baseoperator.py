@@ -607,6 +607,38 @@ class TestBaseOperator:
         op_copy.post_execute({})
         assert hook.called
 
+    @mock.patch("airflow.composer.data_lineage.operators.post_execute_prepare_lineage", autospec=True)
+    def test_composer_post_execute_prepare_lineage(self, mock_post_execute_prepare_lineage):
+        from tests.test_utils.config import conf_vars
+
+        op = BaseOperator(task_id="test_task")
+        op_copy = op.prepare_for_execution()
+
+        with conf_vars(
+            {
+                ("lineage", "backend"): "airflow.composer.data_lineage.backend.ComposerDataLineageBackend",
+            }
+        ):
+            op_copy.post_execute({})
+
+        mock_post_execute_prepare_lineage.assert_called_once_with(op, {})
+
+    @mock.patch("airflow.composer.data_lineage.operators.post_execute_prepare_lineage", autospec=True)
+    def test_composer_post_execute_prepare_lineage_not_called(self, mock_post_execute_prepare_lineage):
+        from tests.test_utils.config import conf_vars
+
+        op = BaseOperator(task_id="test_task")
+        op_copy = op.prepare_for_execution()
+
+        with conf_vars(
+            {
+                ("lineage", "backend"): "openlineage.lineage_backend.OpenLineageBackend",
+            }
+        ):
+            op_copy.post_execute({})
+
+        mock_post_execute_prepare_lineage.assert_not_called()
+
     def test_task_naive_datetime(self):
         naive_datetime = DEFAULT_DATE.replace(tzinfo=None)
 
