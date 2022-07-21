@@ -1122,6 +1122,18 @@ class BaseOperator(AbstractOperator, metaclass=BaseOperatorMeta):
         if self._post_execute_hook is not None:
             self._post_execute_hook(context, result)
 
+        if (
+            conf.get("lineage", "backend", fallback="")
+            == "airflow.composer.data_lineage.backend.ComposerDataLineageBackend"
+        ):
+            # Apply Composer patch to prepare lineage on post task execution only if
+            # ComposerDataLineageBackend is enabled.
+            # In community this might be executed once some configuration option is set or even
+            # always if considered to be fine so.
+            from airflow.composer.data_lineage.operators import post_execute_prepare_lineage
+
+            post_execute_prepare_lineage(self, context)
+
     def on_kill(self) -> None:
         """
         Override this method to clean up subprocesses when a task instance
