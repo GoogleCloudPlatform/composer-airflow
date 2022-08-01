@@ -572,9 +572,14 @@ zendesk = [
 ]
 composer_additional = [
     "crcmod<2.0",
+    "firebase-admin",
+    "gcsfs",
     "google-apitools",
     "google-cloud-aiplatform",
     "google-cloud-datastore",
+    "google-cloud-filestore",
+    # higher version of package have conflict in the dependencies with the google-ads package
+    "google-cloud-firestore==2.5.0",
     "google-cloud-pubsublite<1.0.0",
     "keyrings.google-artifactregistry-auth",
     "pip<20.3.0",
@@ -1130,6 +1135,7 @@ def add_all_provider_packages() -> None:
         [
             "apache.beam",
             "cncf.kubernetes",
+            "dbt-cloud",
             "google",
             "hashicorp",
             "http",
@@ -1137,6 +1143,7 @@ def add_all_provider_packages() -> None:
             "postgres",
             "sendgrid",
             "ssh",
+            "sqlite",
         ],
         {
             # TODO: (should be removed in Airflow 2.3.4+) generic code for SQL operators and hooks was moved
