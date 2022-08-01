@@ -1005,6 +1005,7 @@ def add_all_provider_packages() -> None:
             "mysql",
             "postgres",
             "sendgrid",
+            "sqlite",
             "ssh",
         ],
         {
@@ -1015,7 +1016,7 @@ def add_all_provider_packages() -> None:
             # TODO: (should be removed in Airflow 2.3.0+ and in current Airflow version once we decide to
             # release 7.0.0+ package in Composer) this is our internal release because customers are
             # not ready to migrate to google provider package 7.0.0+
-            "google": "==2022.6.22+composer",
+            "google": "==2022.8.1+composer",
             "hashicorp": "<3.0.0",  # >= 3.0.0 is not supported by the 2.1.4
             "http": "<3.0.0",  # >= 3.0.0 is not supported by the 2.1.4
             # mysql provider 2.2.1+ versions doesn't have get_uri() method inside MySqlHook.
@@ -1031,6 +1032,10 @@ def add_all_provider_packages() -> None:
             # TODO: should be removed in Airflow 2.2.4+
             "postgres": "<3.0.0",
             "sendgrid": "<3.0.0",  # >= 3.0.0 is not supported by the 2.1.4
+            # TODO: (should be removed in Airflow 2.3.3+) higher version of package using new imports
+            # from new common-sql provider where generic code was moved, this causes an issues in the tests
+            # for the core operators
+            "sqlite": "==3.0.0",
             "ssh": "<3.0.0",  # >= 3.0.0 is not supported by the 2.1.4
         },
     )
