@@ -110,7 +110,7 @@ DEFAULT_LOGGING_CONFIG: Dict[str, Any] = {
     'loggers': {
         'airflow.processor': {
             'handlers': ['processor'],
-            'level': LOG_LEVEL,
+            'level': 99,  # Set higher than CRITICAL to not write logs of processing DAG files anywhere.
             'propagate': False,
         },
         'airflow.task': {
