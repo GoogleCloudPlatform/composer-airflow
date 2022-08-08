@@ -60,3 +60,7 @@ class BigQueryInsertJobOperatorLineageMixin:
                 table_id=output_table["tableId"],
             )
             self.outlets.append(outlet)
+
+            # TODO: fix inlets containing outlet and remove this temporary workaround. We have this workaround
+            # for now as it is rather an edge case when inlets containing outlet.
+            self.inlets = [_inlet for _inlet in self.inlets if _inlet != outlet]

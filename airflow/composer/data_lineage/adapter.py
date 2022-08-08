@@ -90,7 +90,8 @@ class ComposerDataLineageAdapter:
                 "dag_run_id": task_instance_run_id,
             },
             start_time=task_instance.start_date,
-            end_time=task_instance.end_date,
+            # task_instance.end_date is empty at the moment of sending lineage data.
+            end_time=datetime.datetime.utcnow(),
             state="COMPLETED",
         )
 

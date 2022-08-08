@@ -79,12 +79,12 @@ class TestAdapter(unittest.TestCase):
         )
         self.assertEqual(actual_process, expected_process)
 
+    @freeze_time("2022-08-01 10:11:12")
     def test_construct_run(self):
         adapter = ComposerDataLineageAdapter()
         mock_task_instance = mock.Mock(
             run_id="test-run-id",
             start_date=datetime.datetime(2022, 8, 3, 1, 5, 7),
-            end_date=datetime.datetime(2022, 8, 3, 1, 5, 10),
         )
 
         actual_run = adapter._construct_run(mock_task_instance, "test-process")
@@ -96,7 +96,7 @@ class TestAdapter(unittest.TestCase):
                 "dag_run_id": "test-run-id",
             },
             start_time=datetime.datetime(2022, 8, 3, 1, 5, 7),
-            end_time=datetime.datetime(2022, 8, 3, 1, 5, 10),
+            end_time=datetime.datetime(2022, 8, 1, 10, 11, 12),
             state="COMPLETED",
         )
         self.assertEqual(actual_run, expected_run)
@@ -153,7 +153,6 @@ class TestAdapter(unittest.TestCase):
                 task=mock.Mock(dag=mock.Mock(dag_id="dag-1"), task_id="task-1"),
                 run_id="test-run-id",
                 start_date=datetime.datetime(2022, 8, 1, 1, 2, 3),
-                end_date=datetime.datetime(2022, 8, 1, 1, 2, 4),
             ),
             [
                 BigQueryTable(
@@ -192,7 +191,7 @@ class TestAdapter(unittest.TestCase):
                     "dag_run_id": "test-run-id",
                 },
                 start_time=datetime.datetime(2022, 8, 1, 1, 2, 3),
-                end_time=datetime.datetime(2022, 8, 1, 1, 2, 4),
+                end_time=datetime.datetime(2022, 8, 1, 22, 11, 12),
                 state="COMPLETED",
             ),
             lineage_events=[
