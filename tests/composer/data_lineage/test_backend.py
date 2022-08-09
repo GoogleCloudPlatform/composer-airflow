@@ -15,6 +15,7 @@
 import unittest
 from unittest import mock
 
+from google.api_core.exceptions import GoogleAPICallError
 from google.cloud.datacatalog.lineage_v1 import CreateLineageEventsBundleRequest, LineageEventsBundle, Process
 
 from airflow.composer.data_lineage.backend import ComposerDataLineageBackend
@@ -56,4 +57,22 @@ class TestBackend(unittest.TestCase):
                 lineage_events_bundle=mock_lineage_events_bundle,
                 request_id="test-uuid",
             ),
+        )
+
+    @mock.patch("airflow.composer.data_lineage.backend.SyncLineageClient", autospec=True)
+    @mock.patch("airflow.composer.data_lineage.backend.ComposerDataLineageAdapter", autospec=True)
+    @mock.patch("airflow.composer.data_lineage.backend.CreateLineageEventsBundleRequest", autospec=True)
+    def test_send_lineage_exception(
+        self,
+        mock_create_lineage_events_bundle_request,
+        mock_composer_data_lineage_adapter,
+        mock_sync_lineage_client,
+    ):
+        mock_sync_lineage_client().create_events_bundle.side_effect = GoogleAPICallError("Error")
+        _backend = ComposerDataLineageBackend()
+
+        # Check that send_lineage doesn't raise exception in case of API call error.
+        _backend.send_lineage(
+            operator=mock.Mock(),
+            context={"ti": mock.Mock()},
         )
