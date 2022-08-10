@@ -17,7 +17,8 @@ import logging
 import uuid
 from typing import TYPE_CHECKING, Optional
 
-from google.api_core.exceptions import GoogleAPICallError
+from google.api_core.exceptions import GoogleAPICallError, RetryError
+from google.api_core.retry import Retry
 from google.cloud.datacatalog.lineage.producer_client.v1.sync_lineage_client.sync_lineage_client import (
     SyncLineageClient,
 )
@@ -68,8 +69,11 @@ class ComposerDataLineageBackend(LineageBackend):
         # TODO: retries, pass retry parameter
         # TODO: log response status, ...
         try:
-            _client.create_events_bundle(request)
-        except GoogleAPICallError:
+            _client.create_events_bundle(
+                request=request,
+                retry=Retry(deadline=5),
+            )
+        except (GoogleAPICallError, RetryError):
             log.exception("Failed to send lineage")
         else:
             log.info("Lineage sent successfully")

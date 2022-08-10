@@ -15,7 +15,7 @@
 import unittest
 from unittest import mock
 
-from google.api_core.exceptions import GoogleAPICallError
+from google.api_core.exceptions import GoogleAPICallError, RetryError
 from google.cloud.datacatalog.lineage_v1 import CreateLineageEventsBundleRequest, LineageEventsBundle, Process
 
 from airflow.composer.data_lineage.backend import ComposerDataLineageBackend
@@ -52,11 +52,16 @@ class TestBackend(unittest.TestCase):
         )
 
         mock_sync_lineage_client().create_events_bundle.assert_called_once_with(
-            CreateLineageEventsBundleRequest(
+            request=CreateLineageEventsBundleRequest(
                 parent="TEST-LOCATION",
                 lineage_events_bundle=mock_lineage_events_bundle,
                 request_id="test-uuid",
             ),
+            retry=mock.ANY,
+        )
+        self.assertEqual(
+            mock_sync_lineage_client().create_events_bundle.call_args_list[0][1]["retry"]._deadline,
+            5,
         )
 
     @mock.patch("airflow.composer.data_lineage.backend.SyncLineageClient", autospec=True)
@@ -72,6 +77,24 @@ class TestBackend(unittest.TestCase):
         _backend = ComposerDataLineageBackend()
 
         # Check that send_lineage doesn't raise exception in case of API call error.
+        _backend.send_lineage(
+            operator=mock.Mock(),
+            context={"ti": mock.Mock()},
+        )
+
+    @mock.patch("airflow.composer.data_lineage.backend.SyncLineageClient", autospec=True)
+    @mock.patch("airflow.composer.data_lineage.backend.ComposerDataLineageAdapter", autospec=True)
+    @mock.patch("airflow.composer.data_lineage.backend.CreateLineageEventsBundleRequest", autospec=True)
+    def test_send_lineage_exception_retry_deadline(
+        self,
+        mock_create_lineage_events_bundle_request,
+        mock_composer_data_lineage_adapter,
+        mock_sync_lineage_client,
+    ):
+        mock_sync_lineage_client().create_events_bundle.side_effect = RetryError("Error", "cause")
+        _backend = ComposerDataLineageBackend()
+
+        # Check that send_lineage doesn't raise exception in case of reaching retry deadline.
         _backend.send_lineage(
             operator=mock.Mock(),
             context={"ti": mock.Mock()},
