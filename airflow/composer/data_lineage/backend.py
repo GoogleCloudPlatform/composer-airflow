@@ -52,11 +52,9 @@ class ComposerDataLineageBackend(LineageBackend):
         # lineage backend happens on BaseOperator module import.
         _client = SyncLineageClient()
         _adapter = ComposerDataLineageAdapter()
+        ti = context["ti"]
 
-        lineage_events_bundle = _adapter.get_lineage_events_bundle_on_task_completed(
-            context["ti"], inlets, outlets
-        )
-        log.info("Lineage events bundle: %s", lineage_events_bundle)
+        lineage_events_bundle = _adapter.get_lineage_events_bundle_on_task_completed(ti, inlets, outlets)
 
         request_id = uuid.uuid4().hex
         request = CreateLineageEventsBundleRequest(
@@ -65,15 +63,25 @@ class ComposerDataLineageBackend(LineageBackend):
             request_id=request_id,
         )
 
-        # TODO: log lineage events bundle
-        # TODO: retries, pass retry parameter
-        # TODO: log response status, ...
+        lineage_events_bundle_message = "\n".join(
+            [
+                f"dag_id={ti.task.dag.dag_id}, task_id={ti.task.task_id}, run_id={ti.run_id}, "
+                f"try_number={ti.try_number}, operator={type(ti.task).__name__}",
+                f"Process: name={lineage_events_bundle.process.name}",
+                f"Run: name={lineage_events_bundle.run.name}, state={lineage_events_bundle.run.state}",
+            ]
+            + [
+                f"LineageEvent: sources={le.sources}, targets={le.targets}, event_time={le.event_time}"
+                for le in lineage_events_bundle.lineage_events
+            ]
+        )
+
         try:
             _client.create_events_bundle(
                 request=request,
                 retry=Retry(deadline=5),
             )
         except (GoogleAPICallError, RetryError):
-            log.exception("Failed to send lineage")
+            log.exception("Failed to send lineage %s", lineage_events_bundle_message)
         else:
-            log.info("Lineage sent successfully")
+            log.info("Lineage sent %s", lineage_events_bundle_message)
