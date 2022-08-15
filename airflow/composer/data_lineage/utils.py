@@ -16,8 +16,9 @@ import hashlib
 import os
 import uuid
 
-# TODO: use Composer environment location instead of "us"
-LOCATION_PATH = "projects/{}/locations/{}".format(os.environ.get("GCP_PROJECT"), "us")
+LOCATION_PATH = "projects/{}/locations/{}".format(
+    os.environ.get("GCP_PROJECT"), os.environ.get("COMPOSER_LOCATION")
+)
 
 
 def generate_uuid_from_string(s: str) -> str:

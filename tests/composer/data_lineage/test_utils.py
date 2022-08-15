@@ -39,6 +39,7 @@ class TestUtils(unittest.TestCase):
         )
 
     @mock.patch.dict("os.environ", {"GCP_PROJECT": "project-1"})
+    @mock.patch.dict("os.environ", {"COMPOSER_LOCATION": "us-central1"})
     def test_location_path(self):
         import airflow.composer.data_lineage.utils
 
@@ -47,5 +48,5 @@ class TestUtils(unittest.TestCase):
 
         self.assertEqual(
             airflow.composer.data_lineage.utils.LOCATION_PATH,
-            "projects/project-1/locations/us",
+            "projects/project-1/locations/us-central1",
         )
