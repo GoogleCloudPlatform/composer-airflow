@@ -26,12 +26,14 @@ from google.cloud.datacatalog.lineage_v1 import CreateLineageEventsBundleRequest
 
 from airflow.composer.data_lineage.adapter import ComposerDataLineageAdapter
 from airflow.composer.data_lineage.utils import LOCATION_PATH
+from airflow.composer.task_formatter import _EXTRA_WORKFLOW_INFO_RECORD_KEY
 from airflow.lineage.backend import LineageBackend
 
 if TYPE_CHECKING:
     from airflow.models.baseoperator import BaseOperator
 
 log = logging.getLogger(__name__)
+log = logging.LoggerAdapter(log, {_EXTRA_WORKFLOW_INFO_RECORD_KEY: {"log-type": "data_lineage"}})
 
 
 class ComposerDataLineageBackend(LineageBackend):
