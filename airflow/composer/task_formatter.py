@@ -19,6 +19,7 @@ from typing import Dict
 
 _LOG_SEPARATOR = "@-@"
 _WORKFLOW_INFO_RECORD_KEY = "workflow_info"
+_EXTRA_WORKFLOW_INFO_RECORD_KEY = "extra_workflow_info"
 # Max size of Cloud Logging log entry is ~256K ~ 65000 4-byte chars ~260000 1-byte chars.
 # Given that log entry also includes label and 4096 characters is a full screen
 # of text, splitting them at 4096 should be fine.
@@ -38,7 +39,13 @@ def strip_separator_from_log(log: str):
 
 def set_task_log_info(record: logging.LogRecord, workflow_info: Dict[str, str]) -> str:
     """Set formatted task info field in the log record."""
-    formatted_task_info = _LOG_SEPARATOR + json.dumps(workflow_info)
+    extra_workflow_info = getattr(record, _EXTRA_WORKFLOW_INFO_RECORD_KEY, {})
+
+    full_workflow_info = {}
+    full_workflow_info.update(workflow_info)
+    full_workflow_info.update(extra_workflow_info)
+
+    formatted_task_info = _LOG_SEPARATOR + json.dumps(full_workflow_info)
     setattr(record, _WORKFLOW_INFO_RECORD_KEY, formatted_task_info)
 
 

@@ -137,3 +137,16 @@ class TestTaskFormatter(unittest.TestCase):
         self.assertEqual(
             get_long_message(), ''.join([line.split('@-@')[0].split('INFO - ')[-1] for line in lines])
         )
+
+    def test_extra_workflow_info(self):
+        self.ti.init_run_context()
+        self.ti.log.info('sample-message', extra={'extra_workflow_info': {'extra-label': 'value'}})
+        self.assertRegex(
+            self.stream.getvalue(),
+            '.*INFO - sample-message@-@{'
+            + '"workflow": "dag_for_testing_composer_task_formatter", '
+            + '"task-id": "task_for_testing_composer_task_formatter", '
+            + r'"execution-date": "2020-01-01T00:00:00\+00:00", '
+            + '"try-number": "1", '
+            + '"extra-label": "value"}\n',
+        )
