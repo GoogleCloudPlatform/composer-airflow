@@ -844,11 +844,12 @@ EXTRAS_REQUIREMENTS = sort_extras_requirements()
 # Those providers are pre-installed always when airflow is installed.
 # Those providers do not have dependency on airflow2.0 because that would lead to circular dependencies.
 # This is not a problem for PIP but some tools (pipdeptree) show those as a warning.
+# TODO: restore `http` and `sqlite` in case when we remove it from add_all_provider_packages function, we
+# cannot have them in both places because this have higher priority and override restriction from
+# add_all_provider_packages
 PREINSTALLED_PROVIDERS = [
     'ftp',
-    'http',
     'imap',
-    'sqlite',
 ]
 
 
@@ -913,6 +914,8 @@ class AirflowDistribution(Distribution):
             self.install_requires.extend(
                 [get_provider_package_from_package_id(package_id) for package_id in PREINSTALLED_PROVIDERS]
             )
+        # needed for `pip check` to correctly discover restrictions that was added specially for Composer
+        self.install_requires.extend(composer)
 
 
 def replace_extra_requirement_with_provider_packages(extra: str, providers: List[str]) -> None:
@@ -1016,7 +1019,7 @@ def add_all_provider_packages() -> None:
             # TODO: (should be removed in Airflow 2.3.0+ and in current Airflow version once we decide to
             # release 7.0.0+ package in Composer) this is our internal release because customers are
             # not ready to migrate to google provider package 7.0.0+
-            "google": "==2022.8.1+composer",
+            "google": "==2022.8.16+composer",
             "hashicorp": "<3.0.0",  # >= 3.0.0 is not supported by the 2.1.4
             "http": "<3.0.0",  # >= 3.0.0 is not supported by the 2.1.4
             # mysql provider 2.2.1+ versions doesn't have get_uri() method inside MySqlHook.
