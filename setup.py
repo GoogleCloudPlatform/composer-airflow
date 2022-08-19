@@ -992,7 +992,7 @@ class AirflowDistribution(Distribution):
                 [get_provider_package_from_package_id(package_id) for package_id in PREINSTALLED_PROVIDERS]
             )
         # needed for `pip check` to correctly discover restrictions that was added specially for Composer
-        self.install_requires.extend(composer)
+        self.install_requires.extend(EXTRAS_REQUIREMENTS['composer'])
 
 
 def replace_extra_requirement_with_provider_packages(extra: str, providers: List[str]) -> None:
