@@ -25,7 +25,7 @@ from google.cloud.datacatalog.lineage_v1 import (
     Run,
 )
 
-from airflow.composer.data_lineage.entities import BigQueryTable
+from airflow.composer.data_lineage.entities import BigQueryTable, DataLineageEntity
 from airflow.composer.data_lineage.utils import LOCATION_PATH, get_process_id, get_run_id
 
 if TYPE_CHECKING:
@@ -125,6 +125,12 @@ class ComposerDataLineageAdapter:
                     entity.project_id, entity.dataset_id, entity.table_id
                 ),
                 location="us",  # TODO: provide correct location
+            )
+
+        if isinstance(entity, DataLineageEntity):
+            return EntityReference(
+                fully_qualified_name=entity.fully_qualified_name,
+                location=entity.location,
             )
 
         return None

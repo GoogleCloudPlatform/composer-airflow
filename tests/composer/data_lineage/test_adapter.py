@@ -27,11 +27,11 @@ from google.cloud.datacatalog.lineage_v1 import (
 )
 
 from airflow.composer.data_lineage.adapter import ComposerDataLineageAdapter
-from airflow.composer.data_lineage.entities import BigQueryTable
+from airflow.composer.data_lineage.entities import BigQueryTable, DataLineageEntity
 
 
 class TestAdapter(unittest.TestCase):
-    def test_get_entity_reference(self):
+    def test_get_entity_reference_big_query_table(self):
         adapter = ComposerDataLineageAdapter()
         big_query_table = BigQueryTable(
             project_id="test-project",
@@ -44,6 +44,21 @@ class TestAdapter(unittest.TestCase):
         expected_entity_reference = EntityReference(
             fully_qualified_name="bigquery:test-project.test-dataset.test-table",
             location="us",
+        )
+        self.assertEqual(actual_entity_reference, expected_entity_reference)
+
+    def test_get_entity_reference_data_lineage_entity(self):
+        adapter = ComposerDataLineageAdapter()
+        data_lineage_entity = DataLineageEntity(
+            fully_qualified_name="my_warehouse:test-fqn",
+            location="test-location",
+        )
+
+        actual_entity_reference = adapter._get_entity_reference(data_lineage_entity)
+
+        expected_entity_reference = EntityReference(
+            fully_qualified_name="my_warehouse:test-fqn",
+            location="test-location",
         )
         self.assertEqual(actual_entity_reference, expected_entity_reference)
 

@@ -23,3 +23,11 @@ class BigQueryTable:
     project_id: str = attr.ib()
     dataset_id: str = attr.ib()
     table_id: str = attr.ib()
+
+
+@attr.s(auto_attribs=True, kw_only=True)
+class DataLineageEntity:
+    """Airflow lineage entity representing generic Data Lineage entity."""
+
+    fully_qualified_name: str = attr.ib()
+    location: str = attr.ib()
