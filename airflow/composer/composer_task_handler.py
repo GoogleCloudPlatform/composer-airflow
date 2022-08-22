@@ -24,23 +24,19 @@ from typing import Collection, Dict, List, Optional, Tuple
 
 from google.api_core.gapic_v1.client_info import ClientInfo
 from google.auth.credentials import Credentials
-from google.cloud.logging_v2.services.logging_service_v2 import \
-    LoggingServiceV2Client
-from google.cloud.logging_v2.types import ListLogEntriesRequest, \
-    ListLogEntriesResponse, LogEntry
+from google.cloud.logging_v2.services.logging_service_v2 import LoggingServiceV2Client
+from google.cloud.logging_v2.types import ListLogEntriesRequest, ListLogEntriesResponse, LogEntry
 from google.logging.type import log_severity_pb2
 
 from airflow import version
 from airflow.models import TaskInstance
-from airflow.providers.google.cloud.utils.credentials_provider import \
-    get_credentials_and_project_id
+from airflow.providers.google.cloud.utils.credentials_provider import get_credentials_and_project_id
 from airflow.utils.log.file_task_handler import StreamTaskHandler
 from airflow.utils.log.logging_mixin import LoggingMixin
 
-_DEFAULT_SCOPES = frozenset([
-    'https://www.googleapis.com/auth/logging.read',
-    'https://www.googleapis.com/auth/logging.write'
-])
+_DEFAULT_SCOPES = frozenset(
+    ['https://www.googleapis.com/auth/logging.read', 'https://www.googleapis.com/auth/logging.write']
+)
 
 
 class ComposerTaskHandler(StreamTaskHandler, LoggingMixin):
@@ -79,7 +75,7 @@ class ComposerTaskHandler(StreamTaskHandler, LoggingMixin):
         scopes: Optional[Collection[str]] = _DEFAULT_SCOPES,
         labels: Optional[Dict[str, str]] = None,
         stream=None,
-        ):
+    ):
         super().__init__(stream=stream)
         self.gcp_key_path = gcp_key_path
         self.scopes = scopes
@@ -91,8 +87,8 @@ class ComposerTaskHandler(StreamTaskHandler, LoggingMixin):
     def _credentials_and_project_id(self) -> Tuple[Credentials, str]:
         """GCP credentials and project ID, inferred from gcp_key_path."""
         credentials, project_id = get_credentials_and_project_id(
-            key_path=self.gcp_key_path, scopes=self.scopes,
-            disable_logging=True)
+            key_path=self.gcp_key_path, scopes=self.scopes, disable_logging=True
+        )
         return credentials, project_id
 
     @property
@@ -101,17 +97,13 @@ class ComposerTaskHandler(StreamTaskHandler, LoggingMixin):
         credentials, _ = self._credentials_and_project_id
         client = LoggingServiceV2Client(
             credentials=credentials,
-            client_info=ClientInfo(client_library_version='airflow_v' +
-                                                          version.version),
+            client_info=ClientInfo(client_library_version='airflow_v' + version.version),
         )
         return client
 
     def read(
-        self,
-        task_instance: TaskInstance,
-        try_number: Optional[int] = None,
-        metadata: Optional[Dict] = None
-        ) -> Tuple[List[Tuple[Tuple[str, str]]], List[Dict[str, str]]]:
+        self, task_instance: TaskInstance, try_number: Optional[int] = None, metadata: Optional[Dict] = None
+    ) -> Tuple[List[Tuple[Tuple[str, str]]], List[Dict[str, str]]]:
         """Read logs of given task instance from Cloud logging.
 
         :param task_instance: task instance object
@@ -126,14 +118,11 @@ class ComposerTaskHandler(StreamTaskHandler, LoggingMixin):
           'end_of_log'}: ([(('hostname','logs')), [{'metadata'}]])
         :rtype: Tuple[List[Tuple[Tuple[str, str]]], List[Dict[str, str]]]
         """
-        self.log.info(
-            'Reading logs with ComposerTaskHandler for ' + str(task_instance)
-            )
-
+        self.log.info('Reading logs with ComposerTaskHandler for ' + str(task_instance))
+        messages = ''
         if try_number is not None and try_number < 1:
             logs = f'Error fetching the logs. Try number {try_number} is invalid.'
-            return [((self.task_instance_hostname, logs),)], [
-                {'end_of_log': 'true'}]
+            return [((self.task_instance_hostname, logs),)], [{'end_of_log': 'true'}]
 
         if not metadata:
             metadata = {}
@@ -143,21 +132,24 @@ class ComposerTaskHandler(StreamTaskHandler, LoggingMixin):
         next_page_token = metadata.get('next_page_token', None)
         all_pages = 'download_logs' in metadata and metadata['download_logs']
 
-        messages, end_of_log, next_page_token = self._read_logs(
-            log_filter, next_page_token, all_pages)
+        # If first response page.
+        if not next_page_token:
+            messages = '*** Reading remote logs from Cloud Logging.\n'
+
+        new_messages, end_of_log, next_page_token = self._read_logs(log_filter, next_page_token, all_pages)
 
         new_metadata = {'end_of_log': end_of_log}
-
         if next_page_token:
             new_metadata['next_page_token'] = next_page_token
+        messages += new_messages
+
+        # TODO(eyaz) add a unit test for paging with empty messages.
+        if not messages and next_page_token:
+            return [()], [new_metadata]
 
         return [((self.task_instance_hostname, messages),)], [new_metadata]
 
-    def _prepare_filter(
-        self,
-        task_instance: TaskInstance,
-        try_number: Optional[int] = None
-        ) -> str:
+    def _prepare_filter(self, task_instance: TaskInstance, try_number: Optional[int] = None) -> str:
         """Prepares the filter that chooses which log entries to fetch.
 
         More information:
@@ -200,17 +192,12 @@ class ComposerTaskHandler(StreamTaskHandler, LoggingMixin):
             del ti_labels[self.LABEL_TRY_NUMBER]
 
         for key, value in ti_labels.items():
-            log_filters.append(
-                f'labels.{escape_label_key(key)}={escape_label_value(value)}'
-            )
+            log_filters.append(f'labels.{escape_label_key(key)}={escape_label_value(value)}')
         return '\n'.join(log_filters)
 
     def _read_logs(
-        self,
-        log_filter: str,
-        next_page_token: Optional[str],
-        all_pages: bool
-        ) -> Tuple[str, bool, Optional[str]]:
+        self, log_filter: str, next_page_token: Optional[str], all_pages: bool
+    ) -> Tuple[str, bool, Optional[str]]:
         """Sends requests to the Cloud Logging service and downloads logs.
 
         :param log_filter: Filter for Cloud Logging specifying the logs to be
@@ -226,31 +213,46 @@ class ComposerTaskHandler(StreamTaskHandler, LoggingMixin):
             * string token of the next page
         :rtype: Tuple[str, bool, str]
         """
-        messages = []
-        new_messages, next_page_token = self._read_single_logs_page(
+        logs_list = []
+        new_logs, next_page_token = self._read_single_logs_page(
             log_filter=log_filter,
             page_token=next_page_token,
         )
-        messages.append(new_messages)
+
+        # If a value for nextPageToken appears and the entries field is empty,
+        # it means that the search found no log entries so far but it did not have
+        # time to search all the possible log entries.
+        # https://cloud.google.com/logging/docs/reference/v2/rest/v2/entries/list#response-body
+        if not new_logs and not next_page_token:
+            empty_log = (
+                f'*** Logs not found for Cloud Logging filter:\n{log_filter}\n'
+                '*** The task might not have been executed or worker executing it '
+                'might have finished abnormally (e.g. was evicted).\n'
+                '*** Please, refer to '
+                'https://cloud.google.com/composer/docs/how-to/using/troubleshooting-dags#common_issues '
+                'for hints to learn what might be possible reasons for a missing log.'
+            )
+            self.log.error(empty_log)
+            return empty_log, True, None
+
+        if new_logs:
+            logs_list.append(new_logs)
+
         if all_pages:
             while next_page_token:
-                new_messages, next_page_token = self._read_single_logs_page(
-                    log_filter=log_filter, page_token=next_page_token)
-                messages.append(new_messages)
-                if not messages:
-                    break
+                new_logs, next_page_token = self._read_single_logs_page(
+                    log_filter=log_filter, page_token=next_page_token
+                )
+                if new_logs:
+                    logs_list.append(new_logs)
 
             end_of_log = True
             next_page_token = None
         else:
             end_of_log = not bool(next_page_token)
-        return '\n'.join(messages), end_of_log, next_page_token
+        return '\n'.join(logs_list), end_of_log, next_page_token
 
-    def _read_single_logs_page(
-        self,
-        log_filter: str,
-        page_token: Optional[str] = None
-        ) -> Tuple[str, str]:
+    def _read_single_logs_page(self, log_filter: str, page_token: Optional[str] = None) -> Tuple[str, str]:
         """Sends requests to the Cloud Logging service and downloads single page with logs.
 
         :param log_filter: Filter specifying the logs to be downloaded.
@@ -269,8 +271,7 @@ class ComposerTaskHandler(StreamTaskHandler, LoggingMixin):
             order_by='timestamp asc',
             page_size=1000,
         )
-        response = self._logging_service_client.list_log_entries(
-            request=request)
+        response = self._logging_service_client.list_log_entries(request=request)
         page: ListLogEntriesResponse = next(response.pages)
         messages = []
         for entry in page.entries:

@@ -22,8 +22,7 @@ import logging
 import unittest
 from unittest import mock
 
-from google.cloud.logging_v2.types import ListLogEntriesRequest, \
-    ListLogEntriesResponse, LogEntry
+from google.cloud.logging_v2.types import ListLogEntriesRequest, ListLogEntriesResponse, LogEntry
 from google.logging.type import log_severity_pb2
 from google.protobuf import timestamp_pb2
 
@@ -46,7 +45,8 @@ def _create_list_log_entries_response_mock(messages, token):
                 text_payload=message,
                 severity=log_severity_pb2.INFO,
                 labels={'process': 'taskinstance.py:90'},
-            ) for message in messages
+            )
+            for message in messages
         ],
         next_page_token=token,
     )
@@ -72,10 +72,8 @@ class TestComposerLoggingHandlerTask(unittest.TestCase):
 
         date = timezone.datetime(2022, 1, 1)
         self.dag = DAG('dag_for_testing_composer_task_handler', start_date=date)
-        task = DummyOperator(
-            task_id='task_for_testing_composer_log_handler', dag=self.dag)
-        self.ti = TaskInstance(task=task, execution_date=date,
-                               state=State.RUNNING)
+        task = DummyOperator(task_id='task_for_testing_composer_log_handler', dag=self.dag)
+        self.ti = TaskInstance(task=task, execution_date=date, state=State.RUNNING)
         self.ti.start_date = date
         self.ti.end_date = timezone.datetime(2022, 1, 3)
         self.ti.try_number = 1
@@ -83,103 +81,152 @@ class TestComposerLoggingHandlerTask(unittest.TestCase):
         self.addCleanup(self.dag.clear)
         self.addCleanup(_remove_composer_handlers)
 
-    @mock.patch(
-        'airflow.composer.composer_task_handler.get_credentials_and_project_id')
+    @mock.patch('airflow.composer.composer_task_handler.get_credentials_and_project_id')
     @mock.patch('airflow.composer.composer_task_handler.LoggingServiceV2Client')
-    def test_should_read_logs_for_single_try(self, mock_client,
-        mock_get_creds_and_project_id):
+    def test_should_read_logs_for_single_try(self, mock_client, mock_get_creds_and_project_id):
         mock_client.return_value.list_log_entries.return_value.pages = iter(
-            [_create_list_log_entries_response_mock(['MSG1', 'MSG2'], None)])
+            [_create_list_log_entries_response_mock(['MSG1', 'MSG2'], None)]
+        )
         mock_get_creds_and_project_id.return_value = ('creds', 'project_id')
 
         self.composerTaskHandler.read(self.ti, 1)
         mock_client.return_value.list_log_entries.assert_called_once_with(
             request=ListLogEntriesRequest(
                 resource_names=['projects/project_id'],
-                filter=('logName="projects/project_id/logs/airflow-worker"\n'
-                        'resource.type="cloud_composer_environment"\n'
-                        'resource.labels.project_id="project_id"\n'
-                        'resource.labels.environment_name="composer-env"\n'
-                        'resource.labels.location="loc"\n'
-                        'timestamp>="2022-01-01T00:00:00+00:00"\n'
-                        'timestamp<="2022-01-03T00:05:00+00:00"\n'
-                        'labels.task-id="task_for_testing_composer_log_handler"\n'
-                        'labels.workflow="dag_for_testing_composer_task_handler"\n'
-                        'labels.execution-date="2022-01-01T00:00:00+00:00"\n'
-                        'labels.try-number="1"\n'
-                        'labels.worker_id="default-hostname"'),
+                filter=(
+                    'logName="projects/project_id/logs/airflow-worker"\n'
+                    'resource.type="cloud_composer_environment"\n'
+                    'resource.labels.project_id="project_id"\n'
+                    'resource.labels.environment_name="composer-env"\n'
+                    'resource.labels.location="loc"\n'
+                    'timestamp>="2022-01-01T00:00:00+00:00"\n'
+                    'timestamp<="2022-01-03T00:05:00+00:00"\n'
+                    'labels.task-id="task_for_testing_composer_log_handler"\n'
+                    'labels.workflow="dag_for_testing_composer_task_handler"\n'
+                    'labels.execution-date="2022-01-01T00:00:00+00:00"\n'
+                    'labels.try-number="1"\n'
+                    'labels.worker_id="default-hostname"'
+                ),
                 order_by='timestamp asc',
                 page_size=1000,
                 page_token=None,
-            ))
+            )
+        )
 
-    @mock.patch(
-        'airflow.composer.composer_task_handler.get_credentials_and_project_id')
+    @mock.patch('airflow.composer.composer_task_handler.get_credentials_and_project_id')
     @mock.patch('airflow.composer.composer_task_handler.LoggingServiceV2Client')
-    def test_should_read_logs_for_all_tries(self, mock_client,
-        mock_get_creds_and_project_id):
+    def test_should_read_logs_for_all_tries(self, mock_client, mock_get_creds_and_project_id):
         mock_get_creds_and_project_id.return_value = ('creds', 'project_id')
 
         self.composerTaskHandler.read(self.ti)
         mock_client.return_value.list_log_entries.assert_called_once_with(
             request=ListLogEntriesRequest(
                 resource_names=['projects/project_id'],
-                filter=('logName="projects/project_id/logs/airflow-worker"\n'
-                        'resource.type="cloud_composer_environment"\n'
-                        'resource.labels.project_id="project_id"\n'
-                        'resource.labels.environment_name="composer-env"\n'
-                        'resource.labels.location="loc"\n'
-                        'timestamp>="2022-01-01T00:00:00+00:00"\n'
-                        'timestamp<="2022-01-03T00:05:00+00:00"\n'
-                        'labels.task-id="task_for_testing_composer_log_handler"\n'
-                        'labels.workflow="dag_for_testing_composer_task_handler"\n'
-                        'labels.execution-date="2022-01-01T00:00:00+00:00"\n'
-                        'labels.worker_id="default-hostname"'),
+                filter=(
+                    'logName="projects/project_id/logs/airflow-worker"\n'
+                    'resource.type="cloud_composer_environment"\n'
+                    'resource.labels.project_id="project_id"\n'
+                    'resource.labels.environment_name="composer-env"\n'
+                    'resource.labels.location="loc"\n'
+                    'timestamp>="2022-01-01T00:00:00+00:00"\n'
+                    'timestamp<="2022-01-03T00:05:00+00:00"\n'
+                    'labels.task-id="task_for_testing_composer_log_handler"\n'
+                    'labels.workflow="dag_for_testing_composer_task_handler"\n'
+                    'labels.execution-date="2022-01-01T00:00:00+00:00"\n'
+                    'labels.worker_id="default-hostname"'
+                ),
                 order_by='timestamp asc',
                 page_size=1000,
                 page_token=None,
-            ))
+            )
+        )
 
-    @mock.patch(
-        'airflow.composer.composer_task_handler.get_credentials_and_project_id')
+    @mock.patch('airflow.composer.composer_task_handler.get_credentials_and_project_id')
     @mock.patch('airflow.composer.composer_task_handler.LoggingServiceV2Client')
-    def test_log_entries_are_formatted_in_expected_format(
-        self, mock_client, mock_get_creds_and_project_id):
+    def test_log_entries_are_formatted_in_expected_format(self, mock_client, mock_get_creds_and_project_id):
         mock_client.return_value.list_log_entries.return_value.pages = iter(
-            [_create_list_log_entries_response_mock(['MSG1', 'MSG2'], None)])
+            [_create_list_log_entries_response_mock(['MSG1', 'MSG2'], None)]
+        )
         mock_get_creds_and_project_id.return_value = ('creds', 'project_id')
 
         logs, metadata = self.composerTaskHandler.read(self.ti, 1)
 
-        assert [((
-                     'default-hostname',
-                     '[2022-01-01 00:00:10+00:00] {taskinstance.py:90} INFO - MSG1\n'
-                     '[2022-01-01 00:00:10+00:00] {taskinstance.py:90} INFO - MSG2',
-                 ),)] == logs
+        assert [
+            (
+                (
+                    'default-hostname',
+                    '*** Reading remote logs from Cloud Logging.\n'
+                    '[2022-01-01 00:00:10+00:00] {taskinstance.py:90} INFO - MSG1\n'
+                    '[2022-01-01 00:00:10+00:00] {taskinstance.py:90} INFO - MSG2',
+                ),
+            )
+        ] == logs
         assert [{'end_of_log': True}] == metadata
 
-    @mock.patch(
-        'airflow.composer.composer_task_handler.get_credentials_and_project_id')
+    @mock.patch('airflow.composer.composer_task_handler.get_credentials_and_project_id')
     @mock.patch('airflow.composer.composer_task_handler.LoggingServiceV2Client')
-    def test_should_read_logs_with_paging(
-        self, mock_client, mock_get_creds_and_project_id):
+    def test_should_read_logs_with_paging(self, mock_client, mock_get_creds_and_project_id):
         pages = [_create_list_log_entries_response_mock(['MSG1', 'MSG2'], 'token') for i in range(2)]
         pages.append(_create_list_log_entries_response_mock(['MSG1', 'MSG2'], None))
         mock_client.return_value.list_log_entries.return_value.pages = iter(pages)
         mock_get_creds_and_project_id.return_value = ('creds', 'project_id')
 
-        logs, metadata = self.composerTaskHandler.read(self.ti, 1,
-            {'download_logs': 'true', 'next_page_token': 'token'})
+        logs, metadata = self.composerTaskHandler.read(self.ti, 1, {'download_logs': 'true'})
 
-        assert [((
-                     'default-hostname',
-                     '[2022-01-01 00:00:10+00:00] {taskinstance.py:90} INFO - MSG1\n'
-                     '[2022-01-01 00:00:10+00:00] {taskinstance.py:90} INFO - MSG2\n'
-                     '[2022-01-01 00:00:10+00:00] {taskinstance.py:90} INFO - MSG1\n'
-                     '[2022-01-01 00:00:10+00:00] {taskinstance.py:90} INFO - MSG2\n'
-                     '[2022-01-01 00:00:10+00:00] {taskinstance.py:90} INFO - MSG1\n'
-                     '[2022-01-01 00:00:10+00:00] {taskinstance.py:90} INFO - MSG2',
-                 ),)] == logs
+        assert [
+            (
+                (
+                    'default-hostname',
+                    '*** Reading remote logs from Cloud Logging.\n'
+                    '[2022-01-01 00:00:10+00:00] {taskinstance.py:90} INFO - MSG1\n'
+                    '[2022-01-01 00:00:10+00:00] {taskinstance.py:90} INFO - MSG2\n'
+                    '[2022-01-01 00:00:10+00:00] {taskinstance.py:90} INFO - MSG1\n'
+                    '[2022-01-01 00:00:10+00:00] {taskinstance.py:90} INFO - MSG2\n'
+                    '[2022-01-01 00:00:10+00:00] {taskinstance.py:90} INFO - MSG1\n'
+                    '[2022-01-01 00:00:10+00:00] {taskinstance.py:90} INFO - MSG2',
+                ),
+            )
+        ] == logs
+        assert [{'end_of_log': True}] == metadata
+
+    @mock.patch('airflow.composer.composer_task_handler.get_credentials_and_project_id')
+    @mock.patch('airflow.composer.composer_task_handler.LoggingServiceV2Client')
+    def test_should_return_empty_logs(self, mock_client, mock_get_creds_and_project_id):
+        pages = [_create_list_log_entries_response_mock([], None)]
+        mock_client.return_value.list_log_entries.return_value.pages = iter(pages)
+        mock_get_creds_and_project_id.return_value = ('creds', 'project_id')
+
+        logs, metadata = self.composerTaskHandler.read(self.ti, 1)
+
+        log_filter = (
+            'logName="projects/project_id/logs/airflow-worker"\n'
+            'resource.type="cloud_composer_environment"\n'
+            'resource.labels.project_id="project_id"\n'
+            'resource.labels.environment_name="composer-env"\n'
+            'resource.labels.location="loc"\n'
+            'timestamp>="2022-01-01T00:00:00+00:00"\n'
+            'timestamp<="2022-01-03T00:05:00+00:00"\n'
+            'labels.task-id="task_for_testing_composer_log_handler"\n'
+            'labels.workflow="dag_for_testing_composer_task_handler"\n'
+            'labels.execution-date="2022-01-01T00:00:00+00:00"\n'
+            'labels.try-number="1"\n'
+            'labels.worker_id="default-hostname"'
+        )
+
+        assert [
+            (
+                (
+                    'default-hostname',
+                    '*** Reading remote logs from Cloud Logging.\n'
+                    f'*** Logs not found for Cloud Logging filter:\n{log_filter}\n'
+                    '*** The task might not have been executed or worker executing it '
+                    'might have finished abnormally (e.g. was evicted).\n'
+                    '*** Please, refer to '
+                    'https://cloud.google.com/composer/docs/how-to/using/troubleshooting-dags#common_issues '
+                    'for hints to learn what might be possible reasons for a missing log.',
+                ),
+            )
+        ] == logs
         assert [{'end_of_log': True}] == metadata
 
     def test_should_write_logs_to_stream(self):
@@ -196,7 +243,8 @@ class TestComposerLoggingHandlerTask(unittest.TestCase):
                 msg='MESSAGE',
                 args=None,
                 exc_info=None,
-            ))
+            )
+        )
         composer_task_handler2.close()
 
         self.assertEqual(
