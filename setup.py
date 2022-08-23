@@ -1019,7 +1019,7 @@ def add_all_provider_packages() -> None:
             # TODO: (should be removed in Airflow 2.3.0+ and in current Airflow version once we decide to
             # release 7.0.0+ package in Composer) this is our internal release because customers are
             # not ready to migrate to google provider package 7.0.0+
-            "google": "==2022.8.16+composer",
+            "google": "==2022.8.23+composer",
             "hashicorp": "<3.0.0",  # >= 3.0.0 is not supported by the 2.1.4
             "http": "<3.0.0",  # >= 3.0.0 is not supported by the 2.1.4
             # mysql provider 2.2.1+ versions doesn't have get_uri() method inside MySqlHook.
