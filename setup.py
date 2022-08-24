@@ -553,7 +553,7 @@ composer_additional = [
     "google-apitools",
     "google-cloud-aiplatform",
     # This package is hosted from AR repository, it is not available in public pypi.
-    # "google-cloud-datacatalog-lineage-producer-client",
+    "google-cloud-datacatalog-lineage-producer-client",
     "google-cloud-datastore",
     "google-cloud-filestore",
     # higher version of package have conflict in the dependencies with the google-ads package
@@ -562,7 +562,7 @@ composer_additional = [
     "keyrings.google-artifactregistry-auth",
     "pip<20.3.0",
     "pipdeptree",
-    "tensorflow==2.2.0",
+    "tensorflow",
 ]
 
 composer = (
@@ -998,7 +998,18 @@ class AirflowDistribution(Distribution):
                 [get_provider_package_from_package_id(package_id) for package_id in PREINSTALLED_PROVIDERS]
             )
         # needed for `pip check` to correctly discover restrictions that was added specially for Composer
-        self.install_requires.extend(EXTRAS_REQUIREMENTS['composer'])
+        # Exclude "google-cloud-datacatalog-lineage-producer-client" package from Composer Airflow
+        # install_requires. This will make possible to install composer-airflow[devel_ci] without access to AR
+        # repo (this library is hosted in AR) and we do not really need to have it in install_requires for
+        # "pip check", as we do not have any constraint for a specific version and
+        # "pip install .[composer]"/"pip download .[composer]" will anyway install/download it.
+        self.install_requires.extend(
+            [
+                _req
+                for _req in EXTRAS_REQUIREMENTS['composer']
+                if _req != "google-cloud-datacatalog-lineage-producer-client"
+            ]
+        )
 
 
 def replace_extra_requirement_with_provider_packages(extra: str, providers: List[str]) -> None:
@@ -1118,7 +1129,7 @@ def add_all_provider_packages() -> None:
             # TODO: (should be removed in Airflow 2.3.3+) higher version of package using new imports
             # from new common-sql provider where generic code was moved, this causes an issues in the tests
             # for the core operators
-            "sqlite": "==3.0.0"
+            "sqlite": "==3.0.0",
         },
     )
 
