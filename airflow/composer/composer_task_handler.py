@@ -141,11 +141,6 @@ class ComposerTaskHandler(StreamTaskHandler, LoggingMixin):
         new_metadata = {'end_of_log': end_of_log}
         if next_page_token:
             new_metadata['next_page_token'] = next_page_token
-        messages += new_messages
-
-        # TODO(eyaz) add a unit test for paging with empty messages.
-        if not messages and next_page_token:
-            return [()], [new_metadata]
 
         return [((self.task_instance_hostname, messages),)], [new_metadata]
 
@@ -219,22 +214,6 @@ class ComposerTaskHandler(StreamTaskHandler, LoggingMixin):
             page_token=next_page_token,
         )
 
-        # If a value for nextPageToken appears and the entries field is empty,
-        # it means that the search found no log entries so far but it did not have
-        # time to search all the possible log entries.
-        # https://cloud.google.com/logging/docs/reference/v2/rest/v2/entries/list#response-body
-        if not new_logs and not next_page_token:
-            empty_log = (
-                f'*** Logs not found for Cloud Logging filter:\n{log_filter}\n'
-                '*** The task might not have been executed or worker executing it '
-                'might have finished abnormally (e.g. was evicted).\n'
-                '*** Please, refer to '
-                'https://cloud.google.com/composer/docs/how-to/using/troubleshooting-dags#common_issues '
-                'for hints to learn what might be possible reasons for a missing log.'
-            )
-            self.log.error(empty_log)
-            return empty_log, True, None
-
         if new_logs:
             logs_list.append(new_logs)
 
@@ -250,6 +229,24 @@ class ComposerTaskHandler(StreamTaskHandler, LoggingMixin):
             next_page_token = None
         else:
             end_of_log = not bool(next_page_token)
+
+        # If a value for nextPageToken appears and the entries field is empty,
+        # it means that the search found no log entries so far but it did not have
+        # time to search all the possible log entries.
+        # https://cloud.google.com/logging/docs/reference/v2/rest/v2/entries/list#response-body
+        if not logs_list and not next_page_token:
+            empty_log = (
+                f'*** Logs not found for Cloud Logging filter:\n{log_filter}\n'
+                '*** The task might not have been executed, logs were deleted '
+                'as part of logs retention (default of 30 days),  or worker '
+                'executing it might have finished abnormally (e.g. was evicted).\n'
+                '*** Please, refer to '
+                'https://cloud.google.com/composer/docs/how-to/using/troubleshooting-dags#common_issues '
+                'for hints to learn what might be possible reasons for a missing log.'
+            )
+            self.log.error(empty_log)
+            return empty_log, True, None
+
         return '\n'.join(logs_list), end_of_log, next_page_token
 
     def _read_single_logs_page(self, log_filter: str, page_token: Optional[str] = None) -> Tuple[str, str]:

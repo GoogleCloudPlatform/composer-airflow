@@ -191,12 +191,16 @@ class TestComposerLoggingHandlerTask(unittest.TestCase):
 
     @mock.patch('airflow.composer.composer_task_handler.get_credentials_and_project_id')
     @mock.patch('airflow.composer.composer_task_handler.LoggingServiceV2Client')
-    def test_should_return_empty_logs(self, mock_client, mock_get_creds_and_project_id):
-        pages = [_create_list_log_entries_response_mock([], None)]
+    def test_should_return_empty_logs_with_all_pages(self, mock_client, mock_get_creds_and_project_id):
+        # A value for next_page_token can appear with empty log entries indicating
+        # that Cloud Logging searching is not finished but so far there were no logs.
+        # https://cloud.google.com/logging/docs/reference/v2/rest/v2/entries/list#response-body
+        pages = [_create_list_log_entries_response_mock([], 'token') for i in range(2)]
+        pages.append(_create_list_log_entries_response_mock([], None))
         mock_client.return_value.list_log_entries.return_value.pages = iter(pages)
         mock_get_creds_and_project_id.return_value = ('creds', 'project_id')
 
-        logs, metadata = self.composerTaskHandler.read(self.ti, 1)
+        logs, metadata = self.composerTaskHandler.read(self.ti, 1, {'download_logs': 'true'})
 
         log_filter = (
             'logName="projects/project_id/logs/airflow-worker"\n'
@@ -219,8 +223,9 @@ class TestComposerLoggingHandlerTask(unittest.TestCase):
                     'default-hostname',
                     '*** Reading remote logs from Cloud Logging.\n'
                     f'*** Logs not found for Cloud Logging filter:\n{log_filter}\n'
-                    '*** The task might not have been executed or worker executing it '
-                    'might have finished abnormally (e.g. was evicted).\n'
+                    '*** The task might not have been executed, logs were deleted '
+                    'as part of logs retention (default of 30 days),  or worker '
+                    'executing it might have finished abnormally (e.g. was evicted).\n'
                     '*** Please, refer to '
                     'https://cloud.google.com/composer/docs/how-to/using/troubleshooting-dags#common_issues '
                     'for hints to learn what might be possible reasons for a missing log.',
@@ -228,6 +233,57 @@ class TestComposerLoggingHandlerTask(unittest.TestCase):
             )
         ] == logs
         assert [{'end_of_log': True}] == metadata
+
+    @mock.patch('airflow.composer.composer_task_handler.get_credentials_and_project_id')
+    @mock.patch('airflow.composer.composer_task_handler.LoggingServiceV2Client')
+    def test_should_return_empty_logs_with_paging(self, mock_client, mock_get_creds_and_project_id):
+        pages = [_create_list_log_entries_response_mock([], 'token')]
+        pages.append(_create_list_log_entries_response_mock([], None))
+        mock_client.return_value.list_log_entries.return_value.pages = iter(pages)
+        mock_get_creds_and_project_id.return_value = ('creds', 'project_id')
+
+        page1_logs, metadata1 = self.composerTaskHandler.read(self.ti, 1)
+        page2_logs, metadata2 = self.composerTaskHandler.read(self.ti, 1, metadata1[0])
+
+        log_filter = (
+            'logName="projects/project_id/logs/airflow-worker"\n'
+            'resource.type="cloud_composer_environment"\n'
+            'resource.labels.project_id="project_id"\n'
+            'resource.labels.environment_name="composer-env"\n'
+            'resource.labels.location="loc"\n'
+            'timestamp>="2022-01-01T00:00:00+00:00"\n'
+            'timestamp<="2022-01-03T00:05:00+00:00"\n'
+            'labels.task-id="task_for_testing_composer_log_handler"\n'
+            'labels.workflow="dag_for_testing_composer_task_handler"\n'
+            'labels.execution-date="2022-01-01T00:00:00+00:00"\n'
+            'labels.try-number="1"\n'
+            'labels.worker_id="default-hostname"'
+        )
+
+        assert [
+            (
+                (
+                    'default-hostname',
+                    '*** Reading remote logs from Cloud Logging.\n',
+                ),
+            )
+        ] == page1_logs
+        assert [{'end_of_log': False, 'next_page_token': 'token'}] == metadata1
+        assert [
+            (
+                (
+                    'default-hostname',
+                    f'*** Logs not found for Cloud Logging filter:\n{log_filter}\n'
+                    '*** The task might not have been executed, logs were deleted '
+                    'as part of logs retention (default of 30 days),  or worker '
+                    'executing it might have finished abnormally (e.g. was evicted).\n'
+                    '*** Please, refer to '
+                    'https://cloud.google.com/composer/docs/how-to/using/troubleshooting-dags#common_issues '
+                    'for hints to learn what might be possible reasons for a missing log.',
+                ),
+            )
+        ] == page2_logs
+        assert [{'end_of_log': True}] == metadata2
 
     def test_should_write_logs_to_stream(self):
         captured_output = io.StringIO(newline=None)
