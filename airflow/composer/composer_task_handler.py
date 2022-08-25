@@ -142,6 +142,11 @@ class ComposerTaskHandler(StreamTaskHandler, LoggingMixin):
         if next_page_token:
             new_metadata['next_page_token'] = next_page_token
 
+        messages += new_messages
+
+        if not messages and next_page_token:
+            return [()], [new_metadata]
+
         return [((self.task_instance_hostname, messages),)], [new_metadata]
 
     def _prepare_filter(self, task_instance: TaskInstance, try_number: Optional[int] = None) -> str:
@@ -277,7 +282,11 @@ class ComposerTaskHandler(StreamTaskHandler, LoggingMixin):
 
     @staticmethod
     def _format_entry(entry: LogEntry) -> str:
-        return f'[{entry.timestamp}] {{{entry.labels["process"]}}} {log_severity_pb2.LogSeverity.Name(entry.severity)} - {entry.text_payload}'
+        return (
+            f'[{entry.timestamp}] {{{entry.labels["process"]}}}'
+            f' {log_severity_pb2.LogSeverity.Name(entry.severity)}'
+            f' - {entry.text_payload}'
+        )
 
     @classmethod
     def _task_instance_to_labels(cls, ti: TaskInstance) -> Dict[str, str]:
