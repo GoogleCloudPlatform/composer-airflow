@@ -22,6 +22,8 @@ import logging
 import unittest
 from unittest import mock
 
+import grpc
+from google.api_core.exceptions import GoogleAPICallError
 from google.cloud.logging_v2.types import ListLogEntriesRequest, ListLogEntriesResponse, LogEntry
 from google.logging.type import log_severity_pb2
 from google.protobuf import timestamp_pb2
@@ -285,6 +287,96 @@ class TestComposerLoggingHandlerTask(unittest.TestCase):
         ] == page2_logs
         assert [{'end_of_log': True}] == metadata2
 
+    @mock.patch('airflow.composer.composer_task_handler.get_credentials_and_project_id')
+    @mock.patch('airflow.composer.composer_task_handler.LoggingServiceV2Client')
+    def test_should_handle_permission_denied(self, mock_client, mock_get_creds_and_project_id):
+        error = GoogleAPICallError("Nested permission denied message.")
+        error.grpc_status_code = grpc.StatusCode.PERMISSION_DENIED
+        mock_client.return_value.list_log_entries.side_effect = error
+        mock_get_creds_and_project_id.return_value = ('creds', 'project_id')
+
+        logs, metadata = self.composerTaskHandler.read(self.ti, 1)
+
+        assert [
+            (
+                (
+                    'default-hostname',
+                    '*** Reading remote logs from Cloud Logging.\n'
+                    f'{error.grpc_status_code}: The Service Account used by the'
+                    ' "google_cloud_default" connection is missing Composer'
+                    ' Worker role (default SA is the SA used by the Composer'
+                    ' environment).\n'
+                    ' Please grant the role and retry.',
+                ),
+            )
+        ] == logs
+        assert [{'end_of_log': True}] == metadata
+
+    @mock.patch('airflow.composer.composer_task_handler.get_credentials_and_project_id')
+    @mock.patch('airflow.composer.composer_task_handler.LoggingServiceV2Client')
+    def test_should_handle_retry_transient_error(self, mock_client, mock_get_creds_and_project_id):
+        error = GoogleAPICallError("Nested service unavailable message.")
+        error.grpc_status_code = grpc.StatusCode.UNAVAILABLE
+        mock_client.return_value.list_log_entries.side_effect = error
+        mock_get_creds_and_project_id.return_value = ('creds', 'project_id')
+
+        logs, metadata = self.composerTaskHandler.read(self.ti, 1)
+
+        assert [
+            (
+                (
+                    'default-hostname',
+                    '*** Reading remote logs from Cloud Logging.\n'
+                    f'{error.grpc_status_code}: Transient server error '
+                    'returned from Cloud Logging. Please try again.',
+                ),
+            )
+        ] == logs
+        assert [{'end_of_log': True}] == metadata
+
+    @mock.patch('airflow.composer.composer_task_handler.get_credentials_and_project_id')
+    @mock.patch('airflow.composer.composer_task_handler.LoggingServiceV2Client')
+    def test_should_handle_quota_exceeded(self, mock_client, mock_get_creds_and_project_id):
+        error = GoogleAPICallError("Nested quota exceeded message.")
+        error.grpc_status_code = grpc.StatusCode.RESOURCE_EXHAUSTED
+        mock_client.return_value.list_log_entries.side_effect = error
+        mock_get_creds_and_project_id.return_value = ('creds', 'project_id')
+
+        logs, metadata = self.composerTaskHandler.read(self.ti, 1)
+
+        assert [
+            (
+                (
+                    'default-hostname',
+                    '*** Reading remote logs from Cloud Logging.\n'
+                    f'{error.grpc_status_code}: {error.message}',
+                ),
+            )
+        ] == logs
+        assert [{'end_of_log': True}] == metadata
+
+    @mock.patch('airflow.composer.composer_task_handler.get_credentials_and_project_id')
+    @mock.patch('airflow.composer.composer_task_handler.LoggingServiceV2Client')
+    def test_should_handle_other_error(self, mock_client, mock_get_creds_and_project_id):
+        error = GoogleAPICallError("Nested error message.")
+        error.grpc_status_code = 500
+        mock_client.return_value.list_log_entries.side_effect = error
+        mock_get_creds_and_project_id.return_value = ('creds', 'project_id')
+
+        logs, metadata = self.composerTaskHandler.read(self.ti, 1)
+
+        assert [
+            (
+                (
+                    'default-hostname',
+                    '*** Reading remote logs from Cloud Logging.\n'
+                    f'Unexpected error occurred. {error.grpc_status_code}:'
+                    f' {error.message}',
+                ),
+            )
+        ] == logs
+        assert [{'end_of_log': True}] == metadata
+
     def test_should_write_logs_to_stream(self):
         captured_output = io.StringIO(newline=None)
         composer_task_handler2 = ComposerTaskHandler(stream=captured_output)
@@ -304,6 +396,9 @@ class TestComposerLoggingHandlerTask(unittest.TestCase):
         composer_task_handler2.close()
 
         self.assertEqual(
-            'MESSAGE@-@{"workflow": "dag_for_testing_composer_task_handler", "task-id": "task_for_testing_composer_log_handler", "execution-date": "2022-01-01T00:00:00+00:00", "try-number": "1"}\n',
+            'MESSAGE@-@{"workflow": "dag_for_testing_composer_task_handler",'
+            ' "task-id": "task_for_testing_composer_log_handler",'
+            ' "execution-date": "2022-01-01T00:00:00+00:00",'
+            ' "try-number": "1"}\n',
             captured_output.getvalue(),
         )

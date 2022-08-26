@@ -22,6 +22,8 @@ from datetime import timedelta
 from functools import cached_property
 from typing import Collection, Dict, List, Optional, Tuple
 
+import grpc
+from google.api_core.exceptions import GoogleAPICallError
 from google.api_core.gapic_v1.client_info import ClientInfo
 from google.auth.credentials import Credentials
 from google.cloud.logging_v2.services.logging_service_v2 import LoggingServiceV2Client
@@ -273,11 +275,34 @@ class ComposerTaskHandler(StreamTaskHandler, LoggingMixin):
             order_by='timestamp asc',
             page_size=1000,
         )
-        response = self._logging_service_client.list_log_entries(request=request)
-        page: ListLogEntriesResponse = next(response.pages)
-        messages = []
-        for entry in page.entries:
-            messages.append(self._format_entry(entry))
+
+        try:
+            response = self._logging_service_client.list_log_entries(request=request)
+            page: ListLogEntriesResponse = next(response.pages)
+            messages = []
+            for entry in page.entries:
+                messages.append(self._format_entry(entry))
+        except GoogleAPICallError as e:
+            if e.grpc_status_code == grpc.StatusCode.PERMISSION_DENIED:
+                error = (
+                    f'{e.grpc_status_code}: The Service Account used by the'
+                    ' "google_cloud_default" connection is missing Composer'
+                    ' Worker role (default SA is the SA used by the Composer'
+                    ' environment).\n'
+                    ' Please grant the role and retry.'
+                )
+            elif e.grpc_status_code == grpc.StatusCode.RESOURCE_EXHAUSTED:
+                error = f'{e.grpc_status_code}: {e.message}'
+            elif e.grpc_status_code == grpc.StatusCode.UNAVAILABLE:
+                error = (
+                    f'{e.grpc_status_code}: Transient server error '
+                    'returned from Cloud Logging. Please try again.'
+                )
+            else:
+                error = f'Unexpected error occurred. {e.grpc_status_code}:' f' {e.message}'
+            self.log.error(e)
+            return error, None
+
         return '\n'.join(messages), page.next_page_token
 
     @staticmethod
