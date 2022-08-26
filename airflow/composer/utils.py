@@ -31,6 +31,6 @@ def is_composer_v1():
     """Determines if Airflow is running under Composer v1."""
     composer_version = get_composer_version()
     if not composer_version:
-        return True
+        return False
 
     return composer_version.split(".")[0] == "1"

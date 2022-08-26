@@ -31,7 +31,7 @@ class TestUtils(unittest.TestCase):
             self.assertFalse(is_composer_v1())
 
         with mock.patch.dict("os.environ", clear=True):
-            self.assertTrue(is_composer_v1())
+            self.assertFalse(is_composer_v1())
 
     def test_is_triggerer_enabled_default(self):
         self.assertFalse(is_triggerer_enabled())
