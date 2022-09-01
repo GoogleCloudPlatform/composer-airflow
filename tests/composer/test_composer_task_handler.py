@@ -302,10 +302,9 @@ class TestComposerLoggingHandlerTask(unittest.TestCase):
                 (
                     'default-hostname',
                     '*** Reading remote logs from Cloud Logging.\n'
-                    f'{error.grpc_status_code}: The Service Account used by the'
-                    ' "google_cloud_default" connection is missing Composer'
-                    ' Worker role (default SA is the SA used by the Composer'
-                    ' environment).\n'
+                    f'{error.grpc_status_code}: The Service Account used by '
+                    'the Composer environment is missing Composer Worker'
+                    ' role.\n'
                     ' Please grant the role and retry.',
                 ),
             )

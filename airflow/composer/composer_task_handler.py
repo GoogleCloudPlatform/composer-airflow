@@ -286,9 +286,7 @@ class ComposerTaskHandler(StreamTaskHandler, LoggingMixin):
             if e.grpc_status_code == grpc.StatusCode.PERMISSION_DENIED:
                 error = (
                     f'{e.grpc_status_code}: The Service Account used by the'
-                    ' "google_cloud_default" connection is missing Composer'
-                    ' Worker role (default SA is the SA used by the Composer'
-                    ' environment).\n'
+                    ' Composer environment is missing Composer Worker role.\n'
                     ' Please grant the role and retry.'
                 )
             elif e.grpc_status_code == grpc.StatusCode.RESOURCE_EXHAUSTED:
