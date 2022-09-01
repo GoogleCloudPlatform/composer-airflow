@@ -34,6 +34,11 @@ Breaking changes
    For more information, see `Deprecation and sunset <https://developers.google.com/google-ads/api/docs/sunset-dates>`_
    and `Upgrading to the newest version <https://developers.google.com/google-ads/api/docs/version-migration>`_
 
+2022.8.26+composer (Only for Composer)
+.....
+
+Added support for deferrable mode in Dataproc operators (DataprocSubmitJobOperator).
+
 2022.8.23+composer (Only for Composer)
 .....
 
