@@ -96,18 +96,29 @@ class ComposerDataLineageAdapter:
         )
 
     def _construct_lineage_events(self, inlets: List, outlets: List) -> List[LineageEvent]:
-        """Returns Data Lineage events generated based on Airflow inlets/outlets."""
+        """Returns Data Lineage events generated based on Airflow inlets/outlets.
+
+        Note: if one of the given inlets/outlets is unknown (_get_entity_reference returned None),
+            then this method returns empty list.
+        """
+        if not inlets and not outlets:
+            return []
+
         sources = []
         for inlet in inlets:
             entity_reference = self._get_entity_reference(inlet)
-            if entity_reference:
-                sources.append(entity_reference)
+            if entity_reference is None:
+                return []
+
+            sources.append(entity_reference)
 
         targets = []
         for outlet in outlets:
             entity_reference = self._get_entity_reference(outlet)
-            if entity_reference:
-                targets.append(entity_reference)
+            if entity_reference is None:
+                return []
+
+            targets.append(entity_reference)
 
         return [
             LineageEvent(

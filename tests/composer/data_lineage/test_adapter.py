@@ -25,6 +25,7 @@ from google.cloud.datacatalog.lineage_v1 import (
     Process,
     Run,
 )
+from parameterized import parameterized
 
 from airflow.composer.data_lineage.adapter import ComposerDataLineageAdapter
 from airflow.composer.data_lineage.entities import BigQueryTable, DataLineageEntity
@@ -140,8 +141,8 @@ class TestAdapter(unittest.TestCase):
         entity_reference_3 = _get_entity_reference("test-table-3")
 
         actual_lineage_events = adapter._construct_lineage_events(
-            inlets=[big_query_table_1, {}, big_query_table_2],
-            outlets=[big_query_table_2, {}, big_query_table_3],
+            inlets=[big_query_table_1, big_query_table_2],
+            outlets=[big_query_table_2, big_query_table_3],
         )
 
         expected_lineage_events = [
@@ -151,6 +152,43 @@ class TestAdapter(unittest.TestCase):
                 event_time=datetime.datetime(2022, 8, 1, 10, 11, 12),
             )
         ]
+        self.assertEqual(actual_lineage_events, expected_lineage_events)
+
+    @parameterized.expand(
+        [
+            ([], [{"unknown": True}]),
+            ([{"unknown": True}], []),
+        ]
+    )
+    def test_construct_lineage_events_unknown_entity(self, extra_inlets, extra_outlets):
+        def _get_big_query_table(table_id):
+            return BigQueryTable(
+                project_id="test-project",
+                dataset_id="test-dataset",
+                table_id=table_id,
+            )
+
+        adapter = ComposerDataLineageAdapter()
+        big_query_table_1 = _get_big_query_table("test-table-1")
+        big_query_table_2 = _get_big_query_table("test-table-2")
+
+        actual_lineage_events = adapter._construct_lineage_events(
+            inlets=[big_query_table_1] + extra_inlets,
+            outlets=[big_query_table_2] + extra_outlets,
+        )
+
+        expected_lineage_events = []
+        self.assertEqual(actual_lineage_events, expected_lineage_events)
+
+    def test_construct_lineage_events_no_inlets_outlets(self):
+        adapter = ComposerDataLineageAdapter()
+
+        actual_lineage_events = adapter._construct_lineage_events(
+            inlets=[],
+            outlets=[],
+        )
+
+        expected_lineage_events = []
         self.assertEqual(actual_lineage_events, expected_lineage_events)
 
     @freeze_time("2022-08-01 22:11:12")
