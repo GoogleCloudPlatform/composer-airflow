@@ -553,7 +553,7 @@ composer_additional = [
     "google-apitools",
     "google-cloud-aiplatform",
     # This package is hosted from AR repository, it is not available in public pypi.
-    "google-cloud-datacatalog-lineage-producer-client",
+    # "google-cloud-datacatalog-lineage-producer-client",
     "google-cloud-datastore",
     "google-cloud-filestore",
     # higher version of package have conflict in the dependencies with the google-ads package
