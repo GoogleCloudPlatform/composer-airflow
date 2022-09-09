@@ -572,6 +572,7 @@ zendesk = [
 ]
 composer_additional = [
     "crcmod<2.0",
+    "dbt-core",
     "firebase-admin",
     "gcsfs",
     "google-apitools",
