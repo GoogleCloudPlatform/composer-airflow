@@ -23,12 +23,15 @@ PROVIDERS_HOOK_MISSING_ATTRIBUTE_WARNING_RE = re.compile(
 )
 
 # In Composer default Airflow configuration properties we continue to use
-# [core]dag_concurrency property, because if we update it to the new Airflow property
-# it will take precedence over custom [core]dag_concurrency set by customer.
-# Here, we silence this warning message as this message is expected and doesn't
+# [core]dag_concurrency and [api]auth_backend properties, because if we update them to the new Airflow
+# properties it will take precedence over custom [core]dag_concurrency or [api]auth_backend set by customer.
+# Here, we silence these warning messages as these messages are expected and don't
 # require any action items.
 warnings.filterwarnings(
     'ignore', r'.*The dag_concurrency option in \[core\] has been renamed to max_active_tasks_per_dag.*'
+)
+warnings.filterwarnings(
+    'ignore', r'.*The auth_backend option in \[api\] has been renamed to auth_backends.*'
 )
 
 
@@ -55,6 +58,18 @@ def _is_no_user_yet_created_warning(record):
 def _is_providers_hook_missing_attribute_warning(record):
     """Method that detects missing attribute warning for provider hooks."""
     return PROVIDERS_HOOK_MISSING_ATTRIBUTE_WARNING_RE.match(record.getMessage())
+
+
+def _is_duplicate_key_value_in_permision_tables_warning(record):
+    """Method that detects postgres warning for violating unique constraint in permission tables"""
+    constraints = [
+        'ab_permission_view_permission_id_view_menu_id_key',
+        'ab_permission_view_role_permission_view_id_role_id_key',
+        'ab_view_menu_name_key', 'ab_permission_name_key', 'ab_role_name_key'
+    ]
+    record_message = record.getMessage()
+    return ('psycopg2.errors.UniqueViolation) duplicate key value violates '
+            'unique constraint') in record_message and any([c in record_message for c in constraints])
 
 
 class ComposerFilter(logging.Filter):
@@ -89,6 +104,12 @@ class ComposerFilter(logging.Filter):
         # In case of custom user hooks this warning is useful, in case of provider hooks
         # this warning is useless for Airflow user because they are not able to fix it.
         if _is_providers_hook_missing_attribute_warning(record):
+            return False
+
+        # These errors are known issue of Airflow 2.3.0-2.3.4 and they occur on webserver
+        # startup but don't mean any malfunctioning and can be ignored.
+        # https://github.com/apache/airflow/issues/23512
+        if _is_duplicate_key_value_in_permision_tables_warning(record):
             return False
 
         return True

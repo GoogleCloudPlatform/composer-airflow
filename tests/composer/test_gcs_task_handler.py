@@ -46,12 +46,10 @@ class TestGCSTaskHandler(unittest.TestCase):
         self.remote_log_base = "gs://bucket/remote/log/location"
         self.remote_log_location = "gs://my-bucket/path/to/1.log"
         self.local_log_location = tempfile.mkdtemp()
-        self.filename_template = "{try_number}.log"
         self.addCleanup(self.dag.clear)
         self.gcs_task_handler = GCSTaskHandler(
             base_log_folder=self.local_log_location,
             gcs_log_folder=self.remote_log_base,
-            filename_template=self.filename_template,
         )
 
     def tearDown(self) -> None:

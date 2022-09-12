@@ -86,6 +86,18 @@ class TestComposerFilter(unittest.TestCase):
 
         self.assertNotIn(message, temp_stdout.getvalue())
 
+    def test_detecting_duplicate_key_value_in_permission_tables_warning(self):
+        logger = logging.getLogger('airflow.www.fab_security')
+        message = (
+            "Add Permission to Role Error: (psycopg2.errors.UniqueViolation) duplicate "
+            "key value violates unique constraint 'ab_role_name_key'"
+        )
+        with mock.patch('os.environ', {'AIRFLOW_WEBSERVER': 'True'}):
+            with contextlib.redirect_stdout(io.StringIO()) as temp_stdout:
+                logger.error(message)
+
+        self.assertNotIn(message, temp_stdout.getvalue())
+
     def test_example_message_not_filtered_out(self):
         logger = logging.getLogger('airflow.settings')
         message = 'Filling up the DagBag from /home/airflow/gcs/dags/airflow_monitoring.py'
@@ -101,6 +113,21 @@ class TestComposerFilter(unittest.TestCase):
 
         message = (
             "The dag_concurrency option in [core] has been renamed to max_active_tasks_per_dag "
+            "- the old setting has been used, but please update your config"
+        )
+        with warnings.catch_warnings(record=True) as warning_list:
+            warnings.warn(message, DeprecationWarning, stacklevel=3)
+
+        warning_list = [w.message.args[0] for w in warning_list]
+        self.assertNotIn(message, warning_list)
+
+    def test_ignoring_auth_backend_option_renamed_warning(self):
+        # Reload custom_log_filter to apply Composer filters for warning module.
+        # They are removed (presumably by pytest) before running test.
+        importlib.reload(custom_log_filter)
+
+        message = (
+            "The auth_backend option in [api] has been renamed to auth_backends "
             "- the old setting has been used, but please update your config"
         )
         with warnings.catch_warnings(record=True) as warning_list:

@@ -51,8 +51,6 @@ class GCSTaskHandler(FileTaskHandler, LoggingMixin):
     :param gcs_log_folder: Path to a remote location where logs will be saved. It must have the prefix
         ``gs://``. For example: ``gs://bucket/remote/log/location``
     :type gcs_log_folder: str
-    :param filename_template: template filename string
-    :type filename_template: str
     :param gcp_key_path: Path to Google Cloud Service Account file (JSON). Mutually exclusive with
         gcp_keyfile_dict.
         If omitted, authorization based on `the Application Default Credentials
@@ -73,14 +71,13 @@ class GCSTaskHandler(FileTaskHandler, LoggingMixin):
         *,
         base_log_folder: str,
         gcs_log_folder: str,
-        filename_template: str,
         gcp_key_path: Optional[str] = None,
         gcp_keyfile_dict: Optional[dict] = None,
         # See: https://github.com/PyCQA/pylint/issues/2377
         gcp_scopes: Optional[Collection[str]] = _DEFAULT_SCOPESS,  # pylint: disable=unsubscriptable-object
         project_id: Optional[str] = None,
     ):
-        super().__init__(base_log_folder, filename_template)
+        super().__init__(base_log_folder)
         self.remote_base = gcs_log_folder
         self.log_relative_path = ''
         self._hook = None

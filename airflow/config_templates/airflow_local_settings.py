@@ -259,7 +259,6 @@ if REMOTE_LOGGING and os.environ.get('EXPERIMENTAL_CLOUD_LOGGING_ONLY') != 'True
                     'formatter': 'airflow',
                     'base_log_folder': str(os.path.expanduser(BASE_LOG_FOLDER)),
                     'gcs_log_folder': REMOTE_BASE_LOG_FOLDER,
-                    'filename_template': FILENAME_TEMPLATE,
                     'gcp_key_path': key_path,
                 },
             }
