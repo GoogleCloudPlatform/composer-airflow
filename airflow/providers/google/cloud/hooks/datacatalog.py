@@ -18,14 +18,15 @@
 from typing import Dict, Optional, Sequence, Tuple, Union
 
 from google.api_core.retry import Retry
-from google.cloud import datacatalog
 from google.cloud.datacatalog import (
     CreateTagRequest,
+    CreateTagTemplateRequest,
     DataCatalogClient,
     Entry,
     EntryGroup,
     SearchCatalogRequest,
     Tag,
+    TagField,
     TagTemplate,
     TagTemplateField,
 )
@@ -211,7 +212,7 @@ class CloudDataCatalogHook(GoogleBaseHook):
                 template_display_name=tag.get('template_display_name'),
                 column=tag.get('column'),
                 fields={
-                    k: datacatalog.TagField(**v) if isinstance(v, dict) else v
+                    k: TagField(**v) if isinstance(v, dict) else v
                     for k, v in tag.get("fields", {}).items()
                 },
             )
@@ -261,16 +262,16 @@ class CloudDataCatalogHook(GoogleBaseHook):
         # primitive type, so we need to convert it manually.
         # See: https://github.com/googleapis/python-datacatalog/issues/84
         if isinstance(tag_template, dict):
-            tag_template = datacatalog.TagTemplate(
+            tag_template = TagTemplate(
                 name=tag_template.get("name"),
                 display_name=tag_template.get("display_name"),
                 fields={
-                    k: datacatalog.TagTemplateField(**v) if isinstance(v, dict) else v
+                    k: TagTemplateField(**v) if isinstance(v, dict) else v
                     for k, v in tag_template.get("fields", {}).items()
                 },
             )
 
-        request = datacatalog.CreateTagTemplateRequest(
+        request = CreateTagTemplateRequest(
             parent=parent, tag_template_id=tag_template_id, tag_template=tag_template
         )
         result = client.create_tag_template(

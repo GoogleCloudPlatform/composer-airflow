@@ -19,11 +19,12 @@ from typing import TYPE_CHECKING, Dict, Optional, Sequence, Tuple, Union
 
 from google.api_core.exceptions import AlreadyExists, NotFound
 from google.api_core.retry import Retry
-from google.cloud.datacatalog_v1beta1 import DataCatalogClient, SearchCatalogResult
-from google.cloud.datacatalog_v1beta1.types import (
+from google.cloud.datacatalog import (
+    DataCatalogClient,
     Entry,
     EntryGroup,
     SearchCatalogRequest,
+    SearchCatalogResult,
     Tag,
     TagTemplate,
     TagTemplateField,

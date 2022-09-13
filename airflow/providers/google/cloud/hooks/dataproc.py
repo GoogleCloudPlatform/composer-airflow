@@ -292,10 +292,15 @@ class DataprocHook(GoogleBaseHook):
             credentials=self._get_credentials(), client_info=CLIENT_INFO, client_options=client_options
         )
 
-    def wait_for_operation(self, operation: Operation, timeout: Optional[float] = None):
+    def wait_for_operation(
+        self,
+        operation: Operation,
+        result_retry: Union[Retry, _MethodDefault] = DEFAULT,
+        timeout: Optional[float] = None,
+    ):
         """Waits for long-lasting operation to complete."""
         try:
-            return operation.result(timeout=timeout)
+            return operation.result(timeout=timeout, retry=result_retry)
         except Exception:
             error = operation.exception(timeout=timeout)
             raise AirflowException(error)

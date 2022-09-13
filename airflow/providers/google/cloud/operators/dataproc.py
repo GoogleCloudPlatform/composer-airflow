@@ -30,6 +30,7 @@ from typing import TYPE_CHECKING, Dict, List, Optional, Sequence, Set, Tuple, Un
 
 from google.api_core import operation  # type: ignore
 from google.api_core.exceptions import AlreadyExists, NotFound
+from google.api_core.gapic_v1.method import DEFAULT
 from google.api_core.retry import Retry, exponential_sleep_generator
 from google.cloud.dataproc_v1 import Batch, Cluster, JobStatus
 from google.protobuf.duration_pb2 import Duration
@@ -2081,6 +2082,8 @@ class DataprocCreateBatchOperator(BaseOperator):
         the first ``google.longrunning.Operation`` created and stored in the backend is returned.
     :param retry: A retry object used to retry requests. If ``None`` is specified, requests will not be
         retried.
+    :param result_retry: Result retry object used to retry requests. Is used to decrease delay between
+        executing chained tasks in a DAG by specifying exact amount of seconds for executing.
     :param timeout: The amount of time, in seconds, to wait for the request to complete. Note that if
         ``retry`` is specified, the timeout applies to each individual attempt.
     :param metadata: Additional metadata that is provided to the method.
@@ -2112,7 +2115,8 @@ class DataprocCreateBatchOperator(BaseOperator):
         batch: Union[Dict, Batch],
         batch_id: Optional[str] = None,
         request_id: Optional[str] = None,
-        retry: Optional[Retry] = None,
+        retry: Optional[Retry] = DEFAULT,
+        result_retry: Union[Retry] = DEFAULT,
         timeout: Optional[float] = None,
         metadata: Sequence[Tuple[str, str]] = (),
         gcp_conn_id: str = "google_cloud_default",
@@ -2126,6 +2130,7 @@ class DataprocCreateBatchOperator(BaseOperator):
         self.batch_id = batch_id
         self.request_id = request_id
         self.retry = retry
+        self.result_retry = result_retry
         self.timeout = timeout
         self.metadata = metadata
         self.gcp_conn_id = gcp_conn_id
@@ -2148,7 +2153,9 @@ class DataprocCreateBatchOperator(BaseOperator):
                 timeout=self.timeout,
                 metadata=self.metadata,
             )
-            result = hook.wait_for_operation(timeout=self.timeout, operation=self.operation)
+            result = hook.wait_for_operation(
+                timeout=self.timeout, result_retry=self.result_retry, operation=self.operation
+            )
             self.log.info("Batch %s created", self.batch_id)
         except AlreadyExists:
             self.log.info("Batch with given id already exists")

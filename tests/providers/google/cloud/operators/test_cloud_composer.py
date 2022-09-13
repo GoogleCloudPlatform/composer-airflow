@@ -93,7 +93,7 @@ class TestCloudComposerCreateEnvironmentOperator:
 
     @mock.patch(COMPOSER_STRING.format("Environment.to_dict"))
     @mock.patch(COMPOSER_STRING.format("CloudComposerHook"))
-    @mock.patch(COMPOSER_TRIGGERS_STRING.format("CloudComposerHook"))
+    @mock.patch(COMPOSER_TRIGGERS_STRING.format("CloudComposerAsyncHook"))
     def test_execute_deferrable(self, mock_trigger_hook, mock_hook, to_dict_mode):
         op = CloudComposerCreateEnvironmentOperator(
             task_id=TASK_ID,
@@ -144,7 +144,7 @@ class TestCloudComposerDeleteEnvironmentOperator:
         )
 
     @mock.patch(COMPOSER_STRING.format("CloudComposerHook"))
-    @mock.patch(COMPOSER_TRIGGERS_STRING.format("CloudComposerHook"))
+    @mock.patch(COMPOSER_TRIGGERS_STRING.format("CloudComposerAsyncHook"))
     def test_execute_deferrable(self, mock_trigger_hook, mock_hook):
         op = CloudComposerDeleteEnvironmentOperator(
             task_id=TASK_ID,
@@ -199,7 +199,7 @@ class TestCloudComposerUpdateEnvironmentOperator:
 
     @mock.patch(COMPOSER_STRING.format("Environment.to_dict"))
     @mock.patch(COMPOSER_STRING.format("CloudComposerHook"))
-    @mock.patch(COMPOSER_TRIGGERS_STRING.format("CloudComposerHook"))
+    @mock.patch(COMPOSER_TRIGGERS_STRING.format("CloudComposerAsyncHook"))
     def test_execute_deferrable(self, mock_trigger_hook, mock_hook, to_dict_mode):
         op = CloudComposerUpdateEnvironmentOperator(
             task_id=TASK_ID,

@@ -20,7 +20,7 @@ from unittest import TestCase, mock
 
 from google.api_core.exceptions import AlreadyExists
 from google.api_core.retry import Retry
-from google.cloud.datacatalog_v1beta1.types import Entry, EntryGroup, Tag, TagTemplate, TagTemplateField
+from google.cloud.datacatalog import Entry, EntryGroup, Tag, TagTemplate, TagTemplateField
 from google.protobuf.field_mask_pb2 import FieldMask
 
 from airflow.providers.google.cloud.operators.datacatalog import (
@@ -93,6 +93,8 @@ TEST_ENTRY_DICT: Dict = {
     'description': '',
     'display_name': '',
     'linked_resource': '',
+    'fully_qualified_name': '',
+    'labels': {},
     'name': TEST_ENTRY_PATH,
 }
 TEST_ENTRY_GROUP: EntryGroup = EntryGroup(name=TEST_ENTRY_GROUP_PATH)
@@ -100,13 +102,19 @@ TEST_ENTRY_GROUP_DICT: Dict = {'description': '', 'display_name': '', 'name': TE
 TEST_TAG: Tag = Tag(name=TEST_TAG_PATH)
 TEST_TAG_DICT: Dict = {'fields': {}, 'name': TEST_TAG_PATH, 'template': '', 'template_display_name': ''}
 TEST_TAG_TEMPLATE: TagTemplate = TagTemplate(name=TEST_TAG_TEMPLATE_PATH)
-TEST_TAG_TEMPLATE_DICT: Dict = {'display_name': '', 'fields': {}, 'name': TEST_TAG_TEMPLATE_PATH}
+TEST_TAG_TEMPLATE_DICT: Dict = {
+    'display_name': '',
+    'fields': {},
+    'name': TEST_TAG_TEMPLATE_PATH,
+    'is_publicly_readable': False
+}
 TEST_TAG_TEMPLATE_FIELD: TagTemplateField = TagTemplateField(name=TEST_TAG_TEMPLATE_FIELD_ID)
 TEST_TAG_TEMPLATE_FIELD_DICT: Dict = {
     'display_name': '',
     'is_required': False,
     'name': TEST_TAG_TEMPLATE_FIELD_ID,
     'order': 0,
+    'description': ''
 }
 
 
