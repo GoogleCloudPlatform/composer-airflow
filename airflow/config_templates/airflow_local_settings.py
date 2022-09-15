@@ -169,8 +169,14 @@ DEFAULT_DAG_PARSING_LOGGING_CONFIG: Dict[str, Dict[str, Dict[str, Any]]] = {
     },
 }
 
-# Experimental release of logs in Cloud Logging only for go/cc2-gcsfuse-ooms
-if os.environ.get('EXPERIMENTAL_CLOUD_LOGGING_ONLY') == 'True':
+# EXPERIMENTAL_CLOUD_LOGGING_ONLY is for the workaround solution for Private Preview release of logs in Cloud Logging only for go/cc2-gcsfuse-ooms.
+# CLOUD_LOGGING_ONLY sets ComposerTaskHandler to stop writing logs and reading them from the Cloud Storage mounted bucket.
+# go/composer-store-task-logs-in-cloud-logging-only-design-doc
+# TODO: When Cloud Logging Only is launched in Public Preview, remove EXPERIMENTAL_CLOUD_LOGGING_ONLY environment variable.
+if (
+    os.environ.get('EXPERIMENTAL_CLOUD_LOGGING_ONLY') == 'True'
+    or os.environ.get('CLOUD_LOGGING_ONLY') == 'True'
+):
     COMPOSER_TASK_HANDLER: Dict[str, Dict[str, str]] = {
         'task': {
             'class': 'airflow.composer.composer_task_handler.ComposerTaskHandler',
@@ -210,7 +216,10 @@ if os.environ.get('CONFIG_PROCESSOR_MANAGER_LOGGER') == 'True':
 
 REMOTE_LOGGING: bool = conf.getboolean('logging', 'remote_logging')
 
-if REMOTE_LOGGING and os.environ.get('EXPERIMENTAL_CLOUD_LOGGING_ONLY') != 'True':
+if REMOTE_LOGGING and (
+    os.environ.get('EXPERIMENTAL_CLOUD_LOGGING_ONLY') != 'True'
+    or os.environ.get('CLOUD_LOGGING_ONLY') != 'True'
+):
 
     ELASTICSEARCH_HOST: str = conf.get('elasticsearch', 'HOST')
 
