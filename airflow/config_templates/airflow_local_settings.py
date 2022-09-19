@@ -216,9 +216,10 @@ if os.environ.get('CONFIG_PROCESSOR_MANAGER_LOGGER') == 'True':
 
 REMOTE_LOGGING: bool = conf.getboolean('logging', 'remote_logging')
 
-if REMOTE_LOGGING and (
-    os.environ.get('EXPERIMENTAL_CLOUD_LOGGING_ONLY') != 'True'
-    or os.environ.get('CLOUD_LOGGING_ONLY') != 'True'
+if (
+    REMOTE_LOGGING
+    and os.environ.get('EXPERIMENTAL_CLOUD_LOGGING_ONLY') != 'True'
+    and os.environ.get('CLOUD_LOGGING_ONLY') != 'True'
 ):
 
     ELASTICSEARCH_HOST: str = conf.get('elasticsearch', 'HOST')
