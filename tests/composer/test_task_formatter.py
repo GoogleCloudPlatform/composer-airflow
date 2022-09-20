@@ -63,6 +63,7 @@ class TestTaskFormatter(unittest.TestCase):
             + '"workflow": "dag_for_testing_composer_task_formatter", '
             + '"task-id": "task_for_testing_composer_task_formatter", '
             + r'"execution-date": "2020-01-01T00:00:00\+00:00", '
+            + '"map-index": "-1", '
             + '"try-number": "1"}\n',
         )
 
@@ -83,7 +84,8 @@ class TestTaskFormatter(unittest.TestCase):
             + 'Traceback.*'
             + 'AssertionError@-@{"workflow": "dag_for_testing_composer_task_formatter", '
             + '"task-id": "task_for_testing_composer_task_formatter", '
-            + '"execution-date": "2020-01-01T00:00:00\\+00:00", "try-number": "1"}\n)',
+            + '"execution-date": "2020-01-01T00:00:00\\+00:00", '
+            + '"map-index": "-1", "try-number": "1"}\n)',
         )
 
     def test_persists_esacaped_characters(self):
@@ -97,6 +99,7 @@ class TestTaskFormatter(unittest.TestCase):
             + '"workflow": "dag_for_testing_composer_task_formatter", '
             + '"task-id": "task_for_testing_composer_task_formatter", '
             + r'"execution-date": "2020-01-01T00:00:00\+00:00", '
+            + '"map-index": "-1", '
             + '"try-number": "1"}\n',
         )
 
@@ -114,6 +117,7 @@ class TestTaskFormatter(unittest.TestCase):
             + '"workflow": "dag_for_testing_composer_task_formatter", '
             + '"task-id": "task_for_testing_composer_task_formatter", '
             + r'"execution-date": "2020-01-01T00:00:00+00:00", '
+            + '"map-index": "-1", '
             + '"try-number": "1"}'
         )
         for line in lines:
@@ -124,6 +128,7 @@ class TestTaskFormatter(unittest.TestCase):
                 + '"workflow": "dag_for_testing_composer_task_formatter", '
                 + '"task-id": "task_for_testing_composer_task_formatter", '
                 + r'"execution-date": "2020-01-01T00:00:00\+00:00", '
+                + '"map-index": "-1", '
                 + '"try-number": "1"}',
             )
 
@@ -147,6 +152,7 @@ class TestTaskFormatter(unittest.TestCase):
             + '"workflow": "dag_for_testing_composer_task_formatter", '
             + '"task-id": "task_for_testing_composer_task_formatter", '
             + r'"execution-date": "2020-01-01T00:00:00\+00:00", '
+            + '"map-index": "-1", '
             + '"try-number": "1", '
             + '"extra-label": "value"}\n',
         )

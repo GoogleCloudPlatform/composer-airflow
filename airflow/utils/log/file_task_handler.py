@@ -52,6 +52,7 @@ class WorkflowContextProcessor:
             'workflow': ti.dag_id,
             'task-id': ti.task_id,
             'execution-date': execution_date,
+            'map-index': str(ti.map_index),
             'try-number': str(ti.try_number),
         }
 
