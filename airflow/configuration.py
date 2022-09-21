@@ -52,6 +52,18 @@ if not sys.warnoptions:
     warnings.filterwarnings(action='default', category=DeprecationWarning, module='airflow')
     warnings.filterwarnings(action='default', category=PendingDeprecationWarning, module='airflow')
 
+# In Composer default Airflow configuration properties we continue to use
+# [core]dag_concurrency and [api]auth_backend properties, because if we update them to the new Airflow
+# properties it will take precedence over custom [core]dag_concurrency or [api]auth_backend set by customer.
+# Here, we silence these warning messages as these messages are expected and don't
+# require any action items.
+warnings.filterwarnings(
+    'ignore', r'.*The dag_concurrency option in \[core\] has been renamed to max_active_tasks_per_dag.*'
+)
+warnings.filterwarnings(
+    'ignore', r'.*The auth_backend option in \[api\] has been renamed to auth_backends.*'
+)
+
 _SQLITE3_VERSION_PATTERN = re.compile(r"(?P<version>^\d+(?:\.\d+)*)\D?.*$")
 
 ConfigType = Union[str, int, float, bool]

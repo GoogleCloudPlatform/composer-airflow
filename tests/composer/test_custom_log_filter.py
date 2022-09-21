@@ -15,14 +15,14 @@
 # specific language governing permissions and limitations
 # under the License.
 import contextlib
-import importlib
 import io
 import logging
+import subprocess
 import unittest
-import warnings
 from unittest import mock
 
-from airflow.composer import custom_log_filter
+from parameterized import parameterized
+
 from airflow.logging_config import configure_logging
 
 
@@ -106,32 +106,24 @@ class TestComposerFilter(unittest.TestCase):
 
         self.assertIn(message, temp_stdout.getvalue())
 
-    def test_ignoring_dag_concurrency_option_renamed_warning(self):
-        # Reload custom_log_filter to apply Composer filters for warning module.
-        # They are removed (presumably by pytest) before running test.
-        importlib.reload(custom_log_filter)
+    @parameterized.expand(
+        [
+            ("core", "max_active_tasks_per_dag", "dag_concurrency", False),
+            ("api", "auth_backends", "auth_backend", False),
+            ("scheduler", "parsing_processes", "max_threads", True),
+        ]
+    )
+    def test_configuration_option_renamed_warnings(self, section, key, deprecated_key, expected):
+        output = subprocess.check_output([
+            "python", "-c",
+            (
+                "from airflow.configuration import conf; "
+                f"print(conf.get('{section}', '{key}'))"
+            )],
+            env={f"AIRFLOW__{section.upper()}__{deprecated_key.upper()}": ""},
+            stderr=subprocess.STDOUT).decode()
 
         message = (
-            "The dag_concurrency option in [core] has been renamed to max_active_tasks_per_dag "
-            "- the old setting has been used, but please update your config"
+            f"{deprecated_key} option in [{section}] has been renamed to {key}"
         )
-        with warnings.catch_warnings(record=True) as warning_list:
-            warnings.warn(message, DeprecationWarning, stacklevel=3)
-
-        warning_list = [w.message.args[0] for w in warning_list]
-        self.assertNotIn(message, warning_list)
-
-    def test_ignoring_auth_backend_option_renamed_warning(self):
-        # Reload custom_log_filter to apply Composer filters for warning module.
-        # They are removed (presumably by pytest) before running test.
-        importlib.reload(custom_log_filter)
-
-        message = (
-            "The auth_backend option in [api] has been renamed to auth_backends "
-            "- the old setting has been used, but please update your config"
-        )
-        with warnings.catch_warnings(record=True) as warning_list:
-            warnings.warn(message, DeprecationWarning, stacklevel=3)
-
-        warning_list = [w.message.args[0] for w in warning_list]
-        self.assertNotIn(message, warning_list)
+        self.assertIs(message in output, expected, f"{message} in output is expected: f{expected}")
