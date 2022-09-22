@@ -64,6 +64,7 @@ class ComposerTaskHandler(StreamTaskHandler, LoggingMixin):
     LABEL_TASK_ID = 'task-id'
     LABEL_DAG_ID = 'workflow'
     LABEL_EXECUTION_DATE = 'execution-date'
+    LABEL_MAP_INDEX = 'map-index'
     LABEL_TRY_NUMBER = 'try-number'
     LOG_NAME = 'Google Composer Task Logger'
     LABEL_HOSTNAME = 'worker_id'
@@ -313,13 +314,23 @@ class ComposerTaskHandler(StreamTaskHandler, LoggingMixin):
 
     @classmethod
     def _task_instance_to_labels(cls, ti: TaskInstance) -> Dict[str, str]:
-        return {
+        labels = {
             cls.LABEL_TASK_ID: ti.task_id,
             cls.LABEL_DAG_ID: ti.dag_id,
             cls.LABEL_EXECUTION_DATE: str(ti.execution_date.isoformat()),
             cls.LABEL_TRY_NUMBER: str(ti.try_number),
             cls.LABEL_HOSTNAME: str(ti.hostname),
         }
+        if ti.map_index != -1:
+            # If we add "map-index" label always to filter, this will not work for logs in Cloud Logging that
+            # were emitted in Composer image versions with Airflow prior to 2.3.3, because they do not
+            # have "map-index" label.
+            # For the logs from not mapped tasks that have "map-index" label (emitted with Airflow 2.3.3+)
+            # there is no difference to set this filter for or not, as for all of them "map-index" label has
+            # "-1" as a value equal to ti.map_index.
+            labels[cls.LABEL_MAP_INDEX] = str(ti.map_index)
+
+        return labels
 
     @property
     def log_name(self):

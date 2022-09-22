@@ -412,3 +412,46 @@ class TestComposerLoggingHandlerTask(unittest.TestCase):
             ' "try-number": "1"}\n',
             captured_output.getvalue(),
         )
+
+    def test_task_instance_to_labels(self):
+        ti = mock.Mock(
+            dag_id='test_dag_id',
+            task_id='test_task_id',
+            execution_date=timezone.datetime(2022, 1, 1),
+            map_index=-1,
+            try_number=1,
+            hostname='test_hostname',
+        )
+
+        actual_labels = ComposerTaskHandler._task_instance_to_labels(ti)
+
+        expected_labels = {
+            'task-id': 'test_task_id',
+            'workflow': 'test_dag_id',
+            'execution-date': '2022-01-01T00:00:00+00:00',
+            'try-number': '1',
+            'worker_id': 'test_hostname',
+        }
+        self.assertEqual(actual_labels, expected_labels)
+
+    def test_task_instance_to_labels_mapped_task(self):
+        ti = mock.Mock(
+            dag_id='test_dag_id',
+            task_id='test_task_id',
+            execution_date=timezone.datetime(2022, 1, 1),
+            map_index=3,
+            try_number=1,
+            hostname='test_hostname',
+        )
+
+        actual_labels = ComposerTaskHandler._task_instance_to_labels(ti)
+
+        expected_labels = {
+            'task-id': 'test_task_id',
+            'workflow': 'test_dag_id',
+            'execution-date': '2022-01-01T00:00:00+00:00',
+            'map-index': '3',
+            'try-number': '1',
+            'worker_id': 'test_hostname',
+        }
+        self.assertEqual(actual_labels, expected_labels)
