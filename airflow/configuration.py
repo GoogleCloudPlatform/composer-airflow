@@ -63,6 +63,14 @@ warnings.filterwarnings(
 warnings.filterwarnings(
     'ignore', r'.*The auth_backend option in \[api\] has been renamed to auth_backends.*'
 )
+# This warning message comes from sqlalchemy. It is useful for the developers (in this case as sqlalchemy
+# is used by Airflow ORM, for Airflow developers), but not meaningful for Airflow users (Composer customers)
+# and doesn't imply any action items to be done by them. Giving this reason we silence this message.
+warnings.filterwarnings(
+    'ignore', (
+        r'.*TypeDecorator .* will not produce a cache key because the ``cache_ok`` flag is not set to True.*'
+    ),
+)
 
 _SQLITE3_VERSION_PATTERN = re.compile(r"(?P<version>^\d+(?:\.\d+)*)\D?.*$")
 

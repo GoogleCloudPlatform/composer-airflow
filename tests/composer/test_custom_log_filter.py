@@ -127,3 +127,22 @@ class TestComposerFilter(unittest.TestCase):
             f"{deprecated_key} option in [{section}] has been renamed to {key}"
         )
         self.assertIs(message in output, expected, f"{message} in output is expected: f{expected}")
+
+    def test_ignoring_type_decorator_cache_warning(self):
+        message = (
+            "TypeDecorator JSONField() will not produce a cache key because the ``cache_ok`` flag "
+            "is not set to True. Set this flag to True if this type object's state is safe to use "
+            "in a cache key, or False to disable this warning."
+        )
+
+        output = subprocess.check_output([
+            "python", "-c",
+            (
+                "import airflow, warnings, sqlalchemy.exc; "
+                # We should use here double quotes around message (as it is used above) to have proper
+                # python string formatting.
+                f'warnings.warn("{message}", sqlalchemy.exc.SAWarning, 3)'
+            )],
+            stderr=subprocess.STDOUT).decode()
+
+        self.assertNotIn(message, output)
