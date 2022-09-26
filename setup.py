@@ -575,6 +575,9 @@ composer_additional = [
     "dbt-core",
     "firebase-admin",
     "gcsfs",
+    # google-api-core==2.8.2 excluded from dependencies because it produces TypeError exception
+    # when Google Spanner attempts to run transactions that include data modification in a database
+    "google-api-core!=2.8.2",
     "google-apitools",
     "google-cloud-aiplatform",
     # This package is hosted from AR repository, it is not available in public pypi.
