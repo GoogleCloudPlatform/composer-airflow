@@ -309,7 +309,7 @@ google = [
     # google-api-core>=2.0.0 which cannot be used yet (see below comment)
     # and https://github.com/apache/airflow/issues/18705#issuecomment-933746150
     'google-ads>=12.0.0,<14.0.1',
-    'google-api-core>=1.25.1,<3.0.0,!=2.8.2',
+    'google-api-core>=1.25.1,<3.0.0',
     'google-api-python-client>=1.6.0,<2.0.0',
     'google-auth>=1.0.0',
     'google-auth-httplib2>=0.0.1',
@@ -552,7 +552,7 @@ composer_additional = [
     "gcsfs",
     # google-api-core==2.8.2 excluded from dependencies because it produces TypeError exception
     # when Google Spanner attempts to run transactions that include data modification in a database
-    'google-api-core!=2.8.2',
+    "google-api-core!=2.8.2",
     "google-apitools",
     "google-cloud-aiplatform",
     # This package is hosted from AR repository, it is not available in public pypi.
