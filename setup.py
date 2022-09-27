@@ -492,6 +492,9 @@ composer_additional = [
     "crcmod<2.0",
     # in the newest version one of the deprecated methods was removed which gives a import error.
     "cryptography==36.0.2",
+    # google-api-core==2.8.2 excluded from dependencies because it produces TypeError exception
+    # when Google Spanner attempts to run transactions that include data modification in a database
+    "google-api-core!=2.8.2",
     "google-apitools",
     "google-cloud-aiplatform",
     "google-cloud-datastore",
