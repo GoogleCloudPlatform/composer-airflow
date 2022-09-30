@@ -549,6 +549,8 @@ composer_additional = [
     "crcmod<2.0",
     "dbt-core",
     "firebase-admin",
+    # We need to keep Flower pinned to 1.0.0 as starting from 1.1.0 it doesn't support basic authentication.
+    "flower==1.0.0",
     "gcsfs",
     # google-api-core==2.8.2 excluded from dependencies because it produces TypeError exception
     # when Google Spanner attempts to run transactions that include data modification in a database
