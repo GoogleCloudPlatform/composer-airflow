@@ -20,6 +20,7 @@ from unittest import mock
 from freezegun import freeze_time
 from google.cloud.datacatalog.lineage_v1 import (
     EntityReference,
+    EventLink,
     LineageEvent,
     LineageEventsBundle,
     Process,
@@ -147,9 +148,14 @@ class TestAdapter(unittest.TestCase):
 
         expected_lineage_events = [
             LineageEvent(
-                sources=[entity_reference_1, entity_reference_2],
-                targets=[entity_reference_2, entity_reference_3],
-                event_time=datetime.datetime(2022, 8, 1, 10, 11, 12),
+                links=[
+                    EventLink(source=entity_reference_1, target=entity_reference_2),
+                    EventLink(source=entity_reference_1, target=entity_reference_3),
+                    EventLink(source=entity_reference_2, target=entity_reference_2),
+                    EventLink(source=entity_reference_2, target=entity_reference_3),
+                ],
+                start_time=datetime.datetime(2022, 8, 1, 10, 11, 12),
+                end_time=datetime.datetime(2022, 8, 1, 10, 11, 12),
             )
         ]
         self.assertEqual(actual_lineage_events, expected_lineage_events)
@@ -249,20 +255,31 @@ class TestAdapter(unittest.TestCase):
             ),
             lineage_events=[
                 LineageEvent(
-                    sources=[
-                        EntityReference(
-                            fully_qualified_name="bigquery:test-project.test-dataset.test-table-inlet",
-                            location="us",
-                        )
+                    links=[
+                        EventLink(
+                            source=EntityReference(
+                                fully_qualified_name="bigquery:test-project.test-dataset.test-table-inlet",
+                                location="us",
+                            ),
+                            target=EntityReference(
+                                fully_qualified_name="bigquery:test-project.test-dataset.test-table-outlet",
+                                location="us",
+                            ),
+                        ),
                     ],
-                    targets=[
-                        EntityReference(
-                            fully_qualified_name="bigquery:test-project.test-dataset.test-table-outlet",
-                            location="us",
-                        )
-                    ],
-                    event_time=datetime.datetime(2022, 8, 1, 22, 11, 12),
+                    start_time=datetime.datetime(2022, 8, 1, 22, 11, 12),
+                    end_time=datetime.datetime(2022, 8, 1, 22, 11, 12),
                 ),
             ],
         )
         self.assertEqual(actual_lineage_events_bundle, expected_lineage_events_bundle)
+
+    def test_sanitize_display_name(self):
+        adapter = ComposerDataLineageAdapter()
+
+        actual_sanitized_display_name = adapter._sanitize_display_name(
+            "Composer Airflow task dag_id.task+17*_0-9 :&"
+        )
+
+        expected_sanitized_display_name = "Composer Airflow task dag_id.task17_0-9 :&"
+        self.assertEqual(actual_sanitized_display_name, expected_sanitized_display_name)
