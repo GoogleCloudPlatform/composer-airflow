@@ -73,7 +73,7 @@ class ComposerDataLineageBackend(LineageBackend):
                 f"Run: name={lineage_events_bundle.run.name}, state={lineage_events_bundle.run.state}",
             ]
             + [
-                f"LineageEvent: sources={le.sources}, targets={le.targets}, event_time={le.event_time}"
+                f"LineageEvent: links={le.links}, start_time={le.start_time}, end_time={le.end_time}"
                 for le in lineage_events_bundle.lineage_events
             ]
         )

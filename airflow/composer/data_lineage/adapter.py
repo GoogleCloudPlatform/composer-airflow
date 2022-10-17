@@ -15,10 +15,12 @@
 """Composer Data Lineage adapter implementation."""
 import datetime
 import os
+import re
 from typing import TYPE_CHECKING, Any, List, Optional
 
 from google.cloud.datacatalog.lineage_v1 import (
     EntityReference,
+    EventLink,
     LineageEvent,
     LineageEventsBundle,
     Process,
@@ -68,7 +70,9 @@ class ComposerDataLineageAdapter:
 
         return Process(
             name=process_name,
-            display_name=f"Composer Airflow task {COMPOSER_ENVIRONMENT_NAME}.{dag_id}.{task_id}",
+            display_name=self._sanitize_display_name(
+                f"Composer Airflow task {COMPOSER_ENVIRONMENT_NAME}.{dag_id}.{task_id}"
+            ),
             attributes={
                 "composer_environment_name": COMPOSER_ENVIRONMENT_NAME,
                 "dag_id": dag_id,
@@ -85,7 +89,7 @@ class ComposerDataLineageAdapter:
 
         return Run(
             name=run_name,
-            display_name=f"Airflow task run {task_instance_run_id}",
+            display_name=self._sanitize_display_name(f"Airflow task run {task_instance_run_id}"),
             attributes={
                 "dag_run_id": task_instance_run_id,
             },
@@ -120,11 +124,12 @@ class ComposerDataLineageAdapter:
 
             targets.append(entity_reference)
 
+        now = datetime.datetime.utcnow()
         return [
             LineageEvent(
-                sources=sources,
-                targets=targets,
-                event_time=datetime.datetime.utcnow(),
+                links=[EventLink(source=s, target=t) for s in sources for t in targets],
+                start_time=now,
+                end_time=now,
             )
         ]
 
@@ -145,3 +150,10 @@ class ComposerDataLineageAdapter:
             )
 
         return None
+
+    def _sanitize_display_name(self, display_name: str) -> str:
+        """Sanitizes display_name for Process and Run.
+
+        See Data Lineage API spec for supported characters.
+        """
+        return re.sub(r"[^A-Za-z0-9 _\-:&.]", "", display_name)
