@@ -30,8 +30,6 @@ from typing import TYPE_CHECKING, Dict
 from airflow.composer.data_lineage.operators.google.cloud.bigquery import (
     BigQueryInsertJobOperatorLineageMixin,
 )
-
-# TODO: can we get rid of importing "airflow.providers"?, it takes up to 0.5s
 from airflow.providers.google.cloud.operators.bigquery import BigQueryInsertJobOperator
 
 if TYPE_CHECKING:
