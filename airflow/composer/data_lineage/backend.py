@@ -14,7 +14,6 @@
 # limitations under the License.
 """Composer Data Lineage backend implementation."""
 import logging
-import uuid
 from typing import TYPE_CHECKING, Optional
 
 from google.api_core.exceptions import GoogleAPICallError, RetryError
@@ -22,10 +21,8 @@ from google.api_core.retry import Retry
 from google.cloud.datacatalog.lineage.producer_client.v1.sync_lineage_client.sync_lineage_client import (
     SyncLineageClient,
 )
-from google.cloud.datacatalog.lineage_v1 import CreateLineageEventsBundleRequest
 
 from airflow.composer.data_lineage.adapter import ComposerDataLineageAdapter
-from airflow.composer.data_lineage.utils import LOCATION_PATH
 from airflow.composer.task_formatter import _EXTRA_WORKFLOW_INFO_RECORD_KEY
 from airflow.lineage.backend import LineageBackend
 
@@ -58,32 +55,27 @@ class ComposerDataLineageBackend(LineageBackend):
 
         lineage_events_bundle = _adapter.get_lineage_events_bundle_on_task_completed(ti, inlets, outlets)
 
-        request_id = uuid.uuid4().hex
-        request = CreateLineageEventsBundleRequest(
-            parent=LOCATION_PATH,
-            lineage_events_bundle=lineage_events_bundle,
-            request_id=request_id,
-        )
-
         lineage_events_bundle_message = "\n".join(
             [
                 f"dag_id={ti.task.dag.dag_id}, task_id={ti.task.task_id}, run_id={ti.run_id}, "
                 f"try_number={ti.try_number}, operator={type(ti.task).__name__}",
-                f"Process: name={lineage_events_bundle.process.name}",
-                f"Run: name={lineage_events_bundle.run.name}, state={lineage_events_bundle.run.state}",
+                f"Process: name={lineage_events_bundle['process'].name}",
+                f"Run: name={lineage_events_bundle['run'].name}, state={lineage_events_bundle['run'].state}",
             ]
             + [
                 f"LineageEvent: links={le.links}, start_time={le.start_time}, end_time={le.end_time}"
-                for le in lineage_events_bundle.lineage_events
+                for le in lineage_events_bundle["lineage_events"]
             ]
         )
 
         try:
             _client.create_events_bundle(
-                request=request,
+                process=lineage_events_bundle["process"],
+                run=lineage_events_bundle["run"],
+                events=lineage_events_bundle["lineage_events"],
                 retry=Retry(deadline=5),
             )
         except (GoogleAPICallError, RetryError):
-            log.exception("Failed to send lineage %s", lineage_events_bundle_message)
+            log.exception("Failed to send data lineage %s", lineage_events_bundle_message)
         else:
-            log.info("Lineage sent %s", lineage_events_bundle_message)
+            log.info("Data lineage sent %s", lineage_events_bundle_message)

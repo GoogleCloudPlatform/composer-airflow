@@ -16,7 +16,7 @@ import unittest
 from unittest import mock
 
 from google.api_core.exceptions import GoogleAPICallError, RetryError
-from google.cloud.datacatalog.lineage_v1 import CreateLineageEventsBundleRequest, LineageEventsBundle, Process
+from google.cloud.datacatalog.lineage_v1 import LineageEvent, Process, Run
 
 from airflow.composer.data_lineage.backend import ComposerDataLineageBackend
 
@@ -24,10 +24,11 @@ from airflow.composer.data_lineage.backend import ComposerDataLineageBackend
 class TestBackend(unittest.TestCase):
     @mock.patch("airflow.composer.data_lineage.backend.SyncLineageClient", autospec=True)
     @mock.patch("airflow.composer.data_lineage.backend.ComposerDataLineageAdapter", autospec=True)
-    @mock.patch("airflow.composer.data_lineage.backend.uuid", autospec=True)
-    @mock.patch("airflow.composer.data_lineage.backend.LOCATION_PATH", "TEST-LOCATION")
-    def test_send_lineage(self, mock_uuid, mock_composer_data_lineage_adapter, mock_sync_lineage_client):
-        mock_lineage_events_bundle = LineageEventsBundle(process=Process())
+    def test_send_lineage(self, mock_composer_data_lineage_adapter, mock_sync_lineage_client):
+        process = Process(name="test-process")
+        run = Run(name="test-run")
+        lineage_events = [LineageEvent(name="test-lineage-event")]
+        mock_lineage_events_bundle = dict(process=process, run=run, lineage_events=lineage_events)
 
         def _mock_get_lineage_events_bundle_on_task_completed(task_instance, inlets, outlets):
             self.assertEqual(task_instance, mock_ti)
@@ -35,7 +36,6 @@ class TestBackend(unittest.TestCase):
             self.assertEqual(outlets, mock_outlets)
             return mock_lineage_events_bundle
 
-        mock_uuid.uuid4().hex = "test-uuid"
         mock_composer_data_lineage_adapter().get_lineage_events_bundle_on_task_completed.side_effect = (
             _mock_get_lineage_events_bundle_on_task_completed
         )
@@ -52,11 +52,9 @@ class TestBackend(unittest.TestCase):
         )
 
         mock_sync_lineage_client().create_events_bundle.assert_called_once_with(
-            request=CreateLineageEventsBundleRequest(
-                parent="TEST-LOCATION",
-                lineage_events_bundle=mock_lineage_events_bundle,
-                request_id="test-uuid",
-            ),
+            process=process,
+            run=run,
+            events=lineage_events,
             retry=mock.ANY,
         )
         self.assertEqual(
@@ -66,10 +64,8 @@ class TestBackend(unittest.TestCase):
 
     @mock.patch("airflow.composer.data_lineage.backend.SyncLineageClient", autospec=True)
     @mock.patch("airflow.composer.data_lineage.backend.ComposerDataLineageAdapter", autospec=True)
-    @mock.patch("airflow.composer.data_lineage.backend.CreateLineageEventsBundleRequest", autospec=True)
     def test_send_lineage_exception(
         self,
-        mock_create_lineage_events_bundle_request,
         mock_composer_data_lineage_adapter,
         mock_sync_lineage_client,
     ):
@@ -84,10 +80,8 @@ class TestBackend(unittest.TestCase):
 
     @mock.patch("airflow.composer.data_lineage.backend.SyncLineageClient", autospec=True)
     @mock.patch("airflow.composer.data_lineage.backend.ComposerDataLineageAdapter", autospec=True)
-    @mock.patch("airflow.composer.data_lineage.backend.CreateLineageEventsBundleRequest", autospec=True)
     def test_send_lineage_exception_retry_deadline(
         self,
-        mock_create_lineage_events_bundle_request,
         mock_composer_data_lineage_adapter,
         mock_sync_lineage_client,
     ):
