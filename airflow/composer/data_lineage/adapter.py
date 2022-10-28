@@ -16,16 +16,9 @@
 import datetime
 import os
 import re
-from typing import TYPE_CHECKING, Any, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-from google.cloud.datacatalog.lineage_v1 import (
-    EntityReference,
-    EventLink,
-    LineageEvent,
-    LineageEventsBundle,
-    Process,
-    Run,
-)
+from google.cloud.datacatalog.lineage_v1 import EntityReference, EventLink, LineageEvent, Process, Run
 
 from airflow.composer.data_lineage.entities import BigQueryTable, DataLineageEntity
 from airflow.composer.data_lineage.utils import LOCATION_PATH, get_process_id, get_run_id
@@ -46,13 +39,13 @@ class ComposerDataLineageAdapter:
         task_instance: "TaskInstance",
         inlets: List,
         outlets: List,
-    ) -> LineageEventsBundle:
+    ) -> Dict[str, Any]:
         """Returns Data Lineage events bundle for completed task."""
         process = self._construct_process(task_instance.task)
         run = self._construct_run(task_instance, process.name)
         lineage_events = self._construct_lineage_events(inlets, outlets)
 
-        return LineageEventsBundle(
+        return dict(
             process=process,
             run=run,
             lineage_events=lineage_events,

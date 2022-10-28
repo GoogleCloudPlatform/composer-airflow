@@ -18,14 +18,7 @@ from importlib import reload
 from unittest import mock
 
 from freezegun import freeze_time
-from google.cloud.datacatalog.lineage_v1 import (
-    EntityReference,
-    EventLink,
-    LineageEvent,
-    LineageEventsBundle,
-    Process,
-    Run,
-)
+from google.cloud.datacatalog.lineage_v1 import EntityReference, EventLink, LineageEvent, Process, Run
 from parameterized import parameterized
 
 from airflow.composer.data_lineage.adapter import ComposerDataLineageAdapter
@@ -229,7 +222,7 @@ class TestAdapter(unittest.TestCase):
             ],
         )
 
-        expected_lineage_events_bundle = LineageEventsBundle(
+        expected_lineage_events_bundle = dict(
             process=Process(
                 name="projects/project-1/processes/98de46aa-188e-23e0-6a5f-f0f5ed069b08",
                 display_name="Composer Airflow task environment-1.dag-1.task-1",
