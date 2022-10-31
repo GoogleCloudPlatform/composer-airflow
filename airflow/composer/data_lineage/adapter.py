@@ -18,7 +18,7 @@ import os
 import re
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-from google.cloud.datacatalog.lineage_v1 import EntityReference, EventLink, LineageEvent, Process, Run
+from google.cloud.datacatalog.lineage_v1 import EntityReference, EventLink, LineageEvent, Origin, Process, Run
 
 from airflow.composer.data_lineage.entities import BigQueryTable, DataLineageEntity
 from airflow.composer.data_lineage.utils import LOCATION_PATH, get_process_id, get_run_id
@@ -60,6 +60,7 @@ class ComposerDataLineageAdapter:
             environment_name=COMPOSER_ENVIRONMENT_NAME, dag_id=dag_id, task_id=task_id
         )
         process_name = os.path.join(LOCATION_PATH, f"processes/{process_id}")
+        origin_name = os.path.join(LOCATION_PATH, f"environments/{COMPOSER_ENVIRONMENT_NAME}")
 
         return Process(
             name=process_name,
@@ -72,6 +73,10 @@ class ComposerDataLineageAdapter:
                 "task_id": task_id,
                 "operator": type(task).__name__,
             },
+            origin=Origin(
+                source_type=Origin.SourceType.COMPOSER,
+                name=origin_name,
+            ),
         )
 
     def _construct_run(self, task_instance: "TaskInstance", process_name: str) -> Run:
@@ -133,13 +138,11 @@ class ComposerDataLineageAdapter:
                 fully_qualified_name="bigquery:{}.{}.{}".format(
                     entity.project_id, entity.dataset_id, entity.table_id
                 ),
-                location="us",  # TODO: provide correct location
             )
 
         if isinstance(entity, DataLineageEntity):
             return EntityReference(
                 fully_qualified_name=entity.fully_qualified_name,
-                location=entity.location,
             )
 
         return None

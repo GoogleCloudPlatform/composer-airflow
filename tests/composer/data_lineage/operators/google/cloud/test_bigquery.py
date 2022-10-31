@@ -24,7 +24,9 @@ from airflow.providers.google.cloud.operators.bigquery import BigQueryInsertJobO
 
 class TestBigquery(unittest.TestCase):
     def test_post_execute_prepare_lineage(self):
-        def _mock_get_job(job_id):
+        def _mock_get_job(project_id, location, job_id):
+            self.assertEqual(project_id, "test-project")
+            self.assertEqual(location, "location")
             self.assertEqual(job_id, "test-job-id")
             return mock.Mock(
                 _properties={
@@ -51,18 +53,14 @@ class TestBigquery(unittest.TestCase):
                 },
             )
 
-        _mock_client = mock.Mock(get_job=mock.Mock(side_effect=_mock_get_job))
-
-        def _mock_get_client(project_id, location):
-            self.assertEqual(project_id, "test-project")
-            self.assertEqual(location, "location")
-            return _mock_client
-
-        task = BigQueryInsertJobOperator(task_id="test-task", configuration={})
-        task.hook = mock.Mock(
+        task = BigQueryInsertJobOperator(
+            task_id="test-task",
+            configuration={},
             project_id="test-project",
             location="location",
-            get_client=mock.Mock(side_effect=_mock_get_client),
+        )
+        task.hook = mock.Mock(
+            get_job=mock.Mock(side_effect=_mock_get_job),
         )
         task.job_id = "test-job-id"
 
@@ -90,22 +88,20 @@ class TestBigquery(unittest.TestCase):
         )
 
     def test_post_execute_prepare_lineage_get_job_error(self):
-        def _mock_get_job(job_id):
+        def _mock_get_job(project_id, location, job_id):
+            self.assertEqual(project_id, "test-project")
+            self.assertEqual(location, "location")
             self.assertEqual(job_id, "test-job-id")
             raise GoogleAPICallError("error")
 
-        _mock_client = mock.Mock(get_job=mock.Mock(side_effect=_mock_get_job))
-
-        def _mock_get_client(project_id, location):
-            self.assertEqual(project_id, "test-project")
-            self.assertEqual(location, "location")
-            return _mock_client
-
-        task = BigQueryInsertJobOperator(task_id="test-task", configuration={})
-        task.hook = mock.Mock(
+        task = BigQueryInsertJobOperator(
+            task_id="test-task",
+            configuration={},
             project_id="test-project",
             location="location",
-            get_client=mock.Mock(side_effect=_mock_get_client),
+        )
+        task.hook = mock.Mock(
+            get_job=mock.Mock(side_effect=_mock_get_job),
         )
         task.job_id = "test-job-id"
 
@@ -115,23 +111,19 @@ class TestBigquery(unittest.TestCase):
         self.assertEqual(task.outlets, [])
 
     def test_post_execute_prepare_lineage_empty_props(self):
-        def _mock_get_job(job_id):
+        def _mock_get_job(project_id, location, job_id):
+            self.assertEqual(project_id, "test-project")
+            self.assertEqual(location, "location")
             self.assertEqual(job_id, "test-job-id")
             return mock.Mock(_properties={})
 
-        _mock_client = mock.Mock(get_job=mock.Mock(side_effect=_mock_get_job))
-
-        def _mock_get_client(project_id, location):
-            self.assertEqual(project_id, "test-project")
-            self.assertEqual(location, "location")
-            return _mock_client
-
-        task = BigQueryInsertJobOperator(task_id="test-task", configuration={})
-        task.hook = mock.Mock(
+        task = BigQueryInsertJobOperator(
+            task_id="test-task",
+            configuration={},
             project_id="test-project",
             location="location",
-            get_client=mock.Mock(side_effect=_mock_get_client),
         )
+        task.hook = mock.Mock(get_job=mock.Mock(side_effect=_mock_get_job))
         task.job_id = "test-job-id"
 
         post_execute_prepare_lineage(task, {})

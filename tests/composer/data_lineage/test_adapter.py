@@ -18,7 +18,7 @@ from importlib import reload
 from unittest import mock
 
 from freezegun import freeze_time
-from google.cloud.datacatalog.lineage_v1 import EntityReference, EventLink, LineageEvent, Process, Run
+from google.cloud.datacatalog.lineage_v1 import EntityReference, EventLink, LineageEvent, Origin, Process, Run
 from parameterized import parameterized
 
 from airflow.composer.data_lineage.adapter import ComposerDataLineageAdapter
@@ -38,7 +38,6 @@ class TestAdapter(unittest.TestCase):
 
         expected_entity_reference = EntityReference(
             fully_qualified_name="bigquery:test-project.test-dataset.test-table",
-            location="us",
         )
         self.assertEqual(actual_entity_reference, expected_entity_reference)
 
@@ -46,14 +45,12 @@ class TestAdapter(unittest.TestCase):
         adapter = ComposerDataLineageAdapter()
         data_lineage_entity = DataLineageEntity(
             fully_qualified_name="my_warehouse:test-fqn",
-            location="test-location",
         )
 
         actual_entity_reference = adapter._get_entity_reference(data_lineage_entity)
 
         expected_entity_reference = EntityReference(
             fully_qualified_name="my_warehouse:test-fqn",
-            location="test-location",
         )
         self.assertEqual(actual_entity_reference, expected_entity_reference)
 
@@ -86,6 +83,10 @@ class TestAdapter(unittest.TestCase):
                 "task_id": "task-1",
                 "operator": "Mock",
             },
+            origin=Origin(
+                source_type=Origin.SourceType.COMPOSER,
+                name="projects/project-1/environments/environment-1",
+            ),
         )
         self.assertEqual(actual_process, expected_process)
 
@@ -123,7 +124,6 @@ class TestAdapter(unittest.TestCase):
         def _get_entity_reference(table_id):
             return EntityReference(
                 fully_qualified_name=f"bigquery:test-project.test-dataset.{table_id}",
-                location="us",
             )
 
         adapter = ComposerDataLineageAdapter()
@@ -232,6 +232,10 @@ class TestAdapter(unittest.TestCase):
                     "task_id": "task-1",
                     "operator": "Mock",
                 },
+                origin=Origin(
+                    source_type=Origin.SourceType.COMPOSER,
+                    name="projects/project-1/environments/environment-1",
+                ),
             ),
             run=Run(
                 name=(
@@ -252,11 +256,9 @@ class TestAdapter(unittest.TestCase):
                         EventLink(
                             source=EntityReference(
                                 fully_qualified_name="bigquery:test-project.test-dataset.test-table-inlet",
-                                location="us",
                             ),
                             target=EntityReference(
                                 fully_qualified_name="bigquery:test-project.test-dataset.test-table-outlet",
-                                location="us",
                             ),
                         ),
                     ],

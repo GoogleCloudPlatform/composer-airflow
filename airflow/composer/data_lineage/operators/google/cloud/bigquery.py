@@ -29,13 +29,12 @@ class BigQueryInsertJobOperatorLineageMixin:
         hook = self.hook
         bigquery_job_id = self.job_id
 
-        client = hook.get_client(
-            project_id=hook.project_id,
-            location=hook.location,
-        )
-
         try:
-            job = client.get_job(job_id=bigquery_job_id)
+            job = hook.get_job(
+                project_id=self.project_id,
+                location=self.location,
+                job_id=bigquery_job_id,
+            )
         except GoogleAPICallError:
             # Catch both client and server errors.
             log.exception("Error on fetching BigQuery job")
