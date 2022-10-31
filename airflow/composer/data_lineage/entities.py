@@ -30,4 +30,3 @@ class DataLineageEntity:
     """Airflow lineage entity representing generic Data Lineage entity."""
 
     fully_qualified_name: str = attr.ib()
-    location: str = attr.ib()
