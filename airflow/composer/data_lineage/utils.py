@@ -15,6 +15,7 @@
 import hashlib
 import os
 import uuid
+from typing import List
 
 LOCATION_PATH = "projects/{}/locations/{}".format(
     os.environ.get("GCP_PROJECT"), os.environ.get("COMPOSER_LOCATION")
@@ -54,3 +55,18 @@ def get_run_id(task_instance_run_id: str) -> str:
         Suffix for full Run name "projects/{project}/locations/{location}/processes/{process}/runs/{run}".
     """
     return generate_uuid_from_string(task_instance_run_id)
+
+
+def exclude_outlet(inlets: List[object], outlet: object) -> List[object]:
+    """Excludes outlet from the given list of inlets.
+
+    Args:
+        inlets: List of inlets.
+        outlet: Outlet that must be excluded from the inlets list.
+
+    Returns:
+        Copy of the given list of inlets without given outlet.
+    """
+    # TODO: fix inlets containing outlet and remove this temporary workaround. We have this workaround
+    #  for now as it is rather an edge case when inlets containing outlet.
+    return [_inlet for _inlet in inlets if _inlet != outlet]

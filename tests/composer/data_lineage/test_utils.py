@@ -16,7 +16,13 @@ import unittest
 from importlib import reload
 from unittest import mock
 
-from airflow.composer.data_lineage.utils import generate_uuid_from_string, get_process_id, get_run_id
+from airflow.composer.data_lineage.entities import BigQueryTable
+from airflow.composer.data_lineage.utils import (
+    exclude_outlet,
+    generate_uuid_from_string,
+    get_process_id,
+    get_run_id,
+)
 
 
 class TestUtils(unittest.TestCase):
@@ -50,3 +56,16 @@ class TestUtils(unittest.TestCase):
             airflow.composer.data_lineage.utils.LOCATION_PATH,
             "projects/project-1/locations/us-central1",
         )
+
+    def test_exclude_outlet(self):
+        n = 4
+        dataset_id = "dataset"
+        project_id = "project"
+        inlets = [
+            BigQueryTable(table_id=str(i), dataset_id=dataset_id, project_id=project_id) for i in range(n)
+        ]
+        outlet = inlets[0]
+
+        result = exclude_outlet(inlets=inlets, outlet=outlet)
+
+        self.assertEqual(result, inlets[1:])
