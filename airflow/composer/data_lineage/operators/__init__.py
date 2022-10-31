@@ -28,14 +28,19 @@ If operator requires a new Airflow lineage entity, it should be defined in
 from typing import TYPE_CHECKING, Dict
 
 from airflow.composer.data_lineage.operators.google.cloud.bigquery import (
+    BigQueryExecuteQueryOperatorLineageMixin,
     BigQueryInsertJobOperatorLineageMixin,
 )
-from airflow.providers.google.cloud.operators.bigquery import BigQueryInsertJobOperator
+from airflow.providers.google.cloud.operators.bigquery import (
+    BigQueryExecuteQueryOperator,
+    BigQueryInsertJobOperator,
+)
 
 if TYPE_CHECKING:
     from airflow.models.baseoperator import BaseOperator
 
 _OPERATOR_TO_MIXIN = {
+    BigQueryExecuteQueryOperator: BigQueryExecuteQueryOperatorLineageMixin,
     BigQueryInsertJobOperator: BigQueryInsertJobOperatorLineageMixin,
 }
 
