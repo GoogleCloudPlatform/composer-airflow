@@ -18,6 +18,7 @@ from typing import Dict
 from google.api_core.exceptions import GoogleAPICallError
 
 from airflow.composer.data_lineage.entities import BigQueryTable
+from airflow.composer.data_lineage.utils import exclude_outlet
 
 log = logging.getLogger(__name__)
 
@@ -60,6 +61,42 @@ class BigQueryInsertJobOperatorLineageMixin:
             )
             self.outlets.append(outlet)
 
-            # TODO: fix inlets containing outlet and remove this temporary workaround. We have this workaround
-            # for now as it is rather an edge case when inlets containing outlet.
-            self.inlets = [_inlet for _inlet in self.inlets if _inlet != outlet]
+            self.inlets = exclude_outlet(inlets=self.inlets, outlet=outlet)
+
+
+class BigQueryExecuteQueryOperatorLineageMixin:
+    """Mixin class for BigQueryExecuteQueryOperator."""
+
+    def post_execute_prepare_lineage(self, context: Dict):
+        task_instance = context["task_instance"]
+        job_id = task_instance.xcom_pull(task_ids=self.task_id, key="job_id")
+
+        hook = self.hook
+        try:
+            job = hook.get_job(job_id=job_id, location=self.location)
+        except GoogleAPICallError:
+            # Catch both client and server errors.
+            log.exception("Error on fetching BigQuery job")
+            return
+
+        props = job._properties
+
+        input_tables = props.get("statistics", {}).get("query", {}).get("referencedTables", [])
+        for input_table in input_tables:
+            inlet = BigQueryTable(
+                project_id=input_table["projectId"],
+                dataset_id=input_table["datasetId"],
+                table_id=input_table["tableId"],
+            )
+            self.inlets.append(inlet)
+
+        output_table = props.get("configuration", {}).get("query", {}).get("destinationTable")
+        if output_table:
+            outlet = BigQueryTable(
+                project_id=output_table["projectId"],
+                dataset_id=output_table["datasetId"],
+                table_id=output_table["tableId"],
+            )
+            self.outlets.append(outlet)
+
+            self.inlets = exclude_outlet(inlets=self.inlets, outlet=outlet)
