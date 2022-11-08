@@ -80,8 +80,10 @@ class TestTimeSensorAsync:
             op.execute({})
 
         assert str(exc_info.value) == (
-            "Composer doesn't support deferrable operators yet. Tasks that are using "
-            "deferrable operators will fail to execute with this message."
+            "This Composer environment does not have Airflow triggerer running. "
+            "To use deferrable operators enable the triggerer in the environment. "
+            "See https://cloud.google.com/composer/docs/composer-2/use-deferrable-operators "
+            "for more details."
         )
 
     @patch.dict("os.environ", {"COMPOSER_VERSION": "2.15.2"})

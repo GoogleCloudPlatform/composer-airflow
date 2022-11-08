@@ -1507,8 +1507,10 @@ class BaseOperator(AbstractOperator, metaclass=BaseOperatorMeta):
         if get_composer_version() is not None and not is_triggerer_enabled():
             # This if statement will allow to bypass community tests.
             raise AirflowException(
-                "Composer doesn't support deferrable operators yet. Tasks that are using "
-                "deferrable operators will fail to execute with this message."
+                "This Composer environment does not have Airflow triggerer running. "
+                "To use deferrable operators enable the triggerer in the environment. "
+                "See https://cloud.google.com/composer/docs/composer-2/use-deferrable-operators "
+                "for more details."
             )
 
         raise TaskDeferred(trigger=trigger, method_name=method_name, kwargs=kwargs, timeout=timeout)
