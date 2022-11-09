@@ -30,3 +30,11 @@ class DataLineageEntity:
     """Airflow lineage entity representing generic Data Lineage entity."""
 
     fully_qualified_name: str = attr.ib()
+
+
+@attr.s(auto_attribs=True, kw_only=True)
+class GCSEntity:
+    """Airflow lineage entity representing generic Cloud Storage entity."""
+
+    bucket: str = attr.ib()
+    path: str = attr.ib()
