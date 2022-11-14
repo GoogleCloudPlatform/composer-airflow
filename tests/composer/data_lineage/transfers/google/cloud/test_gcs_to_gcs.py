@@ -28,7 +28,7 @@ from airflow.providers.google.cloud.transfers.gcs_to_gcs import GCSToGCSOperator
         {'operator': GoogleCloudStorageToGoogleCloudStorageOperator},
     ]
 )
-class GCSToGCSOperator(unittest.TestCase):
+class TestGCSToGCSOperator(unittest.TestCase):
     @parameterized.expand(
         [
             (

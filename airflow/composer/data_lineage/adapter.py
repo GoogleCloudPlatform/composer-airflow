@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from google.cloud.datacatalog.lineage_v1 import EntityReference, EventLink, LineageEvent, Origin, Process, Run
 
-from airflow.composer.data_lineage.entities import BigQueryTable, DataLineageEntity, GCSEntity
+from airflow.composer.data_lineage.entities import BigQueryTable, DataLineageEntity, GCSEntity, MySQLTable
 from airflow.composer.data_lineage.utils import LOCATION_PATH, get_process_id, get_run_id
 
 if TYPE_CHECKING:
@@ -147,6 +147,11 @@ class ComposerDataLineageAdapter:
 
         if isinstance(entity, GCSEntity):
             return EntityReference(fully_qualified_name=f"gs://{entity.bucket}/{entity.path}")
+
+        if isinstance(entity, MySQLTable):
+            return EntityReference(
+                fully_qualified_name=f"mysql://{entity.host}:{entity.port}/{entity.schema}.{entity.table}"
+            )
 
         return None
 
