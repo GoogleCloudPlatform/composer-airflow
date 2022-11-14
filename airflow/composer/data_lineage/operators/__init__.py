@@ -37,8 +37,12 @@ from airflow.composer.data_lineage.transfers.google.cloud.bigquery_to_bigquery i
 from airflow.composer.data_lineage.transfers.google.cloud.bigquery_to_gcs import (
     BigQueryToGCSOperatorLineageMixin,
 )
+from airflow.composer.data_lineage.transfers.google.cloud.gcs_to_bigquery import (
+    GCSToBigQueryOperatorLineageMixin,
+)
 from airflow.composer.data_lineage.transfers.google.cloud.gcs_to_gcs import GCSToGCSOperatorLineageMixin
 from airflow.contrib.operators.bigquery_to_gcs import BigQueryToCloudStorageOperator
+from airflow.contrib.operators.gcs_to_bq import GoogleCloudStorageToBigQueryOperator
 from airflow.contrib.operators.gcs_to_gcs import GoogleCloudStorageToGoogleCloudStorageOperator
 from airflow.providers.google.cloud.operators.bigquery import (
     BigQueryExecuteQueryOperator,
@@ -46,6 +50,7 @@ from airflow.providers.google.cloud.operators.bigquery import (
 )
 from airflow.providers.google.cloud.transfers.bigquery_to_bigquery import BigQueryToBigQueryOperator
 from airflow.providers.google.cloud.transfers.bigquery_to_gcs import BigQueryToGCSOperator
+from airflow.providers.google.cloud.transfers.gcs_to_bigquery import GCSToBigQueryOperator
 from airflow.providers.google.cloud.transfers.gcs_to_gcs import GCSToGCSOperator
 
 if TYPE_CHECKING:
@@ -57,7 +62,9 @@ _OPERATOR_TO_MIXIN = {
     BigQueryToBigQueryOperator: BigQueryToBigQueryOperatorLineageMixin,
     BigQueryToCloudStorageOperator: BigQueryToGCSOperatorLineageMixin,
     BigQueryToGCSOperator: BigQueryToGCSOperatorLineageMixin,
+    GCSToBigQueryOperator: GCSToBigQueryOperatorLineageMixin,
     GCSToGCSOperator: GCSToGCSOperatorLineageMixin,
+    GoogleCloudStorageToBigQueryOperator: GCSToBigQueryOperatorLineageMixin,
     GoogleCloudStorageToGoogleCloudStorageOperator: GCSToGCSOperatorLineageMixin,
 }
 
