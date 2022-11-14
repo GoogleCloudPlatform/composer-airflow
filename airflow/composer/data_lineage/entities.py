@@ -38,3 +38,13 @@ class GCSEntity:
 
     bucket: str = attr.ib()
     path: str = attr.ib()
+
+
+@attr.s(auto_attribs=True, kw_only=True)
+class MySQLTable:
+    """Airflow lineage entity representing MySQL table."""
+
+    host: str = attr.ib()
+    port: str = attr.ib()
+    schema: str = attr.ib()
+    table: str = attr.ib()
