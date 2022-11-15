@@ -155,4 +155,4 @@ class ComposerDataLineageAdapter:
 
         See Data Lineage API spec for supported characters.
         """
-        return re.sub(r"[^A-Za-z0-9 _\-:&.]", "", display_name)
+        return re.sub(r"[^A-Za-z0-9 _\-:&.]", "", display_name)[:200]

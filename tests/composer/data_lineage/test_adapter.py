@@ -273,8 +273,8 @@ class TestAdapter(unittest.TestCase):
         adapter = ComposerDataLineageAdapter()
 
         actual_sanitized_display_name = adapter._sanitize_display_name(
-            "Composer Airflow task dag_id.task+17*_0-9 :&"
+            "Composer Airflow task dag_id.task+17*_0-9 :&" + ("X" * 300)
         )
 
-        expected_sanitized_display_name = "Composer Airflow task dag_id.task17_0-9 :&"
+        expected_sanitized_display_name = "Composer Airflow task dag_id.task17_0-9 :&" + ("X" * 158)
         self.assertEqual(actual_sanitized_display_name, expected_sanitized_display_name)
