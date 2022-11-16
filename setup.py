@@ -602,6 +602,7 @@ composer_additional = [
     # exist
     "pyOpenSSL<22.1.0",
     "pipdeptree",
+    "sqlparse",
     "tensorflow",
 ]
 
