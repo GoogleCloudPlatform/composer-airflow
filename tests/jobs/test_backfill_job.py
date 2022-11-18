@@ -606,7 +606,7 @@ class TestBackfillJob:
             wraps=job._task_instances_for_dag_run,
         ) as wrapped_task_instances_for_dag_run:
             job.run()
-            dr = wrapped_task_instances_for_dag_run.call_args_list[0][0][0]
+            dr = wrapped_task_instances_for_dag_run.call_args_list[0][0][1]
             assert dr.conf == {"a": 1}
 
     def test_backfill_skip_active_scheduled_dagrun(self, dag_maker, caplog):
@@ -1725,3 +1725,32 @@ class TestBackfillJob:
                 dag_id=dr.dag_id, task_id='make_arg_lists', run_id='test', try_number=1, map_index=-1
             ),
         }
+
+    def test_task_instances_are_not_set_to_scheduled_when_dagrun_reset(self, dag_maker, session):
+        """Test that when dagrun is reset, task instances are not set to scheduled"""
+
+        with dag_maker() as dag:
+            task1 = EmptyOperator(task_id='task1')
+            task2 = EmptyOperator(task_id='task2')
+            task3 = EmptyOperator(task_id='task3')
+            task1 >> task2 >> task3
+
+        for i in range(1, 4):
+            dag_maker.create_dagrun(
+                run_id=f'test_dagrun_{i}', execution_date=DEFAULT_DATE + datetime.timedelta(days=i)
+            )
+
+        dag.clear()
+
+        job = BackfillJob(
+            dag=dag,
+            start_date=DEFAULT_DATE + datetime.timedelta(days=1),
+            end_date=DEFAULT_DATE + datetime.timedelta(days=4),
+            executor=MockExecutor(),
+            donot_pickle=True,
+        )
+        for dr in DagRun.find(dag_id=dag.dag_id, session=session):
+            tasks_to_run = job._task_instances_for_dag_run(dag, dr, session=session)
+            states = [ti.state for _, ti in tasks_to_run.items()]
+            assert TaskInstanceState.SCHEDULED in states
+            assert State.NONE in states
