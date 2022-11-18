@@ -42,7 +42,7 @@ from airflow.models.taskinstance import TaskInstanceKey
 from airflow.operators.dummy import DummyOperator
 from airflow.utils import timezone
 from airflow.utils.session import create_session
-from airflow.utils.state import State
+from airflow.utils.state import State, TaskInstanceState
 from airflow.utils.timeout import timeout
 from airflow.utils.types import DagRunType
 from tests.test_utils.db import clear_db_dags, clear_db_pools, clear_db_runs, set_default_pool_slots
@@ -1517,3 +1517,32 @@ class TestBackfillJob:
         )
         job.run()
         assert executor.job_id is not None
+
+    def test_task_instances_are_not_set_to_scheduled_when_dagrun_reset(self, dag_maker, session):
+        """Test that when dagrun is reset, task instances are not set to scheduled"""
+
+        with dag_maker() as dag:
+            task1 = DummyOperator(task_id='task1')
+            task2 = DummyOperator(task_id='task2')
+            task3 = DummyOperator(task_id='task3')
+            task1 >> task2 >> task3
+
+        for i in range(1, 4):
+            dag_maker.create_dagrun(
+                run_id=f'test_dagrun_{i}', execution_date=DEFAULT_DATE + datetime.timedelta(days=i)
+            )
+
+        dag.clear()
+
+        job = BackfillJob(
+            dag=dag,
+            start_date=DEFAULT_DATE + datetime.timedelta(days=1),
+            end_date=DEFAULT_DATE + datetime.timedelta(days=4),
+            executor=MockExecutor(),
+            donot_pickle=True,
+        )
+        for dr in DagRun.find(dag_id=dag.dag_id, session=session):
+            tasks_to_run = job._task_instances_for_dag_run(dag, dr, session=session)
+            states = [ti.state for _, ti in tasks_to_run.items()]
+            assert TaskInstanceState.SCHEDULED in states
+            assert State.NONE in states
