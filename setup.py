@@ -567,7 +567,7 @@ composer_additional = [
     "keyrings.google-artifactregistry-auth",
     "pip<20.3.0",
     "pipdeptree",
-    "sqlparse",
+    "sqllineage==1.3.7",
     "tensorflow",
 ]
 
