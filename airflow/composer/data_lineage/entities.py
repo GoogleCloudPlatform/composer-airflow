@@ -48,3 +48,14 @@ class MySQLTable:
     port: str = attr.ib()
     schema: str = attr.ib()
     table: str = attr.ib()
+
+
+@attr.s(auto_attribs=True, kw_only=True)
+class PostgresTable:
+    """Airflow lineage entity representing Postgres table."""
+
+    host: str = attr.ib()
+    port: str = attr.ib()
+    database: str = attr.ib()
+    schema: str = attr.ib()
+    table: str = attr.ib()
