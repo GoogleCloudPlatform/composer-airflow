@@ -32,7 +32,8 @@ from tests.test_utils.config import conf_vars
 class TestBase(unittest.TestCase):
     CURRENT_DIRECTORY = os.path.dirname(os.path.realpath(__file__))
     WEBSERVER_CONFIG_BACKUP = WEBSERVER_CONFIG + '.backup'
-    COMPOSER_WEBSERVER_CONFIG = os.path.join(CURRENT_DIRECTORY, "../../airflow/composer/webserver_config.py")
+    COMPOSER_WEBSERVER_CONFIG = os.path.join(
+        CURRENT_DIRECTORY, "../../airflow/composer/webserver_config.py")
 
     @classmethod
     def setUpClass(cls):
@@ -86,13 +87,18 @@ class TestBase(unittest.TestCase):
 
         id_token_mock.verify_token.side_effect = id_token_mock_verify_token_side_effect
 
-        resp = self.client.get("/login/", headers={"X-Goog-IAP-JWT-Assertion": "jwt-test"})
+        resp = self.client.get(
+            "/login/", headers={"X-Goog-IAP-JWT-Assertion": "jwt-test"})
+
         assert resp.headers["Location"] == "/"
         assert resp.status_code == 302
-        assert self.sm.find_user(username=username).roles == [self.sm.find_role(name="Viewer")]
+        assert self.sm.find_user(username=username).roles == [
+            self.sm.find_role(name="Viewer")]
 
         # Test already logged in.
-        resp = self.client.get("/login/", headers={"X-Goog-IAP-JWT-Assertion": "jwt-test"})
+        resp = self.client.get(
+            "/login/", headers={"X-Goog-IAP-JWT-Assertion": "jwt-test"})
+
         assert resp.headers["Location"] == "/"
         assert resp.status_code == 302
 
@@ -101,6 +107,7 @@ class TestBase(unittest.TestCase):
         resp = self.client.get(
             "/login/?next=http%3A%2F%2Flocalhost%2Faaa", headers={"X-Goog-IAP-JWT-Assertion": "jwt-test"}
         )
+
         assert resp.headers["Location"] == "http://localhost/aaa"
         assert resp.status_code == 302
 
@@ -120,7 +127,9 @@ class TestBase(unittest.TestCase):
         id_token_mock.verify_token.side_effect = id_token_mock_verify_token_side_effect
 
         self.client.get("/logout/")
-        resp = self.client.get("/login/", headers={"X-Goog-IAP-JWT-Assertion": "jwt-test"})
+        resp = self.client.get(
+            "/login/", headers={"X-Goog-IAP-JWT-Assertion": "jwt-test"})
+
         assert resp.get_data() == b"Not authorized or account inactive"
         assert resp.status_code == 403
 
@@ -133,7 +142,9 @@ class TestBase(unittest.TestCase):
         id_token_mock.verify_token.side_effect = id_token_mock_verify_token_side_effect
 
         self.client.get("/login/")
-        resp = self.client.get("/login/", headers={"X-Goog-IAP-JWT-Assertion": "invalid-token"})
+        resp = self.client.get(
+            "/login/", headers={"X-Goog-IAP-JWT-Assertion": "invalid-token"})
+
         assert resp.get_data() == b"Not authorized or account inactive"
         assert resp.status_code == 403
 
@@ -158,7 +169,9 @@ class TestBase(unittest.TestCase):
 
         id_token_mock.verify_token.side_effect = id_token_mock_verify_token_side_effect
 
-        resp = self.client.get("/login/", headers={"X-Goog-IAP-JWT-Assertion": "jwt-test"})
+        resp = self.client.get(
+            "/login/", headers={"X-Goog-IAP-JWT-Assertion": "jwt-test"})
+
         assert not self.sm.find_user(username=email)
         assert self.sm.find_user(username=username)
         assert resp.headers["Location"] == "/"
@@ -168,19 +181,109 @@ class TestBase(unittest.TestCase):
     @mock.patch("airflow.composer.security_manager.AuthorizedSession", autospec=True)
     @conf_vars({("webserver", "jwt_public_key_url"): "jwt-public-key-url-test"})
     @conf_vars({("webserver", "inverting_proxy_backend_id"): "inverting-proxy-backend-id-test"})
-    def test_login_user_inverting_proxy(self, authorized_session_mock, auth_default_mock):
-        username = f"test-{self.get_random_id()}"
-        email = f"test-{self.get_random_id()}@test.com"
-        with open(os.path.join(self.CURRENT_DIRECTORY, 'test_data/jwtRS256.key')) as f:
-            private_key = f.read()
-            inv_proxy_user_id = jwt.encode({"sub": username, "email": email}, private_key, algorithm="RS256")
+    def test_login_user_auto_registered_inverting_proxy(
+        self, authorized_session_mock, auth_default_mock
+    ):
+        with open(os.path.join(self.CURRENT_DIRECTORY, 'test_data/jwtRS256.key.pub')) as f:
+            public_key = f.read()
+
+        def auth_default_mock_side_effect(scopes):
+            assert scopes == ["https://www.googleapis.com/auth/cloud-platform"]
+            return "credentials", "project"
+
+        def request_side_effect(method, url, headers):
+            assert method == "GET"
+            assert url == "jwt-public-key-url-test"
+            assert headers == {
+                "X-Inverting-Proxy-Backend-ID": "inverting-proxy-backend-id-test"}
+            return mock.Mock(status_code=200, text=public_key)
+
+        def authorized_session_mock_side_effect(credentials):
+            assert credentials == "credentials"
+            return mock.Mock(request=mock.Mock(side_effect=request_side_effect))
+
+        def request_side_effect_400_status(method, url, headers):
+            assert method == "GET"
+            assert url == "jwt-public-key-url-test"
+            assert headers == {
+                "X-Inverting-Proxy-Backend-ID": "inverting-proxy-backend-id-test"}
+            return mock.Mock(status_code=400, text=public_key)
+
+        def authorized_session_mock_side_effect_400_status(credentials):
+            assert credentials == "credentials"
+            return mock.Mock(request=mock.Mock(side_effect=request_side_effect_400_status))
+
+        auth_default_mock.side_effect = auth_default_mock_side_effect
+
+        first_party_token_decoded_dict = {
+            "sub": f"test-{self.get_random_id()}",
+            "email": f"test-{self.get_random_id()}@test.com",
+        }
+        byoid_token_decoded_dict = {
+            "sub": f"test-{self.get_random_id()}",
+            "principal": f"IDPool/mynamespace/provider/123/subject/{self.get_random_id()}"
+        }
+        for token_dict, email_or_principal in [
+            (first_party_token_decoded_dict, first_party_token_decoded_dict["email"]),
+            (byoid_token_decoded_dict, byoid_token_decoded_dict["principal"])
+        ]:
+            with open(os.path.join(self.CURRENT_DIRECTORY, 'test_data/jwtRS256.key')) as f:
+                private_key = f.read()
+                inv_proxy_user_id = jwt.encode(
+                    token_dict, private_key, algorithm="RS256")
+
+            authorized_session_mock.side_effect = authorized_session_mock_side_effect
+
+            # Test auto-registration of new user.
+            resp = self.client.get(
+                "/login/", headers={"X-Inverting-Proxy-User-ID": inv_proxy_user_id})
+
+            assert resp.headers["Location"] == "/"
+            assert resp.status_code == 302
+            user = self.sm.find_user(username=token_dict["sub"])
+            assert user.email == email_or_principal
+            assert user.roles == [self.sm.find_role(name="Viewer")]
+
+            # Test already logged in.
+            resp = self.client.get(
+                "/login/", headers={"X-Inverting-Proxy-User-ID": inv_proxy_user_id})
+
+            assert resp.headers["Location"] == "/"
+            assert resp.status_code == 302
+
+            # Test invalid token.
+            self.client.get("/logout/")
+            resp = self.client.get(
+                "/login/", headers={"X-Inverting-Proxy-User-ID": "invalid-token"})
+
+            assert resp.get_data() == b"Not authorized or account inactive"
+            assert resp.status_code == 403
+
+            # Test unsuccessful response from public key endpoint.
+            authorized_session_mock.side_effect = authorized_session_mock_side_effect_400_status
+
+            self.client.get("/logout/")
+            resp = self.client.get(
+                "/login/", headers={"X-Inverting-Proxy-User-ID": inv_proxy_user_id})
+
+            assert resp.get_data() == b"Not authorized or account inactive"
+            assert resp.status_code == 403
+
+    @mock.patch("airflow.composer.security_manager.auth.default", autospec=True)
+    @mock.patch("airflow.composer.security_manager.AuthorizedSession", autospec=True)
+    @conf_vars({("webserver", "jwt_public_key_url"): "jwt-public-key-url-test"})
+    @conf_vars({("webserver", "inverting_proxy_backend_id"): "inverting-proxy-backend-id-test"})
+    def test_login_user_preregistered_inverting_proxy(
+        self, authorized_session_mock, auth_default_mock
+    ):
         with open(os.path.join(self.CURRENT_DIRECTORY, 'test_data/jwtRS256.key.pub')) as f:
             public_key = f.read()
 
         def request_side_effect(method, url, headers):
             assert method == "GET"
             assert url == "jwt-public-key-url-test"
-            assert headers == {"X-Inverting-Proxy-Backend-ID": "inverting-proxy-backend-id-test"}
+            assert headers == {
+                "X-Inverting-Proxy-Backend-ID": "inverting-proxy-backend-id-test"}
             return mock.Mock(status_code=200, text=public_key)
 
         def auth_default_mock_side_effect(scopes):
@@ -194,40 +297,38 @@ class TestBase(unittest.TestCase):
         auth_default_mock.side_effect = auth_default_mock_side_effect
         authorized_session_mock.side_effect = authorized_session_mock_side_effect
 
-        resp = self.client.get("/login/", headers={"X-Inverting-Proxy-User-ID": inv_proxy_user_id})
+        first_party_token_decoded_dict = {
+            "sub": f"test-{self.get_random_id()}",
+            "email": f"test-{self.get_random_id()}@test.com",
+        }
+        byoid_token_decoded_dict = {
+            "sub": f"test-{self.get_random_id()}",
+            "principal": f"IDPool/mynamespace/provider/123/subject/{self.get_random_id()}"
+        }
+        for token_dict, email_or_principal in [
+            (first_party_token_decoded_dict, first_party_token_decoded_dict["email"]),
+            (byoid_token_decoded_dict, byoid_token_decoded_dict["principal"]),
+        ]:
+            email_or_principal = email_or_principal
 
-        assert resp.headers["Location"] == "/"
-        assert resp.status_code == 302
-        user = self.sm.find_user(username=username)
-        assert user.email == email
-        assert user.roles == [self.sm.find_role(name="Viewer")]
+            # Preregister user.
+            create_user(self.app, username=email_or_principal,
+                        role_name="Test")
+            assert self.sm.find_user(username=email_or_principal)
 
-        # Test invalid token.
-        self.client.get("/logout/")
-        resp = self.client.get("/login/", headers={"X-Inverting-Proxy-User-ID": "invalid-token"})
+            with open(os.path.join(self.CURRENT_DIRECTORY, 'test_data/jwtRS256.key')) as f:
+                private_key = f.read()
+                inv_proxy_user_id = jwt.encode(
+                    token_dict, private_key, algorithm="RS256")
 
-        assert resp.get_data() == b"Not authorized or account inactive"
-        assert resp.status_code == 403
+            resp = self.client.get(
+                "/login/", headers={"X-Inverting-Proxy-User-ID": inv_proxy_user_id})
 
-        # Test not successful response from google.auth.
-        # flake8: noqa: F811
-        def request_side_effect(method, url, headers):  # pylint: disable=function-redefined
-            assert method == "GET"
-            assert url == "jwt-public-key-url-test"
-            assert headers == {"X-Inverting-Proxy-Backend-ID": "inverting-proxy-backend-id-test"}
-            return mock.Mock(status_code=400, text=public_key)
-
-        def authorized_session_mock_side_effect(credentials):  # pylint: disable=function-redefined
-            assert credentials == "credentials"
-            return mock.Mock(request=mock.Mock(side_effect=request_side_effect))
-
-        authorized_session_mock.side_effect = authorized_session_mock_side_effect
-
-        self.client.get("/logout/")
-        resp = self.client.get("/login/", headers={"X-Inverting-Proxy-User-ID": inv_proxy_user_id})
-
-        assert resp.get_data() == b"Not authorized or account inactive"
-        assert resp.status_code == 403
+            assert resp.headers["Location"] == "/"
+            assert resp.status_code == 302
+            assert not self.sm.find_user(username=email_or_principal)
+            assert self.sm.find_user(username=token_dict["sub"])
+            self.client.get("/logout/")
 
     def test_user_no_dags_role(self):
         self.assertIn(

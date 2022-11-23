@@ -62,13 +62,14 @@ def _decode_iap_jwt(iap_jwt):
 
 
 def _decode_inverting_proxy_jwt(inverting_proxy_jwt):
-    """Returns username and email decoded from the given Inverting Proxy JWT.
+    """Returns username and either email or IAM principal decoded from
+       the given Inverting Proxy JWT.
 
     Args:
       inverting_proxy_jwt: JWT from Inverting Proxy.
 
     Returns:
-      Decoded username and email.
+      Decoded username and either email or IAM principal.
     """
     try:
         credentials, _ = auth.default(scopes=["https://www.googleapis.com/auth/cloud-platform"])
@@ -80,7 +81,7 @@ def _decode_inverting_proxy_jwt(inverting_proxy_jwt):
             return None, None
         public_key = response.text
         decoded_jwt = jwt.decode(inverting_proxy_jwt, public_key, algorithms=["RS256"])
-        return decoded_jwt["sub"], decoded_jwt["email"]
+        return decoded_jwt["sub"], decoded_jwt["email"] if "email" in decoded_jwt else decoded_jwt["principal"]
     except Exception as e:  # pylint: disable=broad-except
         log.error("JWT verification error: %s", e)
         return None, None
@@ -153,12 +154,14 @@ class ComposerAuthRemoteUserView(AuthView):
     def _auth_remote_user(self, username, email, user_registration_role=None):
         """Fetches the specified user record or creates one if it doesn't exist.
 
-        Also recognizes a user preregistered with email address as username, and
-        updates their record to be identified with the proper username.
+        Also recognizes a user preregistered with email address or IAM principal
+        as username, and updates their record to be identified with the proper
+        username.
 
         Args:
           username: User's username for remote authentication.
-          email: User's email to set in the user's record.
+          email: User's email, or BYOID user's IAM principal, to set in the
+            user's record.
           user_registration_role: User's role in case it will be registered
             (created). If not passed, AUTH_USER_REGISTRATION_ROLE from
             webserver_config.py will be used.
@@ -168,19 +171,24 @@ class ComposerAuthRemoteUserView(AuthView):
         """
         user = self.appbuilder.sm.find_user(username=username)
         if user is None:
-            # Admin can preregister a user by setting user's email address as
-            # the username. When the preregistered user opens Airflow UI for the
-            # first time, the email address is replaced with the proper username
+            # Admin can preregister a user by setting user's email address, or
+            # BYOID user's IAM principal, as the username. When the
+            # preregistered user opens Airflow UI for the first time, the email
+            # address or principal is replaced with the proper username
             # (containing numerical identifier). This way the Google identity
-            # (email address) is bound to the user account it represents at the
-            # time of user's first login. See the following section about
-            # differences between Google identities and user accounts:
+            # (email address) or federated workforce identity (subject's IAM
+            # principal) is bound to the user account it represents at the time
+            # of user's first login. See the following section about differences
+            # between Google identities and user accounts:
             # https://cloud.google.com/architecture/identity/overview-google-authentication#google_identities
+            # See the following section about workforce identity federation:
+            # https://cloud.google.com/iam/docs/workforce-identity-federation#what_is_workforce_identity_federation
             preregistered_user = self.appbuilder.sm.find_user(username=email)
 
             if preregistered_user:
-                # User has been preregistered with email address as the
-                # username, update the record to set the proper username.
+                # User has been preregistered with email address or IAM
+                # principal as the username, update the record to set the
+                # proper username.
                 user = preregistered_user
                 user.username = username
                 update_result = self.appbuilder.sm.update_user(user)
