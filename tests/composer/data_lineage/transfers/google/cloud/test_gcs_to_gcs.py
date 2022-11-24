@@ -132,23 +132,23 @@ class TestGCSToGCSOperator(unittest.TestCase):
                 'old/path/*.csv',
                 None,
                 None,
-                [GCSEntity(bucket='source_bucket', path='old/path/')],
-                [GCSEntity(bucket='source_bucket', path='old/path/')],
+                [GCSEntity(bucket='source_bucket', path='old/path/*.csv')],
+                [GCSEntity(bucket='source_bucket', path='old/path/*.csv')],
             ),
             (
                 'files_wildcard_old_name_new_bucket',
                 'old/path/*.csv',
                 'target_bucket',
                 None,
-                [GCSEntity(bucket='source_bucket', path='old/path/')],
-                [GCSEntity(bucket='target_bucket', path='old/path/')],
+                [GCSEntity(bucket='source_bucket', path='old/path/*.csv')],
+                [GCSEntity(bucket='target_bucket', path='old/path/*.csv')],
             ),
             (
                 'files_wildcard_new_name_old_bucket',
                 'old/path/*.csv',
                 None,
                 'new/path/',
-                [GCSEntity(bucket='source_bucket', path='old/path/')],
+                [GCSEntity(bucket='source_bucket', path='old/path/*.csv')],
                 [GCSEntity(bucket='source_bucket', path='new/path/')],
             ),
             (
@@ -156,7 +156,7 @@ class TestGCSToGCSOperator(unittest.TestCase):
                 'old/path/*.csv',
                 'target_bucket',
                 'new/path/',
-                [GCSEntity(bucket='source_bucket', path='old/path/')],
+                [GCSEntity(bucket='source_bucket', path='old/path/*.csv')],
                 [GCSEntity(bucket='target_bucket', path='new/path/')],
             ),
         ]
@@ -258,12 +258,12 @@ class TestGCSToGCSOperator(unittest.TestCase):
                 None,
                 None,
                 [
-                    GCSEntity(bucket='source_bucket', path='old/path/1/'),
-                    GCSEntity(bucket='source_bucket', path='old/path/2/'),
+                    GCSEntity(bucket='source_bucket', path='old/path/1/*.csv'),
+                    GCSEntity(bucket='source_bucket', path='old/path/2/*.csv'),
                 ],
                 [
-                    GCSEntity(bucket='source_bucket', path='old/path/1/'),
-                    GCSEntity(bucket='source_bucket', path='old/path/2/'),
+                    GCSEntity(bucket='source_bucket', path='old/path/1/*.csv'),
+                    GCSEntity(bucket='source_bucket', path='old/path/2/*.csv'),
                 ],
             ),
             (
@@ -272,12 +272,12 @@ class TestGCSToGCSOperator(unittest.TestCase):
                 'target_bucket',
                 None,
                 [
-                    GCSEntity(bucket='source_bucket', path='old/path/1/'),
-                    GCSEntity(bucket='source_bucket', path='old/path/2/'),
+                    GCSEntity(bucket='source_bucket', path='old/path/1/*.csv'),
+                    GCSEntity(bucket='source_bucket', path='old/path/2/*.csv'),
                 ],
                 [
-                    GCSEntity(bucket='target_bucket', path='old/path/1/'),
-                    GCSEntity(bucket='target_bucket', path='old/path/2/'),
+                    GCSEntity(bucket='target_bucket', path='old/path/1/*.csv'),
+                    GCSEntity(bucket='target_bucket', path='old/path/2/*.csv'),
                 ],
             ),
             (
@@ -286,8 +286,8 @@ class TestGCSToGCSOperator(unittest.TestCase):
                 None,
                 'new/path/',
                 [
-                    GCSEntity(bucket='source_bucket', path='old/path/1/'),
-                    GCSEntity(bucket='source_bucket', path='old/path/2/'),
+                    GCSEntity(bucket='source_bucket', path='old/path/1/*.csv'),
+                    GCSEntity(bucket='source_bucket', path='old/path/2/*.csv'),
                 ],
                 [GCSEntity(bucket='source_bucket', path='new/path/')],
             ),
@@ -297,8 +297,8 @@ class TestGCSToGCSOperator(unittest.TestCase):
                 'target_bucket',
                 'new/path/',
                 [
-                    GCSEntity(bucket='source_bucket', path='old/path/1/'),
-                    GCSEntity(bucket='source_bucket', path='old/path/2/'),
+                    GCSEntity(bucket='source_bucket', path='old/path/1/*.csv'),
+                    GCSEntity(bucket='source_bucket', path='old/path/2/*.csv'),
                 ],
                 [GCSEntity(bucket='target_bucket', path='new/path/')],
             ),
