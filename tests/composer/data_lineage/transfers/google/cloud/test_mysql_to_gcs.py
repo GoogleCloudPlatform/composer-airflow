@@ -29,6 +29,7 @@ BUCKET = 'test_bucket'
 FILENAME = 'test_file'
 HOST = 'test-host'
 PORT = '1234'
+DEFAULT_PORT = '3306'
 SCHEMA = 'test_schema'
 
 TEST_TABLE = 'test_table'
@@ -108,6 +109,21 @@ class TestMySQLToGCSOperator(unittest.TestCase):
                 MySQLTable(host=HOST, port=PORT, schema=SCHEMA, table=_t)
                 for _t in [SOURCE_TABLE_1, SOURCE_TABLE_2]
             ],
+        )
+        self.assertEqual(task.outlets, [GCSEntity(bucket=BUCKET, path=FILENAME)])
+
+    @patch.object(MySqlHook, 'get_uri')
+    def test_post_execute_prepare_lineage_default_port(self, uri_mock):
+        uri_mock.return_value = f'mysql://user:***@{HOST}/{SCHEMA}'
+
+        task = self.operator(
+            task_id='test-task', sql=SIMPLE_SQL_TEST_TABLE_AS_SOURCE, bucket=BUCKET, filename=FILENAME
+        )
+
+        post_execute_prepare_lineage(task, {})
+
+        self.assertEqual(
+            task.inlets, [MySQLTable(host=HOST, port=DEFAULT_PORT, schema=SCHEMA, table=TEST_TABLE)]
         )
         self.assertEqual(task.outlets, [GCSEntity(bucket=BUCKET, path=FILENAME)])
 

@@ -60,7 +60,7 @@ class MySQLToGCSOperatorLineageMixin:
             [
                 MySQLTable(
                     host=parsed_uri.hostname,
-                    port=str(parsed_uri.port) if parsed_uri.port else '',
+                    port=str(parsed_uri.port) if parsed_uri.port else '3306',
                     schema=parsed_uri.path.lstrip('/'),
                     table=_t.raw_name,
                 )
