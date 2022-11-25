@@ -25,6 +25,7 @@ which will be called after task execution in BaseOperator.post_execute() method.
 If operator requires a new Airflow lineage entity, it should be defined in
 "airflow.composer.data_lineage.entities" module.
 """
+import os
 from typing import TYPE_CHECKING, Dict
 
 from airflow.composer.data_lineage.operators.google.cloud.bigquery import (
@@ -71,14 +72,20 @@ _OPERATOR_TO_MIXIN = {
     BigQueryToCloudStorageOperator: BigQueryToGCSOperatorLineageMixin,
     BigQueryToGCSOperator: BigQueryToGCSOperatorLineageMixin,
     GCSToBigQueryOperator: GCSToBigQueryOperatorLineageMixin,
-    GCSToGCSOperator: GCSToGCSOperatorLineageMixin,
     GoogleCloudStorageToBigQueryOperator: GCSToBigQueryOperatorLineageMixin,
-    GoogleCloudStorageToGoogleCloudStorageOperator: GCSToGCSOperatorLineageMixin,
-    MySQLToGCSOperator: MySQLToGCSOperatorLineageMixin,
-    MySqlToGoogleCloudStorageOperator: MySQLToGCSOperatorLineageMixin,
-    PostgresToGCSOperator: PostgresToGCSOperatorLineageMixin,
-    PostgresToGoogleCloudStorageOperator: PostgresToGCSOperatorLineageMixin,
 }
+
+if os.environ.get("ENABLE_LINEAGE_FOR_ALL_SUPPORTED_OPERATORS") == "True":
+    _OPERATOR_TO_MIXIN.update(
+        {
+            GCSToGCSOperator: GCSToGCSOperatorLineageMixin,
+            GoogleCloudStorageToGoogleCloudStorageOperator: GCSToGCSOperatorLineageMixin,
+            MySQLToGCSOperator: MySQLToGCSOperatorLineageMixin,
+            MySqlToGoogleCloudStorageOperator: MySQLToGCSOperatorLineageMixin,
+            PostgresToGCSOperator: PostgresToGCSOperatorLineageMixin,
+            PostgresToGoogleCloudStorageOperator: PostgresToGCSOperatorLineageMixin,
+        }
+    )
 
 
 def post_execute_prepare_lineage(task: "BaseOperator", context: Dict):
