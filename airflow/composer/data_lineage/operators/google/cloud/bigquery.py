@@ -44,13 +44,14 @@ class BigQueryInsertJobOperatorLineageMixin:
         props = job._properties
 
         input_tables = props.get("statistics", {}).get("query", {}).get("referencedTables", [])
-        for input_table in input_tables:
-            inlet = BigQueryTable(
+        inlets = [
+            BigQueryTable(
                 project_id=input_table["projectId"],
                 dataset_id=input_table["datasetId"],
                 table_id=input_table["tableId"],
             )
-            self.inlets.append(inlet)
+            for input_table in input_tables
+        ]
 
         output_table = props.get("configuration", {}).get("query", {}).get("destinationTable")
         if output_table:
@@ -61,7 +62,9 @@ class BigQueryInsertJobOperatorLineageMixin:
             )
             self.outlets.append(outlet)
 
-            self.inlets = exclude_outlet(inlets=self.inlets, outlet=outlet)
+            inlets = exclude_outlet(inlets=inlets, outlet=outlet)
+
+        self.inlets.extend(inlets)
 
 
 class BigQueryExecuteQueryOperatorLineageMixin:
@@ -82,13 +85,14 @@ class BigQueryExecuteQueryOperatorLineageMixin:
         props = job._properties
 
         input_tables = props.get("statistics", {}).get("query", {}).get("referencedTables", [])
-        for input_table in input_tables:
-            inlet = BigQueryTable(
+        inlets = [
+            BigQueryTable(
                 project_id=input_table["projectId"],
                 dataset_id=input_table["datasetId"],
                 table_id=input_table["tableId"],
             )
-            self.inlets.append(inlet)
+            for input_table in input_tables
+        ]
 
         output_table = props.get("configuration", {}).get("query", {}).get("destinationTable")
         if output_table:
@@ -99,4 +103,6 @@ class BigQueryExecuteQueryOperatorLineageMixin:
             )
             self.outlets.append(outlet)
 
-            self.inlets = exclude_outlet(inlets=self.inlets, outlet=outlet)
+            inlets = exclude_outlet(inlets=inlets, outlet=outlet)
+
+        self.inlets.extend(inlets)
