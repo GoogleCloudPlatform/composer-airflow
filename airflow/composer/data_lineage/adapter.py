@@ -165,6 +165,7 @@ class ComposerDataLineageAdapter:
                     entity.host, entity.port, entity.database, entity.schema, entity.table
                 ),
             )
+
         return None
 
     def _sanitize_display_name(self, display_name: str) -> str:
