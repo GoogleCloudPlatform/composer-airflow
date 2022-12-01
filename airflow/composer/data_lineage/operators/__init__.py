@@ -32,6 +32,7 @@ from airflow.composer.data_lineage.operators.google.cloud.bigquery import (
     BigQueryExecuteQueryOperatorLineageMixin,
     BigQueryInsertJobOperatorLineageMixin,
 )
+from airflow.composer.data_lineage.operators.postgres.postgres import PostgresOperatorLineageMixin
 from airflow.composer.data_lineage.transfers.google.cloud.bigquery_to_bigquery import (
     BigQueryToBigQueryOperatorLineageMixin,
 )
@@ -61,6 +62,7 @@ from airflow.providers.google.cloud.transfers.gcs_to_bigquery import GCSToBigQue
 from airflow.providers.google.cloud.transfers.gcs_to_gcs import GCSToGCSOperator
 from airflow.providers.google.cloud.transfers.mysql_to_gcs import MySQLToGCSOperator
 from airflow.providers.google.cloud.transfers.postgres_to_gcs import PostgresToGCSOperator
+from airflow.providers.postgres.operators.postgres import PostgresOperator
 
 if TYPE_CHECKING:
     from airflow.models.baseoperator import BaseOperator
@@ -82,6 +84,7 @@ if os.environ.get("ENABLE_LINEAGE_FOR_ALL_SUPPORTED_OPERATORS") == "True":
             GoogleCloudStorageToGoogleCloudStorageOperator: GCSToGCSOperatorLineageMixin,
             MySQLToGCSOperator: MySQLToGCSOperatorLineageMixin,
             MySqlToGoogleCloudStorageOperator: MySQLToGCSOperatorLineageMixin,
+            PostgresOperator: PostgresOperatorLineageMixin,
             PostgresToGCSOperator: PostgresToGCSOperatorLineageMixin,
             PostgresToGoogleCloudStorageOperator: PostgresToGCSOperatorLineageMixin,
         }
