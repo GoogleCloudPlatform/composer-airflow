@@ -15,7 +15,7 @@
 import unittest
 from unittest.mock import patch
 
-from parameterized import parameterized_class
+from parameterized import parameterized, parameterized_class
 
 from airflow import AirflowException
 from airflow.composer.data_lineage.entities import GCSEntity, MySQLTable
@@ -58,6 +58,21 @@ INNER JOIN {SOURCE_TABLE_2} ON Orders.CustomerID=Customers.CustomerID;
 
 SQL_WITHOUT_SOURCES = '''INSERT INTO TestTable (col1, col2) VALUES ('x', 'y');'''
 SQL_ERROR = '''INSERT INTO Table (col1, col2) VALUES ('x', 'y');'''
+SQL_MULTIPLE_QUERIES_SOURCE_TABLE_1 = f'''
+INSERT INTO test_target_table (column_1, column_2, OWNER)
+VALUES ( 'value 1', 'value 2', 'Jane');
+SELECT * FROM {SOURCE_TABLE_1};
+SELECT * FROM {SOURCE_TABLE_2};
+'''
+SQL_MULTIPLE_QUERIES_WITHOUT_SOURCES = '''
+INSERT INTO test_target_table_1 (column_1, column_2, OWNER)
+VALUES ( 'value 1', 'value 2', 'Jane');
+INSERT INTO test_target_table_2 (column_1, column_2, OWNER)
+VALUES ( 'value 1', 'value 2', 'Jane');
+'''
+SQL_QUERY_WITHOUT_SELECT_STATEMENT = '''
+INSERT INTO A SELECT * FROM B
+'''
 
 
 @parameterized_class(
@@ -169,6 +184,46 @@ class TestMySQLToGCSOperator(unittest.TestCase):
         uri_mock.return_value = f'mysql://user:***@{HOST}:{PORT}/{SCHEMA}'
 
         task = self.operator(task_id='test-task', sql=SQL_ERROR, bucket=BUCKET, filename=FILENAME)
+
+        post_execute_prepare_lineage(task, {})
+
+        self.assertEqual(task.inlets, [])
+        self.assertEqual(task.outlets, [])
+
+    @patch.object(MySqlHook, 'get_uri')
+    def test_post_execute_prepare_lineage_sqlparse_type_error(self, uri_mock):
+        uri_mock.return_value = f'mysql://user:***@{HOST}:{PORT}/{SCHEMA}'
+
+        task = self.operator(task_id='test-task', sql=None, bucket=BUCKET, filename=FILENAME)
+
+        post_execute_prepare_lineage(task, {})
+
+        self.assertEqual(task.inlets, [])
+        self.assertEqual(task.outlets, [])
+
+    @patch.object(MySqlHook, 'get_uri')
+    def test_post_execute_prepare_lineage_sql_multiple_queries(self, uri_mock):
+        uri_mock.return_value = f'mysql://user:***@{HOST}:{PORT}/{SCHEMA}'
+
+        task = self.operator(
+            task_id='test-task', sql=SQL_MULTIPLE_QUERIES_SOURCE_TABLE_1, bucket=BUCKET, filename=FILENAME
+        )
+
+        post_execute_prepare_lineage(task, {})
+
+        self.assertEqual(task.inlets, [MySQLTable(host=HOST, port=PORT, schema=SCHEMA, table=SOURCE_TABLE_1)])
+        self.assertEqual(task.outlets, [GCSEntity(bucket=BUCKET, path=FILENAME)])
+
+    @parameterized.expand(
+        [
+            ('multiple_queries_without_sources', SQL_MULTIPLE_QUERIES_WITHOUT_SOURCES),
+            ('multiple_queries_without_select', SQL_QUERY_WITHOUT_SELECT_STATEMENT),
+        ]
+    )
+    @patch.object(MySqlHook, 'get_uri')
+    def test_post_execute_prepare_lineage_sql_no_select(self, _, sql, uri_mock):
+        uri_mock.return_value = f'mysql://user:***@{HOST}:{PORT}/{SCHEMA}'
+        task = self.operator(task_id='test-task', sql=sql, bucket=BUCKET, filename=FILENAME)
 
         post_execute_prepare_lineage(task, {})
 

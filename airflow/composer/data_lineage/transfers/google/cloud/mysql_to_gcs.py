@@ -16,6 +16,7 @@ import logging
 from typing import Dict
 from urllib.parse import urlparse
 
+import sqlparse
 from sqllineage.exceptions import SQLLineageException
 from sqllineage.runner import LineageRunner
 
@@ -31,6 +32,7 @@ class MySQLToGCSOperatorLineageMixin:
     """Mixin class for MySQLToGCSOperator."""
 
     def post_execute_prepare_lineage(self, context: Dict):
+        # 1. Parse connection URI
         try:
             hook = MySqlHook(mysql_conn_id=self.mysql_conn_id)
         except AirflowException:
@@ -46,11 +48,27 @@ class MySQLToGCSOperatorLineageMixin:
         # URI examples - [user[:[password]]@]host[:port][/schema]
         parsed_uri = urlparse(uri)
 
+        # 2. Parse SQL query
         try:
-            source_tables = LineageRunner(sql=self.sql).source_tables
-        except SQLLineageException:
-            log.exception('Error on parsing SQL query')
+            sql_queries = sqlparse.split(self.sql)
+        except TypeError:
+            log.exception('Error on splitting SQL queries')
             return
+
+        source_tables = None
+        for query in sql_queries:
+            lineage_runner = LineageRunner(sql=query)
+            try:
+                is_select_statement = any(
+                    _s.get_type() == 'SELECT' for _s in lineage_runner.statements_parsed
+                )
+            except SQLLineageException:
+                log.exception('Error on parsing SQL query')
+                continue
+
+            if is_select_statement:
+                source_tables = lineage_runner.source_tables
+                break
 
         if not source_tables:
             log.info('No source tables detected in the SQL query')
