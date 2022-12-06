@@ -16,6 +16,7 @@ import logging
 from typing import Dict
 from urllib.parse import urlparse
 
+import sqlparse
 from sqllineage.exceptions import SQLLineageException
 from sqllineage.runner import LineageRunner
 
@@ -31,6 +32,7 @@ class PostgresToGCSOperatorLineageMixin:
     """Mixin class for PostgresToGCSOperator."""
 
     def post_execute_prepare_lineage(self, context: Dict):
+        # 1. Parse connection URI
         try:
             hook = PostgresHook(postgres_conn_id=self.postgres_conn_id)
         except AirflowException as airflow_exception:
@@ -44,14 +46,30 @@ class PostgresToGCSOperatorLineageMixin:
             return
 
         host = parsed_url.hostname
-        port = parsed_url.port if parsed_url.port else "5432"
+        port = str(parsed_url.port) if parsed_url.port else "5432"
         db_default = parsed_url.path[1:]
 
+        # 2. Parse SQL query
         try:
-            source_tables = LineageRunner(self.sql).source_tables
-        except SQLLineageException:
-            log.exception("Error on parsing query.")
+            sql_queries = sqlparse.split(self.sql)
+        except TypeError:
+            log.exception("Error on splitting SQL queries")
             return
+
+        source_tables = None
+        for query in sql_queries:
+            lineage_runner = LineageRunner(sql=query)
+            try:
+                is_select_statement = any(
+                    _s.get_type() == "SELECT" for _s in lineage_runner.statements_parsed
+                )
+            except SQLLineageException:
+                log.exception("Error on parsing SQL query")
+                continue
+
+            if is_select_statement:
+                source_tables = lineage_runner.source_tables
+                break
 
         if not source_tables:
             log.info("No tables detected in the query.")
