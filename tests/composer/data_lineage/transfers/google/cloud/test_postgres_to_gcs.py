@@ -15,7 +15,7 @@
 import unittest
 from unittest.mock import patch
 
-from parameterized import parameterized_class
+from parameterized import parameterized, parameterized_class
 
 from airflow import AirflowException
 from airflow.composer.data_lineage.entities import GCSEntity, PostgresTable
@@ -31,9 +31,18 @@ TARGET_BUCKET_NAME = "bucket_name"
 TARGET_BUCKET_FILENAME = "test.csv"
 SOURCE_PROJECT_ID = "source_project"
 HOST = "test_host"
-PORT = 1111
+PORT = "1111"
 SCHEMA = "test_schema"
 DATABASE = "test_db"
+SQL_MULTIPLE_QUERIES_WITHOUT_SOURCES = '''
+INSERT INTO test_target_table_1 (column_1, column_2, OWNER)
+VALUES ( 'value 1', 'value 2', 'Jane');
+INSERT INTO test_target_table_2 (column_1, column_2, OWNER)
+VALUES ( 'value 1', 'value 2', 'Jane');
+'''
+SQL_QUERY_WITHOUT_SELECT_STATEMENT = '''
+INSERT INTO A SELECT * FROM B
+'''
 
 
 @parameterized_class(
@@ -247,6 +256,61 @@ class TestPostgresToGCSOperator(unittest.TestCase):
             sql="SELECT * FROM source_table;",
             bucket=TARGET_BUCKET_NAME,
             filename=TARGET_BUCKET_FILENAME,
+        )
+
+        post_execute_prepare_lineage(task, {})
+
+        self.assertEqual(task.inlets, [])
+        self.assertEqual(task.outlets, [])
+
+    @patch.object(PostgresHook, "get_uri")
+    def test_post_execute_prepare_lineage_sqlparse_type_error(self, mock_get_uri):
+        mock_get_uri.return_value = f"postgres://login:password@{HOST}:{PORT}/{DATABASE}"
+
+        task = self.operator(
+            task_id="test-task", sql=None, bucket=TARGET_BUCKET_NAME, filename=TARGET_BUCKET_FILENAME
+        )
+
+        post_execute_prepare_lineage(task, {})
+
+        self.assertEqual(task.inlets, [])
+        self.assertEqual(task.outlets, [])
+
+    @patch.object(PostgresHook, "get_uri")
+    def test_post_execute_prepare_lineage_sql_multiple_queries(self, mock_get_uri):
+        mock_get_uri.return_value = f"postgres://login:password@{HOST}:{PORT}/{DATABASE}"
+
+        task = self.operator(
+            task_id='test-task',
+            sql='''
+            INSERT INTO test_target_table (column_1, column_2, OWNER)
+            VALUES ( 'value 1', 'value 2', 'Jane');
+            SELECT * FROM source_table_1;
+            SELECT * FROM source_table_2;
+            ''',
+            bucket=TARGET_BUCKET_NAME,
+            filename=TARGET_BUCKET_FILENAME,
+        )
+
+        post_execute_prepare_lineage(task, {})
+
+        self.assertEqual(
+            task.inlets,
+            [PostgresTable(host=HOST, port=PORT, database=DATABASE, schema="public", table="source_table_1")],
+        )
+        self.assertEqual(task.outlets, [GCSEntity(bucket=TARGET_BUCKET_NAME, path=TARGET_BUCKET_FILENAME)])
+
+    @parameterized.expand(
+        [
+            ("multiple_queries_without_sources", SQL_MULTIPLE_QUERIES_WITHOUT_SOURCES),
+            ("multiple_queries_without_select", SQL_QUERY_WITHOUT_SELECT_STATEMENT),
+        ]
+    )
+    @patch.object(PostgresHook, "get_uri")
+    def test_post_execute_prepare_lineage_sql_no_select(self, _, sql, mock_get_uri):
+        mock_get_uri.return_value = f"postgres://login:password@{HOST}:{PORT}/{DATABASE}"
+        task = self.operator(
+            task_id="test-task", sql=sql, bucket=TARGET_BUCKET_NAME, filename=TARGET_BUCKET_FILENAME
         )
 
         post_execute_prepare_lineage(task, {})
