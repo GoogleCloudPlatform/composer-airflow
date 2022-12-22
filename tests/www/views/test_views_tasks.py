@@ -27,6 +27,7 @@ from airflow import settings
 from airflow.executors.celery_executor import CeleryExecutor
 from airflow.models import DagBag, DagModel, TaskInstance, TaskReschedule
 from airflow.models.dagcode import DagCode
+from airflow.operators.bash import BashOperator
 from airflow.security import permissions
 from airflow.ti_deps.dependencies_states import QUEUEABLE_STATES, RUNNABLE_STATES
 from airflow.utils import dates, timezone
@@ -811,3 +812,24 @@ def test_action_muldelete_task_instance(session, admin_client, task_search_tuple
             == 0
         )
     assert session.query(TaskReschedule).count() == 0
+
+
+def test_graph_view_doesnt_fail_on_recursion_error(app, dag_maker, admin_client):
+    """Test that the graph view doesn't fail on a recursion error."""
+    from airflow.utils.helpers import chain
+
+    with dag_maker('test_fails_with_recursion') as dag:
+
+        tasks = [
+            BashOperator(
+                task_id=f"task_{i}",
+                bash_command="echo test",
+            )
+            for i in range(1, 1000 + 1)
+        ]
+        chain(*tasks)
+    with unittest.mock.patch.object(app, 'dag_bag') as mocked_dag_bag:
+        mocked_dag_bag.get_dag.return_value = dag
+        url = f'/graph?dag_id={dag.dag_id}'
+        resp = admin_client.get(url, follow_redirects=True)
+        assert resp.status_code == 200
