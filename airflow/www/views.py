@@ -576,15 +576,17 @@ def dag_edges(dag):
     # Collect all the edges between individual tasks
     edges = set()
 
-    def get_downstream(task):
-        for child in task.downstream_list:
-            edge = (task.task_id, child.task_id)
-            if edge not in edges:
+    tasks_to_trace: list[Operator] = dag.roots
+    while tasks_to_trace:
+        tasks_to_trace_next: list[Operator] = []
+        for task in tasks_to_trace:
+            for child in task.downstream_list:
+                edge = (task.task_id, child.task_id)
+                if edge in edges:
+                    continue
                 edges.add(edge)
-                get_downstream(child)
-
-    for root in dag.roots:
-        get_downstream(root)
+                tasks_to_trace_next.append(child)
+        tasks_to_trace = tasks_to_trace_next
 
     result = []
     # Build result dicts with the two ends of the edge, plus any extra metadata
