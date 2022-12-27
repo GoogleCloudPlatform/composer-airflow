@@ -20,6 +20,7 @@ import logging
 import os
 import warnings
 from pathlib import Path
+from stat import ST_DEV, ST_INO
 from typing import TYPE_CHECKING, Dict, Optional
 
 from airflow.composer.task_formatter import set_task_log_info, strip_separator_from_log
@@ -89,12 +90,95 @@ class FileTaskHandler(logging.Handler):
     """
     FileTaskHandler is a python log handler that handles and reads
     task instance logs. It creates and delegates log handling
-    to `logging.FileHandler` after receiving task instance context.
-    It reads logs from task instance's host machine.
+    to `logging.FileHandler` (indirectly, through `ResilientFileHandler`)
+    after receiving task instance context. It reads logs from task instance's
+    host machine.
 
     :param base_log_folder: Base log folder to place logs.
     :param filename_template: template filename string
     """
+
+    class ResilientFileHandler(logging.handlers.WatchedFileHandler, NonCachingFileHandler):
+        """This is a more error tolerant derivative of WatchedFileHandler.
+
+        The benefit of this approach is that failed write attempt doesn't
+        prevent a task from proceeding. The cost is that some log entries might
+        be lost (even for the task that was successfully completed).
+
+        Reference:
+
+        WatchedFileHandler:
+        https://github.com/python/cpython/blob/3.9/Lib/logging/handlers.py
+
+        Handler, FileHandler and raiseExceptions:
+        https://github.com/python/cpython/blob/3.9/Lib/logging/__init__.py
+        """
+
+        def __init__(self, filename, mode='a', encoding='utf-8', delay=False):
+            super().__init__(filename, mode, encoding, delay)
+            self.force_reload = False
+
+        def emit(self, record):
+            """Overrides WatchedFileHandler.emit to add error handling."""
+            try:
+                super().emit(record)
+            except Exception:
+                # A file might become unaccessible between refreshing a stream
+                # and pushing a new record to the stream.
+                self.force_reload = True
+
+        def handleError(self, record):
+            """Overrides Handler.handleError to avoid logging log-related errors.
+
+            Overriding handleError explicitly instead of setting module-level
+            raiseExceptions flag to False to avoid possible interferences with
+            some other code using logging module.
+
+            Existing implementation does not provide any recovery mechanism and
+            just does some logging. All actions are dependent on raiseExceptions
+            being set to True.
+
+            Default implementation with the currently provided settings enters
+            endless (as long as there is place on the stack) loop:
+            there is a logging-related error -> log the error -> there is
+            a logging-related error -> log the error...
+            """
+            self.force_reload = True
+
+        def reopenIfNeeded(self):
+            """Override WatchedFileHandler.reopenIfNeeded to add error handling."""
+            if self._is_refreshing_stream_needed():
+                self._close_stream_best_effort()
+                self._open_stream_best_effort()
+
+        def _is_refreshing_stream_needed(self):
+            try:
+                sres = os.stat(self.baseFilename)
+            except FileNotFoundError:
+                sres = None
+            return self.force_reload or not sres or sres[ST_DEV] != self.dev or sres[ST_INO] != self.ino
+
+        def _close_stream_best_effort(self):
+            if self.stream is not None:
+                # File may no longer exist.
+                try:
+                    self.stream.flush()
+                    self.stream.close()
+                except Exception:
+                    pass
+            self.stream = None
+
+        def _open_stream_best_effort(self):
+            # A file might temporarily do not exist.
+            # This might be caused by concurrent access to the file
+            # synchronized through mechanism that doesn't support concurrent
+            # write access seamlessly.
+            try:
+                self.stream = self._open()
+                self._statstream()
+                self.force_reload = False
+            except Exception:
+                pass
 
     def __init__(self, base_log_folder: str, filename_template: Optional[str] = None):
         super().__init__()
@@ -107,6 +191,17 @@ class FileTaskHandler(logging.Handler):
             )
         self.workflow_context_processor = WorkflowContextProcessor()
 
+    def _use_resilient_file_handler(self):
+        env_var = os.environ.get('GRACEFULLY_HANDLE_CONCURRENT_LOG_ACCESS', 'False')
+        return env_var.lower() in ['true', 't', 'yes', 'y', '1']
+
+    def _create_file_handler(self, local_loc):
+        return (
+            FileTaskHandler.ResilientFileHandler(local_loc)
+            if self._use_resilient_file_handler()
+            else NonCachingFileHandler(local_loc, encoding='utf-8')
+        )
+
     def set_context(self, ti: "TaskInstance"):
         """
         Provide task_instance context to airflow task handler.
@@ -114,7 +209,7 @@ class FileTaskHandler(logging.Handler):
         :param ti: task instance object
         """
         local_loc = self._init_file(ti)
-        self.handler = NonCachingFileHandler(local_loc, encoding='utf-8')
+        self.handler = self._create_file_handler(local_loc)
         if self.formatter:
             self.handler.setFormatter(self.formatter)
         self.handler.setLevel(self.level)
