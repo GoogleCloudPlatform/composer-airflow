@@ -135,7 +135,7 @@ DEFAULT_LOGGING_CONFIG: dict[str, Any] = {
     'loggers': {
         'airflow.processor': {
             'handlers': ['processor_to_stdout' if DAG_PROCESSOR_LOG_TARGET == "stdout" else 'processor'],
-            'level': LOG_LEVEL,
+            'level': 99,  # Set higher than CRITICAL to not write logs of processing DAG files anywhere.
             # Set to true here (and reset via set_context) so that if no file is configured we still get logs!
             'propagate': True,
         },
