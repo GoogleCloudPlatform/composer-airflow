@@ -41,7 +41,6 @@ class TestComposerAuth(unittest.TestCase):
         shutil.copy(cls.COMPOSER_WEBSERVER_CONFIG, WEBSERVER_CONFIG)
         with conf_vars(
             {
-                ("webserver", "google_oauth2_audience"): "audience",
                 ("webserver", "rbac_user_registration_role"): "Viewer",
                 ("api", "auth_backend"): "airflow.composer.api.backend.composer_auth",
                 ("api", "composer_auth_user_registration_role"): "User",
@@ -57,6 +56,7 @@ class TestComposerAuth(unittest.TestCase):
         shutil.copy(cls.WEBSERVER_CONFIG_BACKUP, WEBSERVER_CONFIG)
 
     @mock.patch("airflow.composer.security_manager._decode_iap_jwt", autospec=True)
+    @conf_vars({("webserver", "google_oauth2_audience"): "audience"})
     def test_authentication_success(self, _decode_iap_jwt_mock):
         def _decode_iap_jwt_mock_side_effect(iap_jwt):
             assert iap_jwt == "jwt-test"
@@ -80,6 +80,7 @@ class TestComposerAuth(unittest.TestCase):
         # "User" role doesn't have access to pools endpoint.
         assert pools_response.status_code == 403
 
+    @conf_vars({("webserver", "google_oauth2_audience"): "audience"})
     def test_authentication_failure(self):
         response = self.test_client.get(
             "/api/v1/pools", headers={"X-Goog-IAP-JWT-Assertion": "invalid-jwt-token"}

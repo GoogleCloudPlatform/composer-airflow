@@ -42,7 +42,6 @@ class TestBase(unittest.TestCase):
         shutil.copy(cls.COMPOSER_WEBSERVER_CONFIG, WEBSERVER_CONFIG)
         with conf_vars(
             {
-                ("webserver", "google_oauth2_audience"): "audience",
                 ("webserver", "rbac_user_registration_role"): "Viewer",
                 ("webserver", "rbac_autoregister_per_folder_roles"): "True",
             }
@@ -71,6 +70,7 @@ class TestBase(unittest.TestCase):
         assert resp.status_code == 403
 
     @mock.patch("airflow.composer.security_manager.id_token", autospec=True)
+    @conf_vars({("webserver", "google_oauth2_audience"): "audience"})
     def test_login_user_auto_registered(self, id_token_mock):
         username = f"test-{self.get_random_id()}"
         email = f"test-{self.get_random_id()}@test.com"
@@ -149,6 +149,7 @@ class TestBase(unittest.TestCase):
         assert resp.status_code == 403
 
     @mock.patch("airflow.composer.security_manager.id_token", autospec=True)
+    @conf_vars({("webserver", "google_oauth2_audience"): "audience"})
     def test_login_user_preregistered(self, id_token_mock):
         username = f"test-{self.get_random_id()}"
         email = f"test-{self.get_random_id()}@test.com"
