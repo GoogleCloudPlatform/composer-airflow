@@ -21,7 +21,6 @@ class TestWebserverConfig(unittest.TestCase):
     def test_webserver_config(self):
         with conf_vars(
             {
-                ("webserver", "google_oauth2_audience"): "audience",
                 ("webserver", "rbac_user_registration_role"): "Viewer",
             }
         ):

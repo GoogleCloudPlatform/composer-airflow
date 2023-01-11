@@ -33,9 +33,6 @@ from airflow.www.security import AirflowSecurityManager
 
 log = logging.getLogger(__file__)
 
-# Expected audience of IAP JWT.
-IAP_JWT_AUDIENCE = conf.get("webserver", "google_oauth2_audience")
-
 
 def _decode_iap_jwt(iap_jwt):
     """Returns username and email decoded from the given IAP JWT.
@@ -52,7 +49,7 @@ def _decode_iap_jwt(iap_jwt):
         decoded_jwt = id_token.verify_token(
             iap_jwt,
             requests.Request(),
-            audience=IAP_JWT_AUDIENCE,
+            audience=conf.get("webserver", "google_oauth2_audience"),
             certs_url="https://www.gstatic.com/iap/verify/public_key",
         )
         return decoded_jwt["sub"], decoded_jwt["email"]
