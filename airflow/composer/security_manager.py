@@ -59,14 +59,14 @@ def _decode_iap_jwt(iap_jwt):
 
 
 def _decode_inverting_proxy_jwt(inverting_proxy_jwt):
-    """Returns username and either email or IAM principal decoded from
-       the given Inverting Proxy JWT.
+    """Returns username, email (or IAM principal for BYOID users),
+       and display_username decoded from the given Inverting Proxy JWT.
 
     Args:
       inverting_proxy_jwt: JWT from Inverting Proxy.
 
     Returns:
-      Decoded username and either email or IAM principal.
+      Decoded username, email (or IAM principal), and display_username.
     """
     try:
         credentials, _ = auth.default(scopes=["https://www.googleapis.com/auth/cloud-platform"])
@@ -75,13 +75,39 @@ def _decode_inverting_proxy_jwt(inverting_proxy_jwt):
         response = authed_session.request("GET", conf.get("webserver", "jwt_public_key_url"), headers=headers)
         if response.status_code != 200:
             log.error("Failed to fetch public key for JWT verification, status: %s", response.status_code)
-            return None, None
+            return None, None, None
         public_key = response.text
         decoded_jwt = jwt.decode(inverting_proxy_jwt, public_key, algorithms=["RS256"])
-        return decoded_jwt["sub"], decoded_jwt["email"] if "email" in decoded_jwt else decoded_jwt["principal"]
+        email_or_principal = decoded_jwt["email"] if "email" in decoded_jwt else decoded_jwt["principal"]
+        # display_username is available only for BYOID users.
+        return decoded_jwt["sub"], email_or_principal, decoded_jwt.get("display_username")
     except Exception as e:  # pylint: disable=broad-except
         log.error("JWT verification error: %s", e)
-        return None, None
+        return None, None, None
+
+
+def _get_first_and_last_name(display_username, email_or_principal):
+    """Returns the first_name and last_name for a user.
+
+    Args:
+      display_username: for BYOID users, display_username is of the form:
+      'Subject (Workforce Pool name)'. None otherwise.
+      email_or_principal: email for first party users, or IAM principal
+      for BYOID users.
+
+    Returns:
+      subject as first_name and workforce pool name as last_name for
+      BYOID users; email as first_name and `-` as last_name for
+      first party users.
+    """
+    if not display_username:
+        return email_or_principal, "-"
+    idx = display_username.rfind(" (")
+    if idx == -1:
+        # Unexpected value in display_username, return it as is for
+        # first_name and "-" for last_name.
+        return display_username, "-"
+    return display_username[:idx], display_username[idx+1:]
 
 
 def _is_safe_redirect_url(next_url, host_url):
@@ -130,9 +156,10 @@ class ComposerAuthRemoteUserView(AuthView):
         if "X-Goog-IAP-JWT-Assertion" in request.headers:
             iap_jwt = request.headers.get("X-Goog-IAP-JWT-Assertion")
             username, email = _decode_iap_jwt(iap_jwt)
+            display_username = None
         elif "X-Inverting-Proxy-User-ID" in request.headers:
             inverting_proxy_jwt = request.headers.get("X-Inverting-Proxy-User-ID")
-            username, email = _decode_inverting_proxy_jwt(inverting_proxy_jwt)
+            username, email, display_username = _decode_inverting_proxy_jwt(inverting_proxy_jwt)
         else:
             return None
 
@@ -140,7 +167,7 @@ class ComposerAuthRemoteUserView(AuthView):
             return None
 
         user = self._auth_remote_user(
-            username=username, email=email, user_registration_role=user_registration_role
+            username=username, email=email, display_username=display_username, user_registration_role=user_registration_role
         )
         if user is None or not user.is_active:
             return None
@@ -148,7 +175,7 @@ class ComposerAuthRemoteUserView(AuthView):
         login_user(user)
         return user
 
-    def _auth_remote_user(self, username, email, user_registration_role=None):
+    def _auth_remote_user(self, username, email, display_username, user_registration_role=None):
         """Fetches the specified user record or creates one if it doesn't exist.
 
         Also recognizes a user preregistered with email address or IAM principal
@@ -159,6 +186,9 @@ class ComposerAuthRemoteUserView(AuthView):
           username: User's username for remote authentication.
           email: User's email, or BYOID user's IAM principal, to set in the
             user's record.
+          display_username: User's dispaly username from which the first_name
+            and last_name will be derived before setting them in the user's
+            record.
           user_registration_role: User's role in case it will be registered
             (created). If not passed, AUTH_USER_REGISTRATION_ROLE from
             webserver_config.py will be used.
@@ -199,10 +229,11 @@ class ComposerAuthRemoteUserView(AuthView):
             else:
                 # User does not exist and has not been preregistered, create
                 # one.
+                first_name, last_name = _get_first_and_last_name(display_username, email)
                 user = self.appbuilder.sm.add_user(
                     username=username,
-                    first_name=email,
-                    last_name="-",
+                    first_name=first_name,
+                    last_name=last_name,
                     email=email,
                     role=self.appbuilder.sm.find_role(
                         user_registration_role or self.appbuilder.sm.auth_user_registration_role
