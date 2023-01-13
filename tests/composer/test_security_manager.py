@@ -24,6 +24,7 @@ from google.auth.transport import requests
 
 from airflow.configuration import WEBSERVER_CONFIG
 from airflow.security import permissions
+from airflow.composer.security_manager import _get_first_and_last_name
 from airflow.www import app
 from tests.test_utils.api_connexion_utils import create_user
 from tests.test_utils.config import conf_vars
@@ -207,15 +208,28 @@ class TestBase(unittest.TestCase):
 
         first_party_token_decoded_dict = {
             "sub": f"test-{self.get_random_id()}",
-            "email": f"test-{self.get_random_id()}@test.com",
+            "email": f"test-{self.get_random_id()}@test.com"
         }
+        byoid_subject = "subject@test.com"
+        byoid_workforce_pool_name = "(global/IDPool/mynamespace)"
         byoid_token_decoded_dict = {
             "sub": f"test-{self.get_random_id()}",
             "principal": f"IDPool/mynamespace/provider/123/subject/{self.get_random_id()}",
+            "display_username": f"{byoid_subject} {byoid_workforce_pool_name}"
         }
-        for token_dict, email_or_principal in [
-            (first_party_token_decoded_dict, first_party_token_decoded_dict["email"]),
-            (byoid_token_decoded_dict, byoid_token_decoded_dict["principal"]),
+        for token_dict, email_or_principal, first_name, last_name in [
+            (
+                first_party_token_decoded_dict,
+                first_party_token_decoded_dict["email"],
+                first_party_token_decoded_dict["email"],
+                "-",
+            ),
+            (
+                byoid_token_decoded_dict,
+                byoid_token_decoded_dict["principal"],
+                byoid_subject,
+                byoid_workforce_pool_name,
+            ),
         ]:
             with open(os.path.join(self.CURRENT_DIRECTORY, 'test_data/jwtRS256.key')) as f:
                 private_key = f.read()
@@ -230,6 +244,8 @@ class TestBase(unittest.TestCase):
             assert resp.status_code == 302
             user = self.sm.find_user(username=token_dict["sub"])
             assert user.email == email_or_principal
+            assert user.first_name == first_name
+            assert user.last_name == last_name
             assert user.roles == [self.sm.find_role(name="Viewer")]
 
             # Test already logged in.
@@ -281,18 +297,17 @@ class TestBase(unittest.TestCase):
 
         first_party_token_decoded_dict = {
             "sub": f"test-{self.get_random_id()}",
-            "email": f"test-{self.get_random_id()}@test.com",
+            "email": f"test-{self.get_random_id()}@test.com"
         }
         byoid_token_decoded_dict = {
             "sub": f"test-{self.get_random_id()}",
             "principal": f"IDPool/mynamespace/provider/123/subject/{self.get_random_id()}",
+            "display_username": "subject@test.com (global/IDPool/mynamespace)"
         }
         for token_dict, email_or_principal in [
             (first_party_token_decoded_dict, first_party_token_decoded_dict["email"]),
             (byoid_token_decoded_dict, byoid_token_decoded_dict["principal"]),
         ]:
-            email_or_principal = email_or_principal
-
             # Preregister user.
             create_user(self.app, username=email_or_principal, role_name="Test")
             assert self.sm.find_user(username=email_or_principal)
@@ -306,7 +321,11 @@ class TestBase(unittest.TestCase):
             assert resp.headers["Location"] == "/"
             assert resp.status_code == 302
             assert not self.sm.find_user(username=email_or_principal)
-            assert self.sm.find_user(username=token_dict["sub"])
+            user = self.sm.find_user(username=token_dict["sub"])
+            assert user is not None
+            # first_name and last_name should not be overwritten.
+            assert user.first_name == email_or_principal
+            assert user.last_name == email_or_principal
             self.client.get("/logout/")
 
     def test_user_no_dags_role(self):
@@ -321,3 +340,35 @@ class TestBase(unittest.TestCase):
             },
             self.sm.ROLE_CONFIGS,
         )
+
+    def test_get_first_and_last_name(self):
+        for display_username, email_or_principal, expected_first_name, expected_last_name in [
+            (
+                "alice.smith@example.com (global/workforcePools/example-com-employees)",
+                "workforcePools/example-com-employees/provider/123/subject/alice.smith@example.com",
+                "alice.smith@example.com",
+                "(global/workforcePools/example-com-employees)",
+            ),
+            (
+                "The One Eyed Raven (global/workforcePools/mystery-readers)",
+                "workforcePools/mystery-readers/provider/123/subject/The One Eyed Raven",
+                "The One Eyed Raven",
+                "(global/workforcePools/mystery-readers)",
+            ),
+            ("", "alice.smith@example.com", "alice.smith@example.com", "-"),
+            (
+                "unexpected@username",
+                "workforcePools/example-com-employees/provider/123/subject/alice.smith@example.com",
+                "unexpected@username",
+                "-",
+            ),
+            (
+                "(unexpected@username)",
+                "workforcePools/example-com-employees/provider/123/subject/alice.smith@example.com",
+                "(unexpected@username)",
+                "-",
+            ),
+        ]:
+            first_name, last_name = _get_first_and_last_name(display_username, email_or_principal)
+            assert first_name == expected_first_name
+            assert last_name == expected_last_name
