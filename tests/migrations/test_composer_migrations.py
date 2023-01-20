@@ -35,9 +35,17 @@ class TestComposerMigrations(unittest.TestCase):
             ['connection', 'host', 500],
             ['job', 'hostname', 100],
             ['task_instance', 'hostname', 100],
+            ['ab_user', 'first_name', 256],
+            ['ab_user', 'last_name', 256],
+            ['ab_user', 'username', 512],
+            ['ab_user', 'email', 512],
+            ['ab_register_user', 'first_name', 256],
+            ['ab_register_user', 'last_name', 256],
+            ['ab_register_user', 'username', 512],
+            ['ab_register_user', 'email', 512],
         ]
     )
-    def test_hostname_columns_adjustments(self, table, column_name, length):
+    def test_column_length_adjustments(self, table, column_name, length):
         with create_session() as session:
             inspector = Inspector.from_engine(session.connection())
             columns = inspector.get_columns(table)
