@@ -19,6 +19,8 @@ from google.api_core.exceptions import GoogleAPICallError
 
 from airflow.composer.data_lineage.entities import BigQueryTable
 from airflow.composer.data_lineage.utils import exclude_outlet
+from airflow.exceptions import AirflowNotFoundException
+from airflow.providers.google.cloud.hooks.bigquery import BigQueryHook
 
 log = logging.getLogger(__name__)
 
@@ -27,14 +29,24 @@ class BigQueryInsertJobOperatorLineageMixin:
     """Mixin class for BigQueryInsertJobOperator."""
 
     def post_execute_prepare_lineage(self, context: Dict):
-        hook = self.hook
-        bigquery_job_id = self.job_id
+        task_instance = context["task_instance"]
+        job_id = task_instance.xcom_pull(key="job_id")
+
+        try:
+            hook = BigQueryHook(
+                gcp_conn_id=self.gcp_conn_id,
+                delegate_to=self.delegate_to,
+                impersonation_chain=self.impersonation_chain,
+            )
+        except AirflowNotFoundException:
+            log.exception("Error on creating BigQuery hook")
+            return
 
         try:
             job = hook.get_job(
                 project_id=self.project_id,
                 location=self.location,
-                job_id=bigquery_job_id,
+                job_id=job_id,
             )
         except GoogleAPICallError:
             # Catch both client and server errors.
@@ -72,9 +84,18 @@ class BigQueryExecuteQueryOperatorLineageMixin:
 
     def post_execute_prepare_lineage(self, context: Dict):
         task_instance = context["task_instance"]
-        job_id = task_instance.xcom_pull(task_ids=self.task_id, key="job_id")
+        job_id = task_instance.xcom_pull(key="job_id")
 
-        hook = self.hook
+        try:
+            hook = BigQueryHook(
+                gcp_conn_id=self.gcp_conn_id,
+                delegate_to=self.delegate_to,
+                impersonation_chain=self.impersonation_chain,
+            )
+        except AirflowNotFoundException:
+            log.exception("Error on creating BigQuery hook")
+            return
+
         try:
             job = hook.get_job(job_id=job_id, location=self.location)
         except GoogleAPICallError:
