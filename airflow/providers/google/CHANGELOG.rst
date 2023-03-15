@@ -23,6 +23,20 @@
 Changelog
 ---------
 
+2023.3.14+composer (Only for Composer)
+..................
+
+Breaking changes
+~~~~~~~~~~~~~~~~
+In the google-ads package we have direct dependency restrictions which give us a conflicts and blocking us to
+update it using public version. We decide to release our internal provider package where we used restrictions
+for protobuf, proto-plus and google-api-core from google-ads v18.0.0. This gives us possibility to use v12 API
+in the composer.
+
+* Upgrade google-ads sdk to the internal version v20.0.0+composer based on google-ads v20.0.0
+* Use dependency for protobuf, proto-plus and google-api-core from google-ads v18.0.0
+* Remove google-ads API v10 and add support for API v12
+
 8.9.0
 .....
 
