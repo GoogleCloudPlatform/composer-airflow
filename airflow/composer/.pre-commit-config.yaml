@@ -14,7 +14,7 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-# This is a copy of ".pre-commit-config.yaml" file with some adjustments, like ignoring some hooks by
+# This is a copy of ".pre-commit-config.yaml" file with some adjustments, e.g. ignoring some hooks by
 # setting stages to [manual] value.
 ---
 default_stages: [commit, push]
