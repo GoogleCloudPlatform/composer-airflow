@@ -867,7 +867,9 @@ def replace_extra_dependencies_with_provider_packages(extra: str, providers: lis
         ]
 
 
-def add_provider_packages_to_extra_dependencies(extra: str, providers: list[str]) -> None:
+def add_provider_packages_to_extra_dependencies(
+    extra: str, providers: list[str], constraints: dict[str, str] | None = None
+) -> None:
     """
     Adds provider packages as dependencies to extra. This is used to add provider packages as dependencies
     to the "bulk" kind of extras. Those bulk extras do not have the detailed 'extra' dependencies as
@@ -875,9 +877,15 @@ def add_provider_packages_to_extra_dependencies(extra: str, providers: list[str]
 
     :param extra: Name of the extra to add providers to
     :param providers: list of provider ids
+    :param constraints: constraints for providers
     """
+    if constraints is None:
+        constraints = {}
     EXTRAS_DEPENDENCIES[extra].extend(
-        [get_provider_package_name_from_package_id(package_name) for package_name in providers]
+        [
+            f"{get_provider_package_name_from_package_id(package_name)}{constraints.get(package_name, '')}"
+            for package_name in providers
+        ]
     )
 
 
@@ -916,6 +924,13 @@ def add_all_provider_packages() -> None:
             "ssh",
             "sqlite",
         ],
+        {
+            # TODO: remove one day when google-ads SDK can be installed without problems with dependencies
+            # in our internal provider package we have restriction to use our internal google-ads package
+            # where we changed the dependencies for protobuf, proto-plus and google-api-core to be
+            # compatible with Airflow and Composer dependencies, needed to support google-ads v12 API
+            "google": "==2023.3.14+composer",
+        },
     )
 
 
