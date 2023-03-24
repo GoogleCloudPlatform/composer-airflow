@@ -45,7 +45,7 @@ class WorkflowContextProcessor:
     def __init__(self):
         self.workflow_info: dict[str, str] = {}
 
-    def set_context(self, ti: "TaskInstance"):
+    def set_context(self, ti: TaskInstance):
         """
         Provide task_instance context.
         :param ti: task instance object
@@ -199,8 +199,10 @@ class FileTaskHandler(logging.Handler):
         self.workflow_context_processor = WorkflowContextProcessor()
 
     def _use_resilient_file_handler(self):
-        env_var = os.environ.get('GRACEFULLY_HANDLE_CONCURRENT_LOG_ACCESS', 'False')
-        return env_var.lower() in ['true', 't', 'yes', 'y', '1']
+        user_env_var = os.environ.get('GRACEFULLY_HANDLE_CONCURRENT_LOG_ACCESS', 'False')
+        internal_env_var = os.environ.get('INTERNAL_GRACEFULLY_HANDLE_CONCURRENT_LOG_ACCESS', 'False')
+        true_values = ['true', 't', 'yes', 'y', '1']
+        return user_env_var.lower() in true_values or internal_env_var.lower() in true_values
 
     def _create_file_handler(self, local_loc):
         return (
@@ -218,8 +220,8 @@ class FileTaskHandler(logging.Handler):
         local_loc = self._init_file(ti)
         self.handler = self._create_file_handler(local_loc)
         if self.formatter:
-            self.handler.setFormatter(self.formatter)
-        self.handler.setLevel(self.level)
+            self.handler.setFormatter(self.formatter)  # type: ignore[union-attr]
+        self.handler.setLevel(self.level)  # type: ignore[union-attr]
         self.workflow_context_processor.set_context(ti)
         return None
 
