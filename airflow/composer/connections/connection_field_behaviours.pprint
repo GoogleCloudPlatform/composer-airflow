@@ -1,4 +1,17 @@
-OrderedDict([('arangodb',
+OrderedDict([('adls',
+              {'hidden_fields': ['schema', 'port'],
+               'placeholders': {'extra': 'additional options for use with '
+                                         'FileService and AzureFileVolume',
+                                'extra__adls__connection_string': 'connection '
+                                                                  'string auth',
+                                'extra__adls__tenant_id': 'tenant',
+                                'host': 'account url',
+                                'login': 'account name',
+                                'password': 'secret'},
+               'relabeling': {'host': 'Account Name (Active Directory Auth)',
+                              'login': 'ADLS gen2 Storage Login (optional)',
+                              'password': 'ADLS gen2 Storage Key (optional)'}}),
+             ('arangodb',
               {'hidden_fields': ['port', 'extra'],
                'placeholders': {'host': 'eg."http://127.0.0.1:8529" or '
                                         '"http://127.0.0.1:8529,http://127.0.0.1:8530" '
@@ -161,14 +174,41 @@ OrderedDict([('arangodb',
                               'login': 'Username (or API Key)',
                               'schema': 'Database'}}),
              ('dbt_cloud',
-              {'hidden_fields': ['host', 'port', 'extra'],
-               'placeholders': {'schema': "Defaults to 'cloud'."},
-               'relabeling': {'login': 'Account ID',
-                              'password': 'API Token',
-                              'schema': 'Tenant'}}),
+              {'hidden_fields': ['schema', 'port', 'extra'],
+               'placeholders': {'host': "Defaults to 'cloud.getdbt.com'."},
+               'relabeling': {'host': 'Tenant',
+                              'login': 'Account ID',
+                              'password': 'API Token'}}),
              ('docker',
               {'hidden_fields': ['schema'],
                'relabeling': {'host': 'Registry URL', 'login': 'Username'}}),
+             ('emr',
+              {'hidden_fields': ['host', 'schema', 'port', 'login', 'password'],
+               'placeholders': {'extra': '{\n'
+                                         '  "Name": "MyClusterName",\n'
+                                         '  "ReleaseLabel": "emr-5.36.0",\n'
+                                         '  "Applications": [\n'
+                                         '    {\n'
+                                         '      "Name": "Spark"\n'
+                                         '    }\n'
+                                         '  ],\n'
+                                         '  "Instances": {\n'
+                                         '    "InstanceGroups": [\n'
+                                         '      {\n'
+                                         '        "Name": "Primary node",\n'
+                                         '        "Market": "SPOT",\n'
+                                         '        "InstanceRole": "MASTER",\n'
+                                         '        "InstanceType": "m5.large",\n'
+                                         '        "InstanceCount": 1\n'
+                                         '      }\n'
+                                         '    ],\n'
+                                         '    "KeepJobFlowAliveWhenNoSteps": '
+                                         'false,\n'
+                                         '    "TerminationProtected": false\n'
+                                         '  },\n'
+                                         '  "StepConcurrencyLevel": 2\n'
+                                         '}'},
+               'relabeling': {'extra': 'Run Job Flow Configuration'}}),
              ('gcpssh',
               {'hidden_fields': ['host',
                                  'schema',
@@ -213,6 +253,9 @@ OrderedDict([('arangodb',
                'placeholders': {'host': 'https://<env>.qubole.com/api'},
                'relabeling': {'host': 'API Endpoint',
                               'password': 'Auth Token'}}),
+             ('redshift',
+              {'hidden_fields': [],
+               'relabeling': {'login': 'User', 'schema': 'Database'}}),
              ('salesforce',
               {'hidden_fields': ['schema', 'port', 'extra', 'host'],
                'relabeling': {'login': 'Username'}}),
@@ -287,10 +330,8 @@ OrderedDict([('arangodb',
                               'login': 'Client ID',
                               'password': 'Client Secret'}}),
              ('wasb',
-              {'hidden_fields': ['schema', 'port'],
-               'placeholders': {'extra': 'additional options for use with '
-                                         'FileService and AzureFileVolume',
-                                'extra__wasb__connection_string': 'connection '
+              {'hidden_fields': ['schema', 'port', 'extra'],
+               'placeholders': {'extra__wasb__connection_string': 'connection '
                                                                   'string auth',
                                 'extra__wasb__sas_token': 'account url or '
                                                           'token',

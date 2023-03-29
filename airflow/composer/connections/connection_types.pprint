@@ -58,6 +58,7 @@
  ('azure_container_registry', 'Azure Container Registry'),
  ('azure_service_bus', 'Azure Service Bus'),
  ('azure_synapse', 'Azure Synapse'),
+ ('adls', 'Azure Date Lake Storage V2'),
  ('mssql', 'Microsoft SQL Server'),
  ('mongo', 'MongoDB'),
  ('mysql', 'MySQL'),
@@ -84,4 +85,5 @@
  ('tabular', 'Tabular'),
  ('trino', 'Trino'),
  ('vertica', 'Vertica'),
- ('yandexcloud', 'Yandex Cloud')]
+ ('yandexcloud', 'Yandex Cloud'),
+ ('zendesk', 'Zendesk')]
