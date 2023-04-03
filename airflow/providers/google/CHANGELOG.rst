@@ -23,6 +23,14 @@
 Changelog
 ---------
 
+2023.4.3+composer (Only for Composer)
+..................
+
+Breaking changes
+~~~~~~~~~~~~~~~~
+* Update DV360 operators to use API v2 #30326
+* Update google cloud dlp package and adjust hook and operators #29234
+
 2023.3.14+composer (Only for Composer)
 ..................
 
