@@ -23,6 +23,16 @@
 Changelog
 ---------
 
+2023.4.13+composer (Only for Composer)
+..................
+
+Breaking changes
+~~~~~~~~~~~~~~~~
+
+Google has announced sunset of Campaign Manager 360 v3.5 by Apr 20, 2023. For more information
+please check: `<https://developers.google.com/doubleclick-advertisers/deprecation>`_ . As a result, the
+default api version for Campaign Manager 360 operator was updated to the latest v4 version.
+
 2023.4.3+composer (Only for Composer)
 ..................
 
