@@ -178,9 +178,9 @@ DEFAULT_DAG_PARSING_LOGGING_CONFIG: dict[str, dict[str, dict[str, Any]]] = {
             "backupCount": 5,
         },
         "processor_manager_console": {
-            "class": "airflow.utils.log.logging_mixin.RedirectStdHandler",
+            "class": "logging.StreamHandler",
             "formatter": "airflow_dag_processor_manager",
-            "stream": "stdout",
+            "stream": "ext://sys.__stdout__",
         },
     },
     "loggers": {

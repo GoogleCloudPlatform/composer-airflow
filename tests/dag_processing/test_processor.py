@@ -134,6 +134,71 @@ class TestDagFileProcessor:
 
         assert sla_callback.called
 
+    def test_dag_file_processor_sla_miss_callback_logged_to_processor_manager(self, create_dummy_dag):
+        """
+        Test that the dag file processor calls the sla miss callback
+        """
+
+        import importlib
+        import io
+        import logging
+        import sys
+
+        from airflow.config_templates import airflow_local_settings
+        from airflow.logging_config import configure_logging
+
+        session = settings.Session()
+
+        with patch.dict("os.environ", {"CONFIG_PROCESSOR_MANAGER_LOGGER": "True"}):
+            importlib.reload(airflow_local_settings)
+            configure_logging()
+
+        def sla_callback(dag, task_list, blocking_task_list, slas, blocking_tis):
+            print("SLA1", file=sys.stderr)
+            print("SLA2")
+            logging.info("SLA3")
+            raise Exception("Exception1")
+
+        # Add stream handler to processor_manager logger
+        processor_manager_log = logging.getLogger("airflow.processor_manager")
+        stream = io.StringIO()
+        new_handler = logging.StreamHandler(stream)
+        new_handler.setFormatter(processor_manager_log.handlers[0].formatter)
+        processor_manager_log.addHandler(new_handler)
+
+        # Create dag with a start of 1 day ago, but an sla of 0
+        # so we'll already have an sla_miss on the books.
+        test_start_date = timezone.utcnow() - datetime.timedelta(days=1)
+        dag, task = create_dummy_dag(
+            dag_id="test_sla_miss",
+            task_id="dummy",
+            sla_miss_callback=sla_callback,
+            default_args={"start_date": test_start_date, "sla": datetime.timedelta()},
+        )
+
+        session.merge(TaskInstance(task=task, execution_date=test_start_date, state="success"))
+
+        session.merge(SlaMiss(task_id="dummy", dag_id="test_sla_miss", execution_date=test_start_date))
+
+        dag_file_processor = DagFileProcessor(
+            dag_ids=[], dag_directory=TEST_DAGS_FOLDER, log=mock.MagicMock()
+        )
+
+        before_handlers = logging.getLogger().handlers.copy()
+        dag_file_processor.manage_slas(dag=dag, session=session)
+
+        assert "ERROR - SLA1" in stream.getvalue()
+        assert "INFO - SLA2" in stream.getvalue()
+        assert "INFO - SLA3" in stream.getvalue()
+        assert "Exception1" in stream.getvalue()
+
+        # Assert that the default logging configuration is untouched
+        after_handlers = logging.getLogger().handlers
+
+        assert len(before_handlers) == len(after_handlers)
+        for handler in before_handlers:
+            assert handler in after_handlers
+
     def test_dag_file_processor_sla_miss_callback_invalid_sla(self, create_dummy_dag):
         """
         Test that the dag file processor does not call the sla miss callback when
@@ -317,13 +382,20 @@ class TestDagFileProcessor:
         session.merge(SlaMiss(task_id="dummy", dag_id="test_sla_miss", execution_date=test_start_date))
 
         # Now call manage_slas and see if the sla_miss callback gets called
-        mock_log = mock.MagicMock()
-        dag_file_processor = DagFileProcessor(dag_ids=[], dag_directory=TEST_DAGS_FOLDER, log=mock_log)
+        import io
+        import logging
+
+        stream = io.StringIO()
+        new_handler = logging.StreamHandler(stream)
+        processor_manager_log = logging.getLogger("airflow.processor_manager")
+        processor_manager_log.addHandler(new_handler)
+
+        dag_file_processor = DagFileProcessor(
+            dag_ids=[], dag_directory=TEST_DAGS_FOLDER, log=logging.getLogger()
+        )
         dag_file_processor.manage_slas(dag=dag, session=session)
         assert sla_callback.called
-        mock_log.exception.assert_called_once_with(
-            "Could not call sla_miss_callback for DAG %s", "test_sla_miss"
-        )
+        assert "Could not call sla_miss_callback for DAG" in stream.getvalue()
         mock_stats_incr.assert_called_once_with("sla_callback_notification_failure")
 
     @mock.patch("airflow.dag_processing.processor.send_email")

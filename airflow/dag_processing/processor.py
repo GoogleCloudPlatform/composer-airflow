@@ -473,11 +473,25 @@ class DagFileProcessor(LoggingMixin):
                 # Execute the alert callback
                 self.log.info("Calling SLA miss callback")
                 try:
-                    dag.sla_miss_callback(dag, task_list, blocking_task_list, slas, blocking_tis)
+
+                    from airflow.composer.redirect_callback_logs_utils import handle_callback
+
+                    handle_callback(
+                        dag.sla_miss_callback,
+                        logging.getLogger("airflow.processor_manager"),
+                        dag,
+                        task_list,
+                        blocking_task_list,
+                        slas,
+                        blocking_tis,
+                    )
+
                     notification_sent = True
                 except Exception:
                     Stats.incr("sla_callback_notification_failure")
-                    self.log.exception("Could not call sla_miss_callback for DAG %s", dag.dag_id)
+                    logging.getLogger("airflow.processor_manager").exception(
+                        "Could not call sla_miss_callback for DAG %s", dag.dag_id
+                    )
             email_content = f"""\
             Here's a list of tasks that missed their SLAs:
             <pre><code>{task_list}\n<code></pre>

@@ -1435,6 +1435,72 @@ class TestDag:
         dag.clear()
         self._clean_up(dag_id)
 
+    def test_dag_callbacks_logged_to_stdout(self):
+        """
+        Tests callbacks are logged to airflow.processor_manager
+        """
+
+        import importlib
+
+        from airflow.config_templates import airflow_local_settings
+        from airflow.logging_config import configure_logging
+
+        def on_failure_callback(self):
+            print("Failure1", file=sys.stderr)
+            print("Failure2")
+            logging.error("Failure3")
+            raise Exception("Exception1")
+
+        def on_success_callback(self):
+            print("Success1", file=sys.stderr)
+            print("Success2")
+            logging.info("Success3")
+
+        with patch.dict("os.environ", {"CONFIG_PROCESSOR_MANAGER_LOGGER": "True"}):
+            importlib.reload(airflow_local_settings)
+            configure_logging()
+
+        dag_id = "test_dag_callback_logged"
+
+        processor_manager_log = logging.getLogger("airflow.processor_manager")
+        stream = io.StringIO()
+        new_handler = logging.StreamHandler(stream)
+        new_handler.setFormatter(processor_manager_log.handlers[0].formatter)
+        processor_manager_log.addHandler(new_handler)
+
+        dag = DAG(
+            dag_id=dag_id, on_failure_callback=on_failure_callback, on_success_callback=on_success_callback
+        )
+        when = TEST_DATE
+        dag.add_task(BaseOperator(task_id="faketastic", owner="Also fake", start_date=when))
+
+        before_handlers = logging.getLogger().handlers.copy()
+        with create_session() as session:
+            dag_run = dag.create_dagrun(State.RUNNING, when, run_type=DagRunType.MANUAL, session=session)
+            dag.handle_callback(dag_run, success=False)
+            dag.handle_callback(dag_run, success=True)
+
+        stream_value = stream.getvalue()
+
+        assert "ERROR - Failure1" in stream_value
+        assert "INFO - Failure2" in stream_value
+        assert "ERROR - Failure3" in stream_value
+
+        assert "ERROR - Success1" in stream_value
+        assert "INFO - Success2" in stream_value
+        assert "INFO - Success3" in stream_value
+        assert "Exception1" in stream_value
+
+        # Assert that the default logging configuration is untouched
+        after_handlers = logging.getLogger().handlers
+
+        assert len(before_handlers) == len(after_handlers)
+        for handler in before_handlers:
+            assert handler in after_handlers
+
+        dag.clear()
+        self._clean_up(dag_id)
+
     def test_next_dagrun_after_fake_scheduled_previous(self):
         """
         Test scheduling a dag where there is a prior DagRun

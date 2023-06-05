@@ -1322,9 +1322,15 @@ class DAG(LoggingMixin):
             context = ti.get_template_context(session=session)
             context.update({"reason": reason})
             try:
-                callback(context)
+
+                from airflow.composer.redirect_callback_logs_utils import handle_callback
+
+                handle_callback(callback, logging.getLogger("airflow.processor_manager"), context)
+
             except Exception:
-                self.log.exception("failed to invoke dag state update callback")
+                logging.getLogger("airflow.processor_manager").exception(
+                    "failed to invoke dag state update callback"
+                )
                 Stats.incr("dag.callback_exceptions")
 
     def get_active_runs(self):

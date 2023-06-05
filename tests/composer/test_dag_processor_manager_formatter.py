@@ -14,7 +14,6 @@
 # limitations under the License.
 from __future__ import annotations
 
-import contextlib
 import importlib
 import io
 import logging
@@ -32,18 +31,25 @@ class TestDagProcessorManagerFormatter(unittest.TestCase):
             importlib.reload(airflow_local_settings)
             configure_logging()
 
+    def add_stream_handler_to_logger(self, logger: logging.Logger) -> io.StringIO:
+        stream = io.StringIO()
+        new_handler = logging.StreamHandler(stream)
+        new_handler.setFormatter(logger.handlers[0].formatter)
+        logger.addHandler(new_handler)
+        return stream
+
     def test_single_line(self):
         logger = logging.getLogger("airflow.processor_manager")
-        message = "Test message"
-        with contextlib.redirect_stdout(io.StringIO()) as temp_stdout:
+        with self.add_stream_handler_to_logger(logger) as stream:
+            message = "Test message"
             logger.warning(message)
-            self.assertRegex(temp_stdout.getvalue(), "DAG_PROCESSOR_MANAGER_LOG:.*Test message")
+            self.assertRegex(stream.getvalue(), "DAG_PROCESSOR_MANAGER_LOG:.*Test message")
 
     def test_multi_line(self):
         logger = logging.getLogger("airflow.processor_manager")
-        message = "\n".join(["line-1", "line-2", "last-line"])
-        with contextlib.redirect_stdout(io.StringIO()) as temp_stdout:
+        with self.add_stream_handler_to_logger(logger) as stream:
+            message = "\n".join(["line-1", "line-2", "last-line"])
             logger.warning(message)
-            self.assertRegex(temp_stdout.getvalue(), "DAG_PROCESSOR_MANAGER_LOG:.*line-1")
-            self.assertIn("DAG_PROCESSOR_MANAGER_LOG:line-2", temp_stdout.getvalue())
-            self.assertIn("DAG_PROCESSOR_MANAGER_LOG:last-line", temp_stdout.getvalue())
+            self.assertRegex(stream.getvalue(), "DAG_PROCESSOR_MANAGER_LOG:.*line-1")
+            self.assertIn("DAG_PROCESSOR_MANAGER_LOG:line-2", stream.getvalue())
+            self.assertIn("DAG_PROCESSOR_MANAGER_LOG:last-line", stream.getvalue())
