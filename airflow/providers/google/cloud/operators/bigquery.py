@@ -1970,7 +1970,7 @@ class BigQueryGetDatasetOperator(GoogleCloudBaseOperator):
             dataset_id=dataset_api_repr["datasetReference"]["datasetId"],
             project_id=dataset_api_repr["datasetReference"]["projectId"],
         )
-        return dataset
+        return dataset_api_repr
 
 
 class BigQueryGetDatasetTablesOperator(GoogleCloudBaseOperator):
@@ -2267,7 +2267,7 @@ class BigQueryUpdateDatasetOperator(GoogleCloudBaseOperator):
             dataset_id=dataset_api_repr["datasetReference"]["datasetId"],
             project_id=dataset_api_repr["datasetReference"]["projectId"],
         )
-        return dataset
+        return dataset_api_repr
 
 
 class BigQueryDeleteTableOperator(GoogleCloudBaseOperator):

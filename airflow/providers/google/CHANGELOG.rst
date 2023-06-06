@@ -23,6 +23,14 @@
 Changelog
 ---------
 
+2023.6.6+composer (Only for Composer)
+..................
+
+Bug Fixes
+~~~~~~~~~~~~~~~~
+
+* ``Fix 'BigQueryGetDatasetOperator' and 'BigQueryUpdateDatasetOperator' returning incorrect type.``
+
 10.1.1
 ......
 
