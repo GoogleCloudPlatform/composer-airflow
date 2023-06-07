@@ -327,6 +327,7 @@ webhdfs = [
     "hdfs[avro,dataframe,kerberos]>=2.0.4",
 ]
 composer_additional = [
+    "aiodebug",
     "crcmod<2.0",
     "cryptography",
     "dbt-bigquery",
