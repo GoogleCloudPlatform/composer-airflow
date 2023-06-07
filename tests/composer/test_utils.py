@@ -104,3 +104,10 @@ class TestUtils(unittest.TestCase):
         self.assertEqual(host1, "http://test-host-cluster")
         self.assertEqual(host2, "http://test-host-cluster")
         config_mock.load_kube_config.assert_called_once()
+
+    @mock.patch("aiodebug.log_slow_callbacks", autospec=True)
+    @mock.patch("sys.argv", ["triggerer"])
+    def test_is_aiodebug_called(self, aiodebug_log_slow_callbacks_mock):
+        initialize()
+
+        aiodebug_log_slow_callbacks_mock.enable.assert_called_once()
