@@ -25,6 +25,7 @@ from google.cloud.datacatalog.lineage_v1 import EntityReference, EventLink, Line
 from airflow.composer.data_lineage.entities import (
     BigQueryTable,
     DataLineageEntity,
+    DataprocMetastoreTable,
     GCSEntity,
     MySQLTable,
     PostgresTable,
@@ -165,6 +166,14 @@ class ComposerDataLineageAdapter:
                 fully_qualified_name=(
                     f"postgres://{entity.host}:{entity.port}/"
                     f"{entity.database}.{entity.schema}.{entity.table}"
+                )
+            )
+
+        if isinstance(entity, DataprocMetastoreTable):
+            return EntityReference(
+                fully_qualified_name=(
+                    f"dataproc_metastore:{entity.project_id}.{entity.location}.{entity.instance_id}."
+                    f"{entity.database}.{entity.table}"
                 )
             )
 

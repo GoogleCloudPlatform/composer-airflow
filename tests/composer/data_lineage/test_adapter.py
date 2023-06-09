@@ -24,7 +24,7 @@ from google.cloud.datacatalog.lineage_v1 import EntityReference, EventLink, Line
 from parameterized import parameterized
 
 from airflow.composer.data_lineage.adapter import ComposerDataLineageAdapter
-from airflow.composer.data_lineage.entities import BigQueryTable, DataLineageEntity
+from airflow.composer.data_lineage.entities import BigQueryTable, DataLineageEntity, DataprocMetastoreTable
 
 
 class TestAdapter(unittest.TestCase):
@@ -53,6 +53,24 @@ class TestAdapter(unittest.TestCase):
 
         expected_entity_reference = EntityReference(
             fully_qualified_name="my_warehouse:test-fqn",
+        )
+        self.assertEqual(actual_entity_reference, expected_entity_reference)
+
+    def test_get_entity_reference_dataproc_metastore_table(self):
+        adapter = ComposerDataLineageAdapter()
+        dataproc_metastore_table = DataprocMetastoreTable(
+            project_id="test-project",
+            location="test-location",
+            instance_id="test-instance-id",
+            database="test-database",
+            table="test-table",
+        )
+
+        actual_entity_reference = adapter._get_entity_reference(dataproc_metastore_table)
+
+        expected_entity_reference = EntityReference(
+            fully_qualified_name="dataproc_metastore:test-project.test-location.test-instance-id."
+            "test-database.test-table",
         )
         self.assertEqual(actual_entity_reference, expected_entity_reference)
 

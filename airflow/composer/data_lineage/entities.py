@@ -61,3 +61,14 @@ class PostgresTable:
     database: str = attr.ib()
     schema: str = attr.ib()
     table: str = attr.ib()
+
+
+@attr.s(auto_attribs=True, kw_only=True)
+class DataprocMetastoreTable:
+    """Airflow lineage entity representing Dataproc Metastore table."""
+
+    project_id: str = attr.ib()
+    location: str = attr.ib()
+    instance_id: str = attr.ib()
+    database: str = attr.ib()
+    table: str = attr.ib()

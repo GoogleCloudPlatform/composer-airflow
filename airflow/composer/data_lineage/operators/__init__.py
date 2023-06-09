@@ -34,6 +34,9 @@ from airflow.composer.data_lineage.operators.google.cloud.bigquery import (
     BigQueryExecuteQueryOperatorLineageMixin,
     BigQueryInsertJobOperatorLineageMixin,
 )
+from airflow.composer.data_lineage.operators.google.cloud.dataproc import (
+    DataprocSubmitJobOperatorLineageMixin,
+)
 from airflow.composer.data_lineage.operators.postgres.postgres import PostgresOperatorLineageMixin
 from airflow.composer.data_lineage.transfers.google.cloud.bigquery_to_bigquery import (
     BigQueryToBigQueryOperatorLineageMixin,
@@ -53,6 +56,7 @@ from airflow.providers.google.cloud.operators.bigquery import (
     BigQueryExecuteQueryOperator,
     BigQueryInsertJobOperator,
 )
+from airflow.providers.google.cloud.operators.dataproc import DataprocSubmitJobOperator
 from airflow.providers.google.cloud.transfers.bigquery_to_bigquery import BigQueryToBigQueryOperator
 from airflow.providers.google.cloud.transfers.bigquery_to_gcs import BigQueryToGCSOperator
 from airflow.providers.google.cloud.transfers.gcs_to_bigquery import GCSToBigQueryOperator
@@ -70,6 +74,7 @@ _OPERATOR_TO_MIXIN = {
     BigQueryToBigQueryOperator: BigQueryToBigQueryOperatorLineageMixin,
     BigQueryToGCSOperator: BigQueryToGCSOperatorLineageMixin,
     GCSToBigQueryOperator: GCSToBigQueryOperatorLineageMixin,
+    DataprocSubmitJobOperator: DataprocSubmitJobOperatorLineageMixin,
 }
 
 if os.environ.get("ENABLE_LINEAGE_FOR_ALL_SUPPORTED_OPERATORS") == "True":
