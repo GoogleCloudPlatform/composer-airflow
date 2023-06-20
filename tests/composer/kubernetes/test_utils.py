@@ -16,7 +16,7 @@ from airflow.composer.kubernetes.utils import (
 
 class TestUtils(unittest.TestCase):
     @mock.patch.dict("os.environ", {"COMPOSER_GKE_LOCATION": "us-east1"})
-    @mock.patch.dict("os.environ", {"GCP_PROJECT": "test-project-234"})
+    @mock.patch.dict("os.environ", {"GCP_TENANT_PROJECT": "test-project-234"})
     def test_get_composer_serverless_pod_metadata(self):
         actual = _get_composer_serverless_pod_metadata(
             pod=k8s.V1Pod(spec=k8s.V1PodSpec(containers=[k8s.V1Container(name="base")]))
@@ -167,7 +167,7 @@ class TestUtils(unittest.TestCase):
         ]
     )
     @mock.patch.dict("os.environ", {"COMPOSER_GKE_LOCATION": "us-east1"})
-    @mock.patch.dict("os.environ", {"GCP_PROJECT": "test-project-234"})
+    @mock.patch.dict("os.environ", {"GCP_TENANT_PROJECT": "test-project-234"})
     def test_get_composer_serverless_pod_metadata_disk_size_gb(self, pod, expected_disk_size_gb):
         actual_pod_metadata = _get_composer_serverless_pod_metadata(pod)
 
@@ -177,7 +177,7 @@ class TestUtils(unittest.TestCase):
         assert actual_disk_size_gb == expected_disk_size_gb
 
     @mock.patch.dict("os.environ", {"COMPOSER_GKE_LOCATION": "us-east1"})
-    @mock.patch.dict("os.environ", {"GCP_PROJECT": "test-project-234"})
+    @mock.patch.dict("os.environ", {"GCP_TENANT_PROJECT": "test-project-234"})
     def test_pod_mutation_hook_composer_serverless(self):
         pod = k8s.V1Pod(
             metadata=k8s.V1ObjectMeta(namespace="test"),

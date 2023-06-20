@@ -94,7 +94,7 @@ class TestAirflowLocalSettings(unittest.TestCase):
         mock.Mock(return_value="http://internal-cluster"),
     )
     @mock.patch.dict("os.environ", {"COMPOSER_GKE_LOCATION": "us-east1"})
-    @mock.patch.dict("os.environ", {"GCP_PROJECT": "test-project-234"})
+    @mock.patch.dict("os.environ", {"GCP_TENANT_PROJECT": "test-project-234"})
     def test_pod_mutation_hook(self, composer_version, namespace, expected_mutated_namespace):
         Configuration.set_default(Configuration(host="http://internal-cluster"))
         pod = k8s.V1Pod(

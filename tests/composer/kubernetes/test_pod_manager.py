@@ -67,7 +67,7 @@ class TestPodManager(unittest.TestCase):
 
     @mock.patch("airflow.composer.kubernetes.pod_manager.LoggingServiceV2Client", autospec=True)
     @mock.patch("airflow.composer.kubernetes.pod_manager._stream_peer_vm_logs", autospec=True)
-    @mock.patch.dict("os.environ", {"GCP_PROJECT": "test-project"})
+    @mock.patch.dict("os.environ", {"GCP_TENANT_PROJECT": "test-project"})
     def test_composer_fetch_container_logs_peer_vm(
         self, stream_peer_vm_logs_mock, logging_service_v2_client_mock
     ):

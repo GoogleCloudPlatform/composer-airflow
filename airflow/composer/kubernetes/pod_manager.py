@@ -83,7 +83,7 @@ def _composer_fetch_container_logs(f):
             self,
             pod=pod,
             client=client,
-            project_id=os.environ.get("GCP_PROJECT"),
+            project_id=os.environ.get("GCP_TENANT_PROJECT"),
             peer_vm_name=peer_vm_name,
             since_timestamp=remote_pod.metadata.creation_timestamp.strftime("%Y-%m-%dT%H:%M:%S") + "Z",
             insert_id="",
