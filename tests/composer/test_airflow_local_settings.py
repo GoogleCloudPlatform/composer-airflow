@@ -83,7 +83,7 @@ class TestAirflowLocalSettings(unittest.TestCase):
                 "default",
             ),
             (
-                "2.5.0-preview.0",
+                "2.50.0-preview.0",
                 "default",
                 "composer-user-workloads",
             ),
@@ -120,7 +120,7 @@ class TestAirflowLocalSettings(unittest.TestCase):
 
         assert pod == k8s.V1Pod(metadata=k8s.V1ObjectMeta(namespace="default"))
 
-    @mock.patch.dict("os.environ", {"COMPOSER_VERSION": "2.5.0"})
+    @mock.patch.dict("os.environ", {"COMPOSER_VERSION": "2.50.0"})
     @mock.patch(
         "airflow.composer.airflow_local_settings.get_composer_gke_cluster_host",
         mock.Mock(return_value="http://internal-cluster"),

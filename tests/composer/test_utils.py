@@ -81,7 +81,7 @@ class TestUtils(unittest.TestCase):
         patch_fetch_container_logs_mock.assert_not_called()
 
     @mock.patch("airflow.composer.utils.patch_fetch_container_logs", autospec=True)
-    @mock.patch.dict("os.environ", {"COMPOSER_VERSION": "2.5.1"})
+    @mock.patch.dict("os.environ", {"COMPOSER_VERSION": "2.50.1"})
     def test_initialize_patch_fetch_container_logs_serverless(self, patch_fetch_container_logs_mock):
         initialize()
 
