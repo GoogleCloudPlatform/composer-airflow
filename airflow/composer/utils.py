@@ -48,7 +48,7 @@ def is_composer_v1():
 
 
 def is_serverless_composer():
-    """Determines if Airflow is running under Composer Serverless (aka Composer 2.5)."""
+    """Determines if Airflow is running under Composer Serverless (aka Composer 2.50)."""
     composer_version = get_composer_version()
     if not composer_version:
         return False
@@ -56,7 +56,7 @@ def is_serverless_composer():
     major, minor, _ = composer_version.split(".", 2)
     major = int(major)
     minor = int(minor)
-    return (major == 2 and minor >= 5) or major > 2
+    return (major == 2 and minor >= 50) or major > 2
 
 
 def get_composer_gke_cluster_host():
