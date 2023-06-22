@@ -333,8 +333,8 @@ composer_additional = [
     "dbt-bigquery",
     "dbt-core",
     "firebase-admin",
-    # We need to keep Flower pinned to 1.0.0 as starting from 1.1.0 it doesn't support basic authentication.
-    "flower==1.0.0",
+    # Due to security vulnerability Flower version >= 2.0.0 required.
+    "flower>=2.0.0",
     "gcsfs",
     "google-apitools",
     "google-cloud-aiplatform",
@@ -356,6 +356,8 @@ composer_additional = [
     # the sql string inside the sqllineage package
     "sqlparse!=0.4.4",
     "tensorflow",
+    # Versions < 2.2.3 contain security vulnerabilities.
+    "werkzeug>=2.2.3",
 ]
 composer = (
     PROVIDER_DEPENDENCIES["mysql"][DEPS]
