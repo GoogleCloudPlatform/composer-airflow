@@ -151,3 +151,27 @@ class TestComposerFilter(unittest.TestCase):
         ).decode()
 
         self.assertNotIn(message, output)
+
+    @parameterized.expand(
+        [
+            ("Inspect method stats failed",),
+            ("Inspect method scheduled failed",),
+            ("Inspect method registered failed",),
+            ("Inspect method active_queues failed",),
+            ("Inspect method revoked failed",),
+            ("Inspect method conf failed",),
+            ("Inspect method active failed",),
+            ("Inspect method reserved failed",),
+        ]
+    )
+    def test_ignoring_flower_warnings(self, flower_warning):
+        output = subprocess.check_output(
+            [
+                "python",
+                "-c",
+                (f'import airflow, warnings; warnings.warn("{flower_warning}", RuntimeWarning, 3)'),
+            ],
+            stderr=subprocess.STDOUT,
+        ).decode()
+
+        self.assertNotIn(flower_warning, output)

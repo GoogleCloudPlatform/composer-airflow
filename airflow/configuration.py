@@ -72,6 +72,9 @@ warnings.filterwarnings(
     "ignore",
     r".*TypeDecorator .* will not produce a cache key because the ``cache_ok`` flag is not set to True.*",
 )
+# Those warnings produced by Flower library are not actionable by users, so we silence them.
+warnings.filterwarnings("ignore", r"Inspect method .* failed")
+
 
 _SQLITE3_VERSION_PATTERN = re.compile(r"(?P<version>^\d+(?:\.\d+)*)\D?.*$")
 
