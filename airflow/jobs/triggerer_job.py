@@ -174,7 +174,7 @@ class TriggererJob(BaseJob):
             Stats.incr("triggers.failed")
 
     def emit_metrics(self):
-        Stats.gauge("triggers.running", len(self.runner.triggers))
+        Stats.gauge(f"triggers.running.{self.hostname}", len(self.runner.triggers))
 
 
 class TriggerDetails(TypedDict):
