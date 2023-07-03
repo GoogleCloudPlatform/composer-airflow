@@ -6,7 +6,6 @@
  ('cassandra', 'Cassandra'),
  ('drill', 'Drill'),
  ('druid', 'Druid'),
- ('hdfs', 'HDFS'),
  ('hive_cli', 'Hive Client Wrapper'),
  ('hiveserver2', 'Hive Server 2 Thrift'),
  ('hive_metastore', 'Hive Metastore Thrift'),
@@ -85,5 +84,4 @@
  ('tabular', 'Tabular'),
  ('trino', 'Trino'),
  ('vertica', 'Vertica'),
- ('yandexcloud', 'Yandex Cloud'),
  ('zendesk', 'Zendesk')]
