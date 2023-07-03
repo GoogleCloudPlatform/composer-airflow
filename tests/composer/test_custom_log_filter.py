@@ -110,6 +110,25 @@ class TestComposerFilter(unittest.TestCase):
 
     @parameterized.expand(
         [
+            ("Inspect method stats failed",),
+            ("Inspect method scheduled failed",),
+            ("Inspect method registered failed",),
+            ("Inspect method active_queues failed",),
+            ("Inspect method revoked failed",),
+            ("Inspect method conf failed",),
+            ("Inspect method active failed",),
+            ("Inspect method reserved failed",),
+        ]
+    )
+    def test_ignoring_flower_warnings(self, flower_warning):
+        logger = logging.getLogger("flower.inspector")
+        with contextlib.redirect_stdout(io.StringIO()) as temp_stdout:
+            logger.warning(flower_warning)
+
+        self.assertNotIn(flower_warning, temp_stdout.getvalue())
+
+    @parameterized.expand(
+        [
             ("core", "max_active_tasks_per_dag", "dag_concurrency", False),
             ("api", "auth_backends", "auth_backend", False),
             ("scheduler", "parsing_processes", "max_threads", True),
@@ -151,27 +170,3 @@ class TestComposerFilter(unittest.TestCase):
         ).decode()
 
         self.assertNotIn(message, output)
-
-    @parameterized.expand(
-        [
-            ("Inspect method stats failed",),
-            ("Inspect method scheduled failed",),
-            ("Inspect method registered failed",),
-            ("Inspect method active_queues failed",),
-            ("Inspect method revoked failed",),
-            ("Inspect method conf failed",),
-            ("Inspect method active failed",),
-            ("Inspect method reserved failed",),
-        ]
-    )
-    def test_ignoring_flower_warnings(self, flower_warning):
-        output = subprocess.check_output(
-            [
-                "python",
-                "-c",
-                (f'import airflow, warnings; warnings.warn("{flower_warning}", RuntimeWarning, 3)'),
-            ],
-            stderr=subprocess.STDOUT,
-        ).decode()
-
-        self.assertNotIn(flower_warning, output)

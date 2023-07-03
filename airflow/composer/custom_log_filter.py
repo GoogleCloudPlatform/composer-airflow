@@ -64,6 +64,12 @@ def _is_duplicate_key_value_in_permision_tables_warning(record):
     ) in record_message and any([c in record_message for c in constraints])
 
 
+def _is_flower_warning(record):
+    """Method that detects warnings produced by flower, which are not actionable."""
+    record_message = record.getMessage()
+    return "Inspect method" in record_message and "failed" in record_message
+
+
 class ComposerFilter(logging.Filter):
     """Custom Composer log filter."""
 
@@ -102,6 +108,11 @@ class ComposerFilter(logging.Filter):
         # startup but don't mean any malfunctioning and can be ignored.
         # https://github.com/apache/airflow/issues/23512
         if _is_duplicate_key_value_in_permision_tables_warning(record):
+            return False
+
+        # Warnings about running Flower, which inspects Airflow. Those warnings are not actionable
+        # and they are not a bug type warnings.
+        if _is_flower_warning(record):
             return False
 
         return True
