@@ -55,17 +55,13 @@ def _composer_fetch_container_logs(f):
             # fetch_container_logs method.
             return f(self, *args, **kwargs)
 
-        self.log.info("Fetching Peer VM logs from Cloud Logging")
+        self.log.info("Fetching logs from Cloud Logging")
         # Placeholder pod can get to the 'Running' state but annotation with Peer VM name may be absent,
         # this can happen (as observed) if VM is still being created.
         while remote_pod.status.phase == PodPhase.RUNNING and not remote_pod.metadata.annotations.get(
             PEER_VM_NAME_ANNOTATION
         ):
-            self.log.info(
-                "Pod is in the 'Running' phase but doesn't have yet %s annotation "
-                "(most-likely Peer VM is not yet ready)",
-                PEER_VM_NAME_ANNOTATION,
-            )
+            self.log.info("Pod is still in the 'Running' phase")
             time.sleep(5)
             remote_pod = self.read_pod(pod)
 
@@ -77,7 +73,6 @@ def _composer_fetch_container_logs(f):
             self.log.info("Not found %s annotation for pod", PEER_VM_NAME_ANNOTATION)
             return
 
-        self.log.info("Peer VM name: %s", peer_vm_name)
         client = LoggingServiceV2Client()
         _stream_peer_vm_logs(
             self,

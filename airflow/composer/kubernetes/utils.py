@@ -166,8 +166,10 @@ def _get_composer_serverless_machine_memory(resources: k8s.V1ResourceRequirement
             return valid_memory_gb_string
 
     log.warning(
-        "Resources memory is %sGB which is greater than maximum allowed %sGB",
+        "Resources memory is %sGB which is greater than maximum allowed %sGB for the current amount of CPU "
+        "which is %s",
         desired_memory_gb_amount,
         valid_memory_gb_values[-1][0],
+        cpu,
     )
     return valid_memory_gb_values[-1][1]
