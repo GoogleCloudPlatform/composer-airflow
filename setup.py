@@ -932,10 +932,7 @@ def add_all_provider_packages() -> None:
             "ssh",
             "sqlite",
         ],
-        {
-            # TODO: remove when BigQuery operators are fixed in community
-            "google": "==2023.6.6+composer",
-        },
+        {},
     )
 
 
