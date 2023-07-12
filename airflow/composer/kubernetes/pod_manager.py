@@ -81,13 +81,13 @@ def _composer_fetch_container_logs(f):
             project_id=os.environ.get("GCP_TENANT_PROJECT"),
             peer_vm_name=peer_vm_name,
             since_timestamp=remote_pod.metadata.creation_timestamp.strftime("%Y-%m-%dT%H:%M:%S") + "Z",
-            insert_id="",
+            seen_insert_ids=set(),
         )
 
     return wrapper
 
 
-def _stream_peer_vm_logs(self, pod, client, project_id, peer_vm_name, since_timestamp, insert_id):
+def _stream_peer_vm_logs(self, pod, client, project_id, peer_vm_name, since_timestamp, seen_insert_ids):
     """Streams Peer VM logs of given k8s placeholder pod to self.log logger.
 
     Args:
@@ -96,7 +96,7 @@ def _stream_peer_vm_logs(self, pod, client, project_id, peer_vm_name, since_time
          project_id: id of the project where Peer VM is located.
          peer_vm_name: name of the Peer VM.
          since_timestamp: timestamp since query logs in RFC 3339 format.
-         insert_id: insert_id of the last seen log entry, used to avoid reading same log twice.
+         seen_insert_ids: set that contains insert_ids of already seen logs.
     """
     is_last_iteration = not self.container_is_running(pod, container_name=PEER_VM_PLACEHOLDER_CONTAINER)
     time.sleep(SLEEP_BETWEEN_PEER_VM_LOGS_STREAMING_ITERATIONS)
@@ -108,7 +108,7 @@ def _stream_peer_vm_logs(self, pod, client, project_id, peer_vm_name, since_time
             'resource.type="k8s_container"',
             f'resource.labels.project_id="{project_id}"',
             f'labels.peervm_name="{peer_vm_name}"',
-            f'(timestamp>"{since_timestamp}" OR (timestamp="{since_timestamp}" AND insert_id>"{insert_id}"))',
+            f'timestamp>="{since_timestamp}"',
         ]
     )
     request = ListLogEntriesRequest(
@@ -120,12 +120,11 @@ def _stream_peer_vm_logs(self, pod, client, project_id, peer_vm_name, since_time
     self.log.debug("Reading log entries using filter: %s", log_filter)
     response = client.list_log_entries(request=request)
 
-    last_entry_timestamp = None
-    last_entry_insert_id = None
     for entry in response:
+        if entry.insert_id in seen_insert_ids:
+            continue
         self.log.info(entry.text_payload)
-        last_entry_timestamp = entry.timestamp.rfc3339()
-        last_entry_insert_id = entry.insert_id
+        seen_insert_ids.add(entry.insert_id)
 
     if is_last_iteration:
         return
@@ -136,6 +135,6 @@ def _stream_peer_vm_logs(self, pod, client, project_id, peer_vm_name, since_time
         client=client,
         project_id=project_id,
         peer_vm_name=peer_vm_name,
-        since_timestamp=last_entry_timestamp or since_timestamp,
-        insert_id=last_entry_insert_id or insert_id,
+        since_timestamp=since_timestamp,
+        seen_insert_ids=seen_insert_ids,
     )

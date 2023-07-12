@@ -106,7 +106,7 @@ class TestPodManager(unittest.TestCase):
             project_id="test-project",
             peer_vm_name="standard-micro-123",
             since_timestamp="2023-05-02T10:11:12Z",
-            insert_id="",
+            seen_insert_ids=set(),
         )
 
     @mock.patch("airflow.composer.kubernetes.pod_manager._stream_peer_vm_logs", autospec=True)
@@ -156,8 +156,7 @@ class TestPodManager(unittest.TestCase):
                             'resource.type="k8s_container"',
                             'resource.labels.project_id="test-project"',
                             'labels.peervm_name="standard-micro-abc"',
-                            '(timestamp>"2023-05-02T10:11:12Z" OR '
-                            '(timestamp="2023-05-02T10:11:12Z" AND insert_id>""))',
+                            'timestamp>="2023-05-02T10:11:12Z"',
                         ]
                     ),
                     order_by="timestamp asc",
@@ -172,6 +171,9 @@ class TestPodManager(unittest.TestCase):
                             LogEntry(
                                 timestamp=Timestamp(seconds=1683022785), insert_id="abc", text_payload="B"
                             ),
+                            LogEntry(
+                                timestamp=Timestamp(seconds=1683022785), insert_id="ppp", text_payload="C"
+                            ),
                         ]
                     )
                 )
@@ -183,8 +185,7 @@ class TestPodManager(unittest.TestCase):
                             'resource.type="k8s_container"',
                             'resource.labels.project_id="test-project"',
                             'labels.peervm_name="standard-micro-abc"',
-                            '(timestamp>"2023-05-02T10:19:45.000000Z" OR '
-                            '(timestamp="2023-05-02T10:19:45.000000Z" AND insert_id>"abc"))',
+                            'timestamp>="2023-05-02T10:11:12Z"',
                         ]
                     ),
                     order_by="timestamp asc",
@@ -194,7 +195,13 @@ class TestPodManager(unittest.TestCase):
                     __iter__=lambda self: iter(
                         [
                             LogEntry(
-                                timestamp=Timestamp(seconds=1683022786), insert_id="xyz", text_payload="C"
+                                timestamp=Timestamp(seconds=1683022784), insert_id="qwe", text_payload="A"
+                            ),
+                            LogEntry(
+                                timestamp=Timestamp(seconds=1683022785), insert_id="abc", text_payload="B"
+                            ),
+                            LogEntry(
+                                timestamp=Timestamp(seconds=1683022786), insert_id="xyz", text_payload="D"
                             ),
                         ]
                     )
@@ -210,7 +217,7 @@ class TestPodManager(unittest.TestCase):
             project_id="test-project",
             peer_vm_name="standard-micro-abc",
             since_timestamp="2023-05-02T10:11:12Z",
-            insert_id="",
+            seen_insert_ids=set(),
         )
 
         time_sleep_mock.assert_has_calls(
@@ -223,4 +230,5 @@ class TestPodManager(unittest.TestCase):
             mock.call("A"),
             mock.call("B"),
             mock.call("C"),
+            mock.call("D"),
         ]
