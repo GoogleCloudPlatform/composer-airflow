@@ -140,7 +140,7 @@ class TestGetExtraLinks:
     @mock_plugin_manager(plugins=[])
     def test_should_respond_200(self):
         XCom.set(
-            key="job_id",
+            key="job_id_path",
             value="TEST_JOB_ID",
             execution_date=self.default_time,
             task_id="TEST_SINGLE_QUERY",
@@ -169,7 +169,7 @@ class TestGetExtraLinks:
     @mock_plugin_manager(plugins=[])
     def test_should_respond_200_multiple_links(self):
         XCom.set(
-            key="job_id",
+            key="job_id_path",
             value=["TEST_JOB_ID_1", "TEST_JOB_ID_2"],
             execution_date=self.default_time,
             task_id="TEST_MULTIPLE_QUERY",
