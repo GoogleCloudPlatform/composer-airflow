@@ -1846,9 +1846,29 @@ class TestTaskInstance:
         ti.set_duration()
         assert ti.duration is None
 
+    @patch.dict("os.environ", {"COMPOSER_VERSION": "2.0.0"}, clear=False)
     @patch.object(Stats, "incr")
     @patch.object(Stats, "gauge")
-    def test_success_callback_no_race_condition(self, gauge_mock, incr_mock, create_task_instance):
+    @patch("airflow.utils.log.file_task_handler.FileTaskHandler._render_filename")
+    def test_success_callback_no_race_condition(
+        self, render_filename_mock, gauge_mock, incr_mock, create_task_instance
+    ):
+        import importlib
+        import tempfile
+
+        from airflow.config_templates import airflow_local_settings
+        from airflow.logging_config import configure_logging
+
+        _, temp_file_path = tempfile.mkstemp()
+        temp_dir, temp_file = temp_file_path.rsplit("/", 1)
+        with open(temp_file_path, "w+") as f:
+            temp_file_size = f.write("Populating file with some content")
+
+        with conf_vars({("logging", "base_log_folder"): temp_dir}):
+            importlib.reload(airflow_local_settings)
+            configure_logging()
+        render_filename_mock.return_value = str(temp_file)
+
         callback_wrapper = CallbackWrapper()
         ti = create_task_instance(
             on_success_callback=callback_wrapper.success_handler,
@@ -1872,10 +1892,14 @@ class TestTaskInstance:
             "task.count.dag@-@op1@-@EmptyOperator@-@success",
             1,
         )
-        gauge_mock.assert_called_with(
-            "task.duration.dag@-@op1@-@EmptyOperator@-@success",
-            ti.duration,
+        gauge_mock.assert_has_calls(
+            [
+                mock.call("task.duration.dag@-@op1@-@EmptyOperator@-@success", ti.duration),
+                mock.call("task.log_file_size.dag@-@op1@-@EmptyOperator@-@success", temp_file_size),
+            ],
+            any_order=True,
         )
+        render_filename_mock.assert_called_with(ti, 0)
 
     def test_outlet_datasets(self, create_task_instance):
         """
@@ -2478,9 +2502,29 @@ class TestTaskInstance:
             ti.log.exception.assert_called_once_with(expected_message)
 
     @provide_session
+    @patch.dict("os.environ", {"COMPOSER_VERSION": "2.0.0"}, clear=False)
     @patch.object(Stats, "incr")
     @patch.object(Stats, "gauge")
-    def test_handle_failure(self, gauge_mock, incr_mock, create_dummy_dag, session=None):
+    @patch("airflow.utils.log.file_task_handler.FileTaskHandler._render_filename")
+    def test_handle_failure(
+        self, render_filename_mock, gauge_mock, incr_mock, create_dummy_dag, session=None
+    ):
+        import importlib
+        import tempfile
+
+        from airflow.config_templates import airflow_local_settings
+        from airflow.logging_config import configure_logging
+
+        _, temp_file_path = tempfile.mkstemp()
+        temp_dir, temp_file = temp_file_path.rsplit("/", 1)
+        with open(temp_file_path, "w+") as f:
+            temp_file_size = f.write("Populating file with some content")
+
+        with conf_vars({("logging", "base_log_folder"): temp_dir}):
+            importlib.reload(airflow_local_settings)
+            configure_logging()
+        render_filename_mock.return_value = str(temp_file)
+
         start_date = timezone.datetime(2016, 6, 1)
         clear_db_runs()
 
@@ -2557,10 +2601,27 @@ class TestTaskInstance:
             "task.count.test_handle_failure@-@test_handle_failure_on_force_fail@-@EmptyOperator@-@failed",
             1,
         )
-        gauge_mock.assert_called_with(
-            "task.duration.test_handle_failure@-@test_handle_failure_on_force_fail@-@EmptyOperator@-@failed",
-            ti3.duration,
+
+        gauge_mock.assert_has_calls(
+            [
+                mock.call(
+                    (
+                        "task.duration.test_handle_failure@-@"
+                        "test_handle_failure_on_force_fail@-@EmptyOperator@-@failed"
+                    ),
+                    ti3.duration,
+                ),
+                mock.call(
+                    (
+                        "task.log_file_size.test_handle_failure"
+                        "@-@test_handle_failure_on_force_fail@-@EmptyOperator@-@failed"
+                    ),
+                    temp_file_size,
+                ),
+            ],
+            any_order=True,
         )
+        render_filename_mock.assert_called_with(ti3, 0)
 
     def test_handle_failure_updates_queued_task_try_number(self, dag_maker):
         session = settings.Session()
