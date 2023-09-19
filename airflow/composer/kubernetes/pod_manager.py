@@ -19,21 +19,18 @@ See go/composer25-kpo-logs-airflow-worker for implementation details.
 from __future__ import annotations
 
 import functools
-import os
 import time
 
-from google.cloud.logging_v2.services.logging_service_v2 import LoggingServiceV2Client
-from google.cloud.logging_v2.types import ListLogEntriesRequest
+import requests
 
 from airflow.providers.cncf.kubernetes.utils.pod_manager import PodManager, PodPhase
 
 PEER_VM_PLACEHOLDER_CONTAINER = "peervm-placeholder"
-PEER_VM_NAME_ANNOTATION = "node.gke.io/peer-vm-name"
+PEER_VM_ENDPOINT_ANNOTATION = "node.gke.io/peer-vm-endpoint"
 # This is the time to sleep in seconds before first and every other attempt to read log entries
-# from Cloud Logging. Note that this also defines time between placeholder container not running
-# and last attempt to read logs, so it should account for propagation delay of logs from VM to
-# Cloud Logging.
-SLEEP_BETWEEN_PEER_VM_LOGS_STREAMING_ITERATIONS = 15
+# from Peer VM. Note that this also defines time between placeholder container not running
+# and last attempt to read logs.
+SLEEP_BETWEEN_PEER_VM_LOGS_STREAMING_ITERATIONS = 1
 
 
 def patch_fetch_container_logs():
@@ -51,6 +48,7 @@ def _composer_fetch_container_logs(f):
     @functools.wraps(f)
     def wrapper(self, *args, **kwargs):
         pod = kwargs["pod"]
+        container_name = kwargs["container_name"]
         remote_pod = self.read_pod(pod)
 
         if remote_pod.spec.containers[0].name != PEER_VM_PLACEHOLDER_CONTAINER:
@@ -58,76 +56,66 @@ def _composer_fetch_container_logs(f):
             # fetch_container_logs method.
             return f(self, *args, **kwargs)
 
-        self.log.info("Fetching logs from Cloud Logging")
-        # Placeholder pod can get to the 'Running' state but annotation with Peer VM name may be absent,
+        self.log.info("Fetching container logs")
+        # Placeholder pod can get to the 'Running' state but annotation with Peer VM endpoint may be absent,
         # this can happen (as observed) if VM is still being created.
         while remote_pod.status.phase == PodPhase.RUNNING and not remote_pod.metadata.annotations.get(
-            PEER_VM_NAME_ANNOTATION
+            PEER_VM_ENDPOINT_ANNOTATION
         ):
             self.log.info("Pod is still in the 'Running' phase")
             time.sleep(5)
             remote_pod = self.read_pod(pod)
 
-        peer_vm_name = remote_pod.metadata.annotations.get(PEER_VM_NAME_ANNOTATION)
-        # If annotation with Peer VM name is missing and we are here, that means that placeholder pod changed
-        # its state to some other than 'Running' (most likely some terminal state) without VM being finally
-        # successfully created.
-        if peer_vm_name is None:
-            self.log.info("Not found %s annotation for pod", PEER_VM_NAME_ANNOTATION)
+        peer_vm_endpoint = remote_pod.metadata.annotations.get(PEER_VM_ENDPOINT_ANNOTATION)
+        # If annotation with Peer VM endpoint is missing and we are here, that means that placeholder pod
+        # changed its state to some other than 'Running' (most likely some terminal state) without VM being
+        # finally successfully created.
+        if peer_vm_endpoint is None:
+            self.log.info("Not found %s annotation for pod", PEER_VM_ENDPOINT_ANNOTATION)
             return
 
-        client = LoggingServiceV2Client()
         _stream_peer_vm_logs(
             self,
             pod=pod,
-            client=client,
-            project_id=os.environ.get("GCP_TENANT_PROJECT"),
-            peer_vm_name=peer_vm_name,
-            since_timestamp=remote_pod.metadata.creation_timestamp.strftime("%Y-%m-%dT%H:%M:%S") + "Z",
-            seen_insert_ids=set(),
+            container_name=container_name,
+            peer_vm_endpoint=peer_vm_endpoint,
+            after_timestamp=remote_pod.metadata.creation_timestamp.strftime("%Y-%m-%dT%H:%M:%S.0") + "Z",
         )
 
     return wrapper
 
 
-def _stream_peer_vm_logs(self, pod, client, project_id, peer_vm_name, since_timestamp, seen_insert_ids):
+def _stream_peer_vm_logs(self, pod, container_name, peer_vm_endpoint, after_timestamp):
     """Streams Peer VM logs of given k8s placeholder pod to self.log logger.
 
     Args:
          pod: k8s placeholder pod.
-         client: client to query Cloud Logging logs.
-         project_id: id of the project where Peer VM is located.
-         peer_vm_name: name of the Peer VM.
-         since_timestamp: timestamp since query logs in RFC 3339 format.
-         seen_insert_ids: set that contains insert_ids of already seen logs.
+         container_name: name of the container to read logs.
+         peer_vm_endpoint: endpoint of the Peer VM, to retrieve logs.
+         after_timestamp: timestamp since query logs in RFC 3339 format.
     """
     is_last_iteration = not self.container_is_running(pod, container_name=PEER_VM_PLACEHOLDER_CONTAINER)
     time.sleep(SLEEP_BETWEEN_PEER_VM_LOGS_STREAMING_ITERATIONS)
 
-    # We want to read k8s_container logs for given project and Peer VM name (VM name is unique
-    # across regions in project) starting with given timestamp.
-    log_filter = "\n".join(
-        [
-            'resource.type="k8s_container"',
-            f'resource.labels.project_id="{project_id}"',
-            f'labels.peervm_name="{peer_vm_name}"',
-            f'timestamp>="{since_timestamp}"',
-        ]
-    )
-    request = ListLogEntriesRequest(
-        resource_names=[f"projects/{project_id}"],
-        filter=log_filter,
-        order_by="timestamp asc",
-        page_size=1000,
-    )
-    self.log.debug("Reading log entries using filter: %s", log_filter)
-    response = client.list_log_entries(request=request)
-
-    for entry in response:
-        if entry.insert_id in seen_insert_ids:
-            continue
-        self.log.info(entry.text_payload)
-        seen_insert_ids.add(entry.insert_id)
+    url = f"http://{peer_vm_endpoint}:9080/logs"
+    params = {
+        "container_name": container_name,
+        "after_timestamp": after_timestamp,
+        "max_log_lines": 1000,
+    }
+    self.log.debug("Reading logs, url: %s, params: %s", url, params)
+    try:
+        response = requests.get(url, params=params)
+    except Exception as e:
+        self.log.debug("Exception occurred on request: %s", e)
+    else:
+        if response.status_code != 200:
+            self.log.debug("Got %s response, reason: %s", response.status_code, response.reason)
+        else:
+            for log in response.json()["logs"] or []:
+                # Example of log: "2023-05-02T10:11:12.2Z stdout F Creating dataset"
+                after_timestamp, _, _, msg = log.split(" ", 3)
+                self.log.info(msg)
 
     if is_last_iteration:
         return
@@ -135,11 +123,9 @@ def _stream_peer_vm_logs(self, pod, client, project_id, peer_vm_name, since_time
     _stream_peer_vm_logs(
         self,
         pod=pod,
-        client=client,
-        project_id=project_id,
-        peer_vm_name=peer_vm_name,
-        since_timestamp=since_timestamp,
-        seen_insert_ids=seen_insert_ids,
+        container_name=container_name,
+        peer_vm_endpoint=peer_vm_endpoint,
+        after_timestamp=after_timestamp,
     )
 
 

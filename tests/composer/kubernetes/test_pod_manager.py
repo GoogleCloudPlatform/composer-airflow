@@ -18,8 +18,6 @@ import datetime
 from unittest import mock
 
 import pytest
-from google.cloud.logging_v2.types import ListLogEntriesRequest, LogEntry
-from google.protobuf.timestamp_pb2 import Timestamp
 
 from airflow.composer.kubernetes.pod_manager import (
     _composer_fetch_container_logs,
@@ -59,23 +57,21 @@ class TestPodManager:
 
         result_mock = mock.Mock()
 
-        def f_mock_side_effect(self, pod=None):
+        def f_mock_side_effect(self, pod=None, container_name=None):
             assert self == self_mock
             assert pod == pod_mock
+            assert container_name == "base"
             return result_mock
 
         f_mock = mock.Mock(side_effect=f_mock_side_effect)
 
-        result = _composer_fetch_container_logs(f_mock)(self_mock, pod=pod_mock)
+        result = _composer_fetch_container_logs(f_mock)(self_mock, pod=pod_mock, container_name="base")
 
         assert result == result_mock
 
-    @mock.patch("airflow.composer.kubernetes.pod_manager.LoggingServiceV2Client", autospec=True)
     @mock.patch("airflow.composer.kubernetes.pod_manager._stream_peer_vm_logs", autospec=True)
     @mock.patch.dict("os.environ", {"GCP_TENANT_PROJECT": "test-project"})
-    def test_composer_fetch_container_logs_peer_vm(
-        self, stream_peer_vm_logs_mock, logging_service_v2_client_mock
-    ):
+    def test_composer_fetch_container_logs_peer_vm(self, stream_peer_vm_logs_mock):
         pod_mock = mock.Mock()
         container_mock = mock.Mock()
         container_mock.name = "peervm-placeholder"
@@ -88,7 +84,7 @@ class TestPodManager:
         remote_pod_mock_2.status = mock.Mock(phase="Running")
         remote_pod_mock_2.metadata = mock.Mock(
             creation_timestamp=datetime.datetime(2023, 5, 2, 10, 11, 12),
-            annotations={"node.gke.io/peer-vm-name": "standard-micro-123"},
+            annotations={"node.gke.io/peer-vm-endpoint": "10.5.3.2"},
         )
 
         def read_pod_side_effect(pod):
@@ -102,16 +98,14 @@ class TestPodManager:
         read_pod_side_effect.call_counter = 0
         self_mock = mock.Mock(read_pod=mock.Mock(side_effect=read_pod_side_effect))
 
-        _composer_fetch_container_logs(mock.Mock())(self_mock, pod=pod_mock)
+        _composer_fetch_container_logs(mock.Mock())(self_mock, pod=pod_mock, container_name="base")
 
         stream_peer_vm_logs_mock.assert_called_once_with(
             self_mock,
             pod=pod_mock,
-            client=logging_service_v2_client_mock(),
-            project_id="test-project",
-            peer_vm_name="standard-micro-123",
-            since_timestamp="2023-05-02T10:11:12Z",
-            seen_insert_ids=set(),
+            container_name="base",
+            peer_vm_endpoint="10.5.3.2",
+            after_timestamp="2023-05-02T10:11:12.0Z",
         )
 
     @mock.patch("airflow.composer.kubernetes.pod_manager._stream_peer_vm_logs", autospec=True)
@@ -130,19 +124,20 @@ class TestPodManager:
 
         self_mock = mock.Mock(read_pod=mock.Mock(side_effect=read_pod_side_effect))
 
-        _composer_fetch_container_logs(mock.Mock())(self_mock, pod=pod_mock)
+        _composer_fetch_container_logs(mock.Mock())(self_mock, pod=pod_mock, container_name="base")
 
         stream_peer_vm_logs_mock.assert_not_called()
 
     @mock.patch("airflow.composer.kubernetes.pod_manager.time.sleep", autospec=True)
-    def test_stream_peer_vm_logs(self, time_sleep_mock):
+    @mock.patch("airflow.composer.kubernetes.pod_manager.requests", autospec=True)
+    def test_stream_peer_vm_logs(self, requests_mock, time_sleep_mock):
         pod_mock = mock.Mock()
 
         def container_is_running_side_effect(pod, container_name=None):
             assert pod == pod_mock
             assert container_name == "peervm-placeholder"
             container_is_running_side_effect.call_counter += 1
-            if container_is_running_side_effect.call_counter == 1:
+            if container_is_running_side_effect.call_counter <= 4:
                 return True
             else:
                 return False
@@ -150,85 +145,82 @@ class TestPodManager:
         container_is_running_side_effect.call_counter = 0
         self_mock = mock.Mock(container_is_running=mock.Mock(side_effect=container_is_running_side_effect))
 
-        def list_log_entries_side_effect(request=None):
-            list_log_entries_side_effect.call_counter += 1
-            assert list_log_entries_side_effect.call_counter <= 2
-            if list_log_entries_side_effect.call_counter == 1:
-                assert request == ListLogEntriesRequest(
-                    resource_names=["projects/test-project"],
-                    filter="\n".join(
-                        [
-                            'resource.type="k8s_container"',
-                            'resource.labels.project_id="test-project"',
-                            'labels.peervm_name="standard-micro-abc"',
-                            'timestamp>="2023-05-02T10:11:12Z"',
-                        ]
-                    ),
-                    order_by="timestamp asc",
-                    page_size=1000,
-                )
+        def requests_get_side_effect(url, params=None):
+            requests_get_side_effect.call_counter += 1
+            assert requests_get_side_effect.call_counter <= 5
+            if requests_get_side_effect.call_counter == 1:
+                assert url == "http://10.5.0.1:9080/logs"
+                assert params == {
+                    "container_name": "base",
+                    "after_timestamp": "2023-05-02T10:11:12.0Z",
+                    "max_log_lines": 1000,
+                }
+                return mock.Mock(status_code=500)
+            elif requests_get_side_effect.call_counter == 2:
+                assert url == "http://10.5.0.1:9080/logs"
+                assert params == {
+                    "container_name": "base",
+                    "after_timestamp": "2023-05-02T10:11:12.0Z",
+                    "max_log_lines": 1000,
+                }
                 return mock.Mock(
-                    __iter__=lambda self: iter(
-                        [
-                            LogEntry(
-                                timestamp=Timestamp(seconds=1683022784), insert_id="qwe", text_payload="A"
-                            ),
-                            LogEntry(
-                                timestamp=Timestamp(seconds=1683022785), insert_id="abc", text_payload="B"
-                            ),
-                            LogEntry(
-                                timestamp=Timestamp(seconds=1683022785), insert_id="ppp", text_payload="C"
-                            ),
-                        ]
-                    )
-                )
-            else:
-                assert request == ListLogEntriesRequest(
-                    resource_names=["projects/test-project"],
-                    filter="\n".join(
-                        [
-                            'resource.type="k8s_container"',
-                            'resource.labels.project_id="test-project"',
-                            'labels.peervm_name="standard-micro-abc"',
-                            'timestamp>="2023-05-02T10:11:12Z"',
-                        ]
+                    status_code=200,
+                    json=mock.Mock(
+                        return_value={
+                            "logs": [
+                                "2023-05-02T10:11:12.0Z stdout F A",
+                                "2023-05-02T10:11:12.1Z stdout F B",
+                                "2023-05-02T10:11:12.2Z stdout F C",
+                            ]
+                        }
                     ),
-                    order_by="timestamp asc",
-                    page_size=1000,
                 )
+            elif requests_get_side_effect.call_counter == 3:
+                assert url == "http://10.5.0.1:9080/logs"
+                assert params == {
+                    "container_name": "base",
+                    "after_timestamp": "2023-05-02T10:11:12.2Z",
+                    "max_log_lines": 1000,
+                }
                 return mock.Mock(
-                    __iter__=lambda self: iter(
-                        [
-                            LogEntry(
-                                timestamp=Timestamp(seconds=1683022784), insert_id="qwe", text_payload="A"
-                            ),
-                            LogEntry(
-                                timestamp=Timestamp(seconds=1683022785), insert_id="abc", text_payload="B"
-                            ),
-                            LogEntry(
-                                timestamp=Timestamp(seconds=1683022786), insert_id="xyz", text_payload="D"
-                            ),
-                        ]
-                    )
+                    status_code=200,
+                    json=mock.Mock(
+                        return_value={
+                            "logs": [
+                                "2023-05-02T10:11:15.5Z stdout F D",
+                            ]
+                        }
+                    ),
                 )
+            elif requests_get_side_effect.call_counter == 4:
+                assert url == "http://10.5.0.1:9080/logs"
+                assert params == {
+                    "container_name": "base",
+                    "after_timestamp": "2023-05-02T10:11:15.5Z",
+                    "max_log_lines": 1000,
+                }
+                return mock.Mock(status_code=200, json=mock.Mock(return_value={"logs": None}))
+            elif requests_get_side_effect.call_counter == 5:
+                raise Exception("Connection refused")
 
-        list_log_entries_side_effect.call_counter = 0
-        client_mock = mock.Mock(list_log_entries=mock.Mock(side_effect=list_log_entries_side_effect))
+        requests_get_side_effect.call_counter = 0
+        requests_mock.get = mock.Mock(side_effect=requests_get_side_effect)
 
         _stream_peer_vm_logs(
             self_mock,
             pod=pod_mock,
-            client=client_mock,
-            project_id="test-project",
-            peer_vm_name="standard-micro-abc",
-            since_timestamp="2023-05-02T10:11:12Z",
-            seen_insert_ids=set(),
+            container_name="base",
+            peer_vm_endpoint="10.5.0.1",
+            after_timestamp="2023-05-02T10:11:12.0Z",
         )
 
         time_sleep_mock.assert_has_calls(
             [
-                mock.call(15),
-                mock.call(15),
+                mock.call(1),
+                mock.call(1),
+                mock.call(1),
+                mock.call(1),
+                mock.call(1),
             ]
         )
         assert self_mock.log.info.call_args_list == [
