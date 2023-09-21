@@ -827,7 +827,7 @@ class TestPodGenerator:
             dag_id="dag-6b24921d4",
             task_id="task-b6aca8991",
             try_number="1",
-            airflow_version=airflow_version,
+            airflow_version=airflow_version.replace("+", "-"),
             kubernetes_executor="True",
         )
         labels = PodGenerator.build_labels_for_k8s_executor_pod(**kwargs, **extra)
