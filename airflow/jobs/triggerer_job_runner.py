@@ -404,7 +404,7 @@ class TriggererJobRunner(BaseJobRunner["Job | JobPydantic"], LoggingMixin):
             Stats.incr("triggers.failed")
 
     def emit_metrics(self):
-        Stats.gauge("triggers.running.{self.hostname}", len(self.trigger_runner.triggers))
+        Stats.gauge(f"triggers.running.{self.job.hostname}", len(self.trigger_runner.triggers))
 
 
 class TriggerDetails(TypedDict):
