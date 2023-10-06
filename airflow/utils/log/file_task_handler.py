@@ -600,7 +600,10 @@ class FileTaskHandler(logging.Handler):
         )
         directory.mkdir(mode=new_folder_permissions, parents=True, exist_ok=True)
         if directory.stat().st_mode % 0o1000 != new_folder_permissions % 0o1000:
-            print(f"Changing {directory} permission to {new_folder_permissions}")
+            # In Composer, users shouldn't care about the OS level permissions of the logs folder
+            # so we only print this message if the user chose a value for this configuration.
+            if new_folder_permissions != 0o775:
+                print(f"Changing {directory} permission to {new_folder_permissions}")
             try:
                 directory.chmod(new_folder_permissions)
             except PermissionError as e:

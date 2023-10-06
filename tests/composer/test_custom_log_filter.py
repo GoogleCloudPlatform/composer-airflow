@@ -127,6 +127,19 @@ class TestComposerFilter:
 
         assert flower_warning not in temp_stdout.getvalue()
 
+    def test_ignoring_celery_deprecation_warning(self):
+        celery_warning = (
+            "CPendingDeprecationWarning: The broker_connection_retry configuration setting "
+            "will no longer determine whether broker connection retries are made during startup in "
+            "Celery 6.0 and above. If you wish to retain the existing behavior for retrying "
+            "connections on startup, you should set broker_connection_retry_on_startup to True."
+        )
+        logger = logging.getLogger("celery.worker")
+        with contextlib.redirect_stdout(io.StringIO()) as temp_stdout:
+            logger.warning(celery_warning)
+
+        assert celery_warning not in temp_stdout.getvalue()
+
     @pytest.mark.parametrize(
         "section, key, deprecated_key, expected",
         [

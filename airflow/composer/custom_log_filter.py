@@ -24,6 +24,11 @@ PROVIDERS_HOOK_MISSING_ATTRIBUTE_WARNING_RE = re2.compile(
     r"The '<class 'airflow.providers[a-zA-Z\.]*Hook'>' is missing [a-z_]* attribute and cannot be registered"
 )
 
+CELERY_KNOWN_DEPRECATION_WARNING_RE = re2.compile(
+    r".*CPendingDeprecationWarning: The broker_connection_retry configuration setting will no longer "
+    r"determine whether broker connection retries are made during startup in Celery 6.0 and above.*"
+)
+
 
 def _is_redis_warning(record):
     """Method that detects using Redis as result backend warning."""
@@ -71,6 +76,18 @@ def _is_flower_warning(record):
     return "Inspect method" in record_message and "failed" in record_message
 
 
+def _is_celery_known_deprecation_warning(record):
+    """Method that detects warnings produced by celery, which are not actionable.
+
+    With Celery 5.3.1 we see the following warning: "The broker_connection_retry configuration
+    setting will no longer determine whether broker connection retries are made during startup
+    in Celery 6.0 and above. If you wish to retain the existing behavior for retrying connections
+    on startup, you should set broker_connection_retry_on_startup to True."
+    This is not useful for Composer users and is no-op for them, so we silence this message.
+    """
+    return CELERY_KNOWN_DEPRECATION_WARNING_RE.match(record.getMessage())
+
+
 class ComposerFilter(logging.Filter):
     """Custom Composer log filter."""
 
@@ -114,6 +131,9 @@ class ComposerFilter(logging.Filter):
         # Warnings about running Flower, which inspects Airflow. Those warnings are not actionable
         # and they are not a bug type warnings.
         if _is_flower_warning(record):
+            return False
+
+        if _is_celery_known_deprecation_warning(record):
             return False
 
         return True
