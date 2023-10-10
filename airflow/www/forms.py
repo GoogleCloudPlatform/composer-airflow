@@ -199,9 +199,7 @@ def create_connection_form_class() -> type[DynamicForm]:
         yield ("fs", "File (path)")
         yield ("generic", "Generic")
         yield ("mesos_framework-id", "Mesos Framework ID")
-        for connection_type, provider_info in providers_manager.hooks.items():
-            if provider_info:
-                yield (connection_type, provider_info.hook_name)
+        yield from providers_manager.connection_types
 
     class ConnectionForm(DynamicForm):
         conn_id = StringField(
