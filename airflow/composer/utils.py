@@ -21,6 +21,7 @@ import aiodebug.log_slow_callbacks
 from kubernetes import config
 from kubernetes.client import Configuration
 
+from airflow.composer.kubernetes.pod_manager import patch_fetch_container_logs
 from airflow.configuration import conf
 
 COMPOSER_GKE_CLUSTER_HOST = None
@@ -80,7 +81,4 @@ def initialize():
         aiodebug.log_slow_callbacks.enable(0.05)
 
     if is_serverless_composer():
-        # Avoid circular imports by moving imports inside method.
-        from airflow.composer.kubernetes.pod_manager import patch_fetch_container_logs
-
         patch_fetch_container_logs()

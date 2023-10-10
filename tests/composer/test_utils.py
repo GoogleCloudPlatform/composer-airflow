@@ -74,27 +74,19 @@ class TestUtils:
 
         initialize_mock.assert_called_once()
 
-    @mock.patch("airflow.composer.utils.is_serverless_composer", return_value=False)
-    @mock.patch("airflow.composer.kubernetes.pod_manager.patch_fetch_container_logs", autospec=True)
+    @mock.patch("airflow.composer.utils.patch_fetch_container_logs", autospec=True)
     @mock.patch.dict("os.environ", {"COMPOSER_VERSION": "2.1.10"})
-    def test_initialize_patch_fetch_container_logs(
-        self, patch_fetch_container_logs_mock, mock_is_serverless_composer
-    ):
+    def test_initialize_patch_fetch_container_logs(self, patch_fetch_container_logs_mock):
         initialize()
 
         patch_fetch_container_logs_mock.assert_not_called()
-        mock_is_serverless_composer.assert_called_once_with()
 
-    @mock.patch("airflow.composer.utils.is_serverless_composer", return_value=True)
-    @mock.patch("airflow.composer.kubernetes.pod_manager.patch_fetch_container_logs", autospec=True)
+    @mock.patch("airflow.composer.utils.patch_fetch_container_logs", autospec=True)
     @mock.patch.dict("os.environ", {"COMPOSER_VERSION": "3.0.1"})
-    def test_initialize_patch_fetch_container_logs_serverless(
-        self, patch_fetch_container_logs_mock, mock_is_serverless_composer
-    ):
+    def test_initialize_patch_fetch_container_logs_serverless(self, patch_fetch_container_logs_mock):
         initialize()
 
         patch_fetch_container_logs_mock.assert_called_once_with()
-        mock_is_serverless_composer.assert_called_once_with()
 
     @conf_vars({("kubernetes_executor", "config_file"): "/test_kube_config_file"})
     @mock.patch("airflow.composer.utils.config", autospec=True)
