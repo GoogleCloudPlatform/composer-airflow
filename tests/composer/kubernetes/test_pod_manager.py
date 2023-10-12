@@ -34,6 +34,9 @@ class TestPodManager:
     def test_patch_fetch_container_logs(
         self, composer_get_container_names_mock, composer_fetch_container_logs_mock
     ):
+        # test setUp
+        PodManager.fetch_container_logs._composer_patched = False
+
         # Call twice to check patching occurres only once.
         patch_fetch_container_logs()
         patch_fetch_container_logs()
