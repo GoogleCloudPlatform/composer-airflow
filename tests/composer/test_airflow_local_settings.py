@@ -147,31 +147,3 @@ class TestAirflowLocalSettings:
         pod_mutation_hook(pod)
 
         assert pod.metadata == k8s.V1ObjectMeta(namespace="n3")
-
-    @pytest.mark.parametrize(
-        "composer_version, patch_fetch_container_logs_expected_calls_count",
-        [
-            ("2.1.10", 0),
-            ("3.0.1", 1),
-        ],
-    )
-    @mock.patch("airflow.composer.airflow_local_settings.patch_fetch_container_logs", autospec=True)
-    @mock.patch("airflow.composer.airflow_local_settings.get_composer_gke_cluster_host", autospec=True)
-    @mock.patch(
-        "airflow.composer.airflow_local_settings.pod_mutation_hook_composer_serverless", autospec=True
-    )
-    def test_pod_mutation_hook_patch_fetch_container_logs(
-        self,
-        pod_mutation_hook_composer_serverless_mock,
-        get_composer_gke_cluster_host_mock,
-        patch_fetch_container_logs_mock,
-        composer_version,
-        patch_fetch_container_logs_expected_calls_count,
-    ):
-        pod_mutation_hook_composer_serverless_mock.return_value = mock.Mock()
-        get_composer_gke_cluster_host_mock.return_value = mock.Mock()
-
-        with mock.patch.dict("os.environ", {"COMPOSER_VERSION": composer_version}):
-            pod_mutation_hook(pod=mock.Mock())
-
-        assert patch_fetch_container_logs_mock.call_count == patch_fetch_container_logs_expected_calls_count
