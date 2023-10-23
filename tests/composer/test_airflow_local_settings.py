@@ -147,3 +147,19 @@ class TestAirflowLocalSettings:
         pod_mutation_hook(pod)
 
         assert pod.metadata == k8s.V1ObjectMeta(namespace="n3")
+
+    @mock.patch.dict("os.environ", {"COMPOSER_VERSION": "3.0.0"})
+    @mock.patch(
+        "airflow.composer.airflow_local_settings.sys.argv",
+        ["airflow", "scheduler"],
+    )
+    @mock.patch(
+        "airflow.composer.airflow_local_settings.pod_mutation_hook_composer_serverless",
+        autospec=True,
+    )
+    def test_pod_mutation_hook_scheduler(self, pod_mutation_hook_composer_serverless_mock):
+        pod_mock = mock.MagicMock()
+
+        pod_mutation_hook(pod_mock)
+
+        pod_mutation_hook_composer_serverless_mock.assert_called_with(pod_mock)
