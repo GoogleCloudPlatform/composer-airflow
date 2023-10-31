@@ -133,12 +133,15 @@ class ComposerDataLineageAdapter:
             targets.append(entity_reference)
 
         now = datetime.datetime.utcnow()
+        all_links = [EventLink(source=s, target=t) for s in sources for t in targets]
+        links_batches = [all_links[i : i + 100] for i in range(0, len(all_links), 100)]
         return [
             LineageEvent(
-                links=[EventLink(source=s, target=t) for s in sources for t in targets],
+                links=links,
                 start_time=now,
                 end_time=now,
             )
+            for links in links_batches
         ]
 
     def _get_fqn_suffix(self, segments: list[str]) -> str:

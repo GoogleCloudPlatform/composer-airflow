@@ -233,6 +233,45 @@ class TestAdapter:
         ]
         assert actual_lineage_events == expected_lineage_events
 
+    @time_machine.travel("2022-08-01 10:11:12", tick=False)
+    def test_construct_lineage_events_many_links(self):
+        def _get_big_query_table(table_id):
+            return BigQueryTable(
+                project_id="test-project",
+                dataset_id="test-dataset",
+                table_id=table_id,
+            )
+
+        def _get_entity_reference(table_id):
+            return EntityReference(
+                fully_qualified_name=f"bigquery:test-project.test-dataset.{table_id}",
+            )
+
+        adapter = ComposerDataLineageAdapter()
+        big_query_tables = [_get_big_query_table(f"test-table-{i}") for i in range(200)]
+
+        actual_lineage_events = adapter._construct_lineage_events(
+            inlets=[big_query_tables[0], big_query_tables[1]],
+            outlets=big_query_tables,
+        )
+
+        entity_references = [_get_entity_reference(f"test-table-{i}") for i in range(200)]
+        expected_links_batches = [
+            [EventLink(source=entity_references[0], target=entity_references[i]) for i in range(0, 100)],
+            [EventLink(source=entity_references[0], target=entity_references[i]) for i in range(100, 200)],
+            [EventLink(source=entity_references[1], target=entity_references[i]) for i in range(0, 100)],
+            [EventLink(source=entity_references[1], target=entity_references[i]) for i in range(100, 200)],
+        ]
+        expected_lineage_events = [
+            LineageEvent(
+                links=links,
+                start_time=datetime.datetime(2022, 8, 1, 10, 11, 12),
+                end_time=datetime.datetime(2022, 8, 1, 10, 11, 12),
+            )
+            for links in expected_links_batches
+        ]
+        assert actual_lineage_events == expected_lineage_events
+
     @pytest.mark.parametrize(
         "extra_inlets, extra_outlets",
         [
