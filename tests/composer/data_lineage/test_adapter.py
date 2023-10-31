@@ -23,7 +23,14 @@ import time_machine
 from google.cloud.datacatalog.lineage_v1 import EntityReference, EventLink, LineageEvent, Origin, Process, Run
 
 from airflow.composer.data_lineage.adapter import ComposerDataLineageAdapter
-from airflow.composer.data_lineage.entities import BigQueryTable, DataLineageEntity, DataprocMetastoreTable
+from airflow.composer.data_lineage.entities import (
+    BigQueryTable,
+    DataLineageEntity,
+    DataprocMetastoreTable,
+    GCSEntity,
+    MySQLTable,
+    PostgresTable,
+)
 
 
 class TestAdapter:
@@ -72,6 +79,60 @@ class TestAdapter:
             "test-database.test-table",
         )
         assert actual_entity_reference == expected_entity_reference
+
+    def test_get_entity_reference_mysql_table(self):
+        adapter = ComposerDataLineageAdapter()
+        mysql_table = MySQLTable(
+            host="1.2.3.4",
+            port="443",
+            schema="test-schema",
+            table="test-table",
+        )
+
+        actual_entity_reference = adapter._get_entity_reference(mysql_table)
+
+        expected_entity_reference = EntityReference(
+            fully_qualified_name="mysql:`1.2.3.4:443`.test-schema.test-table"
+        )
+        assert actual_entity_reference == expected_entity_reference
+
+    def test_get_entity_reference_postgres_table(self):
+        adapter = ComposerDataLineageAdapter()
+        postgres_table = PostgresTable(
+            host="1.2.3.4",
+            port="443",
+            database="test-database",
+            schema="test-schema",
+            table="test-table",
+        )
+
+        actual_entity_reference = adapter._get_entity_reference(postgres_table)
+
+        expected_entity_reference = EntityReference(
+            fully_qualified_name="postgresql:`1.2.3.4:443`.test-database.test-schema.test-table"
+        )
+        assert actual_entity_reference == expected_entity_reference
+
+    def test_get_entity_reference_gcs_path(self):
+        adapter = ComposerDataLineageAdapter()
+        gcs_path = GCSEntity(bucket="test-bucket", path="test/test-pa.th")
+
+        actual_entity_reference = adapter._get_entity_reference(gcs_path)
+
+        expected_entity_reference = EntityReference(fully_qualified_name="gcs:test-bucket.`test/test-pa.th`")
+        assert actual_entity_reference == expected_entity_reference
+
+    @pytest.mark.parametrize(
+        "segments, expected_suffix",
+        [
+            (["a"], "a"),
+            (["a", "bc", "def"], "a.bc.def"),
+            (["a b", "c.", "d:e`\tf", " g\n"], "`a b`.`c.`.`d:e``\tf`.` g\n`"),
+        ],
+    )
+    def test_get_fqn_suffix(self, segments, expected_suffix):
+        adapter = ComposerDataLineageAdapter()
+        assert adapter._get_fqn_suffix(segments) == expected_suffix
 
     def test_get_entity_reference_unknown(self):
         adapter = ComposerDataLineageAdapter()

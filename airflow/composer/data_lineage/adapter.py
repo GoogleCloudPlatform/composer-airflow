@@ -141,41 +141,50 @@ class ComposerDataLineageAdapter:
             )
         ]
 
+    def _get_fqn_suffix(self, segments: list[str]) -> str:
+        """Escapes segments if necessary and concatenates them with '.'."""
+
+        def encode_fqn_path_segment(segment: str) -> str:
+            reserved_characters = [" ", "\n", "\t", ".", ":", "`"]
+            to_escape = any(c in segment for c in reserved_characters)
+            output = segment.replace("`", "``")
+            if to_escape:
+                output = "`" + output + "`"
+            return output
+
+        return ".".join(map(encode_fqn_path_segment, segments))
+
     def _get_entity_reference(self, entity: Any) -> EntityReference | None:
-        """Returns Data Lineage entity reference for given Airflow entity (None if entity is unknown)."""
+        """Returns Data Lineage entity reference for given Airflow entity (None if entity is unknown).
+
+        ref: https://cloud.google.com/data-catalog/docs/fully-qualified-names
+        """
         if isinstance(entity, BigQueryTable):
-            return EntityReference(
-                fully_qualified_name=f"bigquery:{entity.project_id}.{entity.dataset_id}.{entity.table_id}",
-            )
+            suffix = self._get_fqn_suffix([entity.project_id, entity.dataset_id, entity.table_id])
+            return EntityReference(fully_qualified_name=f"bigquery:{suffix}")
 
         if isinstance(entity, DataLineageEntity):
-            return EntityReference(
-                fully_qualified_name=entity.fully_qualified_name,
-            )
+            return EntityReference(fully_qualified_name=entity.fully_qualified_name)
 
         if isinstance(entity, GCSEntity):
-            return EntityReference(fully_qualified_name=f"gs://{entity.bucket}/{entity.path}")
+            suffix = self._get_fqn_suffix([entity.bucket, entity.path])
+            return EntityReference(fully_qualified_name=f"gcs:{suffix}")
 
         if isinstance(entity, MySQLTable):
-            return EntityReference(
-                fully_qualified_name=f"mysql://{entity.host}:{entity.port}/{entity.schema}.{entity.table}"
-            )
+            suffix = self._get_fqn_suffix([f"{entity.host}:{entity.port}", entity.schema, entity.table])
+            return EntityReference(fully_qualified_name=f"mysql:{suffix}")
 
         if isinstance(entity, PostgresTable):
-            return EntityReference(
-                fully_qualified_name=(
-                    f"postgres://{entity.host}:{entity.port}/"
-                    f"{entity.database}.{entity.schema}.{entity.table}"
-                )
+            suffix = self._get_fqn_suffix(
+                [f"{entity.host}:{entity.port}", entity.database, entity.schema, entity.table]
             )
+            return EntityReference(fully_qualified_name=f"postgresql:{suffix}")
 
         if isinstance(entity, DataprocMetastoreTable):
-            return EntityReference(
-                fully_qualified_name=(
-                    f"dataproc_metastore:{entity.project_id}.{entity.location}.{entity.instance_id}."
-                    f"{entity.database}.{entity.table}"
-                )
+            suffix = self._get_fqn_suffix(
+                [entity.project_id, entity.location, entity.instance_id, entity.database, entity.table]
             )
+            return EntityReference(fully_qualified_name=f"dataproc_metastore:{suffix}")
 
         return None
 
