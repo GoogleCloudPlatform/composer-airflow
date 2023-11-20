@@ -147,6 +147,8 @@ DEFAULT_LOGGING_CONFIG: dict[str, Any] = {
             "level": FAB_LOG_LEVEL,
             "propagate": True,
         },
+        "sqlfluff": {"level": 30},  # By default, sqlfluff logs to INFO level a lot of parsing logs, which
+        # for our purposes are polluting logs.
     },
     "root": {
         "handlers": ["console"],
