@@ -20,7 +20,11 @@ import uuid
 from typing import TypeVar
 
 import sqlparse
+from sqllineage.core.models import Schema, Table
+from sqllineage.runner import LineageRunner
 from sqlparse.sql import Statement
+
+from airflow.composer.data_lineage.entities import BigQueryTable
 
 LOCATION_PATH = f"projects/{os.environ.get('GCP_PROJECT')}/locations/{os.environ.get('COMPOSER_LOCATION')}"
 
@@ -63,6 +67,31 @@ def get_run_id(task_instance_run_id: str) -> str:
 T = TypeVar("T")
 
 
+def _build_BigQueryTable(source_table: Table, default_dataset: str, default_project: str) -> BigQueryTable:
+    table = source_table.raw_name
+    dataset_id, project_id = default_dataset, default_project
+    schema = source_table.schema
+    if schema != Schema():
+        table_prefix = schema.raw_name.split(".")
+        if len(table_prefix) == 1:
+            dataset_id = table_prefix[0]
+        else:
+            project_id = table_prefix[0]
+            dataset_id = table_prefix[1]
+    return BigQueryTable(project_id=project_id, dataset_id=dataset_id, table_id=table)
+
+
+def is_big_query_table_in_sources(
+    query: str, outlet: BigQueryTable, default_dataset: str | None, default_project: str | None
+) -> bool:
+    runner = LineageRunner(sql=query, dialect="bigquery")
+    for source_table in runner.source_tables:
+        source = _build_BigQueryTable(source_table, default_dataset or "", default_project or "")
+        if source == outlet:
+            return True
+    return False
+
+
 def exclude_outlet(inlets: list[T], outlet: T) -> list[T]:
     """Excludes outlet from the given list of inlets.
 
@@ -73,8 +102,6 @@ def exclude_outlet(inlets: list[T], outlet: T) -> list[T]:
     Returns:
         Copy of the given list of inlets without given outlet.
     """
-    # TODO: fix inlets containing outlet and remove this temporary workaround. We have this workaround
-    #  for now as it is rather an edge case when inlets containing outlet.
     return [_inlet for _inlet in inlets if _inlet != outlet]
 
 

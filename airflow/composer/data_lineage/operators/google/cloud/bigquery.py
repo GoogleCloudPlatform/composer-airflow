@@ -17,9 +17,10 @@ from __future__ import annotations
 import logging
 
 from google.api_core.exceptions import GoogleAPICallError
+from sqllineage.exceptions import SQLLineageException
 
 from airflow.composer.data_lineage.entities import BigQueryTable
-from airflow.composer.data_lineage.utils import exclude_outlet
+from airflow.composer.data_lineage.utils import exclude_outlet, is_big_query_table_in_sources
 from airflow.exceptions import AirflowNotFoundException
 from airflow.providers.google.cloud.hooks.bigquery import BigQueryHook
 from airflow.providers.google.cloud.operators.bigquery import (
@@ -28,6 +29,26 @@ from airflow.providers.google.cloud.operators.bigquery import (
 )
 
 log = logging.getLogger(__name__)
+
+
+def _should_exclude_outlet(props: dict, outlet: BigQueryTable):
+    query = props.get("configuration", {}).get("query", {}).get("query", "")
+    default_dataset = (
+        props.get("configuration", {}).get("query", {}).get("defaultDataset", {}).get("datasetId")
+    )
+    job_project_id = props.get("jobReference", {}).get("projectId")
+    default_project = (
+        props.get("configuration", {})
+        .get("query", {})
+        .get("defaultDataset", {})
+        .get("projectId", job_project_id)
+    )
+
+    try:
+        return not is_big_query_table_in_sources(query, outlet, default_dataset, default_project)
+    except SQLLineageException:
+        log.exception("Error parsing sql query. Failed to check if the outlet is also a valid inlet.")
+        return True
 
 
 class BigQueryInsertJobOperatorLineageMixin:
@@ -64,6 +85,8 @@ class BigQueryInsertJobOperatorLineageMixin:
 
         props = job._properties
 
+        # We use referencedTables as it's the most reliable way to get all tables used in the query.
+        # This contains the target table (if any) so we take care of excluding it if necessary.
         input_tables = props.get("statistics", {}).get("query", {}).get("referencedTables", [])
         inlets = [
             BigQueryTable(
@@ -83,7 +106,8 @@ class BigQueryInsertJobOperatorLineageMixin:
             )
             self.outlets.append(outlet)
 
-            inlets = exclude_outlet(inlets=inlets, outlet=outlet)
+            if _should_exclude_outlet(props, outlet):
+                inlets = exclude_outlet(inlets=inlets, outlet=outlet)
 
         self.inlets.extend(inlets)
 
@@ -118,6 +142,8 @@ class BigQueryExecuteQueryOperatorLineageMixin:
 
         props = job._properties
 
+        # We use referencedTables as it's the most reliable way to get all tables used in the query.
+        # This contains the target table (if any) so we take care of excluding it if necessary.
         input_tables = props.get("statistics", {}).get("query", {}).get("referencedTables", [])
         inlets = [
             BigQueryTable(
@@ -137,6 +163,7 @@ class BigQueryExecuteQueryOperatorLineageMixin:
             )
             self.outlets.append(outlet)
 
-            inlets = exclude_outlet(inlets=inlets, outlet=outlet)
+            if _should_exclude_outlet(props, outlet):
+                inlets = exclude_outlet(inlets=inlets, outlet=outlet)
 
         self.inlets.extend(inlets)

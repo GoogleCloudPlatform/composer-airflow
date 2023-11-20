@@ -17,12 +17,17 @@ from __future__ import annotations
 from importlib import reload
 from unittest import mock
 
+import pytest
+from sqllineage.core.models import Table
+
 from airflow.composer.data_lineage.entities import BigQueryTable
 from airflow.composer.data_lineage.utils import (
+    _build_BigQueryTable,
     exclude_outlet,
     generate_uuid_from_string,
     get_process_id,
     get_run_id,
+    is_big_query_table_in_sources,
     parsed_sql_statements,
 )
 
@@ -50,19 +55,6 @@ class TestUtils:
 
         assert airflow.composer.data_lineage.utils.LOCATION_PATH == "projects/project-1/locations/us-central1"
 
-    def test_exclude_outlet(self):
-        n = 4
-        dataset_id = "dataset"
-        project_id = "project"
-        inlets = [
-            BigQueryTable(table_id=str(i), dataset_id=dataset_id, project_id=project_id) for i in range(n)
-        ]
-        outlet = inlets[0]
-
-        result = exclude_outlet(inlets=inlets, outlet=outlet)
-
-        assert result == inlets[1:]
-
     @mock.patch("airflow.composer.data_lineage.utils.sqlparse.parse")
     @mock.patch("airflow.composer.data_lineage.utils.sqlparse.format")
     def test_parsed_sql_statements(self, mock_format, mock_parse):
@@ -78,3 +70,112 @@ class TestUtils:
         mock_format.assert_called_with(sql, encoding=None, strip_comments=True)
         mock_parse.assert_called_with(mock_format_result, encoding=None)
         assert statements == [mock_parse_result]
+
+    @pytest.mark.parametrize(
+        "source_table, default_dataset, default_project, expected_table",
+        [
+            (
+                Table("test-project.test-dataset.test-table"),
+                "default-dataset",
+                "default-project",
+                BigQueryTable(table_id="test-table", dataset_id="test-dataset", project_id="test-project"),
+            ),
+            (
+                Table("test-project.test-dataset.test-table"),
+                None,
+                None,
+                BigQueryTable(table_id="test-table", dataset_id="test-dataset", project_id="test-project"),
+            ),
+            (
+                Table("test-dataset.test-table"),
+                "default-dataset",
+                "default-project",
+                BigQueryTable(table_id="test-table", dataset_id="test-dataset", project_id="default-project"),
+            ),
+            (
+                Table("test-table"),
+                "default-dataset",
+                "default-project",
+                BigQueryTable(
+                    table_id="test-table", dataset_id="default-dataset", project_id="default-project"
+                ),
+            ),
+        ],
+    )
+    def test_build_table_reference(self, source_table, default_dataset, default_project, expected_table):
+        assert _build_BigQueryTable(source_table, default_dataset, default_project) == expected_table
+
+    @pytest.mark.parametrize(
+        "query, outlet, default_dataset, default_project, expected_return",
+        [
+            (
+                (
+                    "INSERT INTO `project1.dataset1.table1`(a, b) "
+                    "select table1.a, table2.b from table1, table2;"
+                ),
+                BigQueryTable(table_id="table1", dataset_id="dataset1", project_id="project1"),
+                "default-dataset",
+                "default-project",
+                False,
+            ),
+            (
+                (
+                    "INSERT INTO `default-project.default-dataset.table1`(a, b) "
+                    "select table1.a, table2.b from table1, table2;"
+                ),
+                BigQueryTable(table_id="table1", dataset_id="default-dataset", project_id="default-project"),
+                "default-dataset",
+                "default-project",
+                True,
+            ),
+            (
+                (
+                    "INSERT INTO `project1.dataset1.table1`(a, b) "
+                    "select table1.a, table2.b from `project1.dataset1.table1`, table2;"
+                ),
+                BigQueryTable(table_id="table1", dataset_id="dataset1", project_id="project1"),
+                "default-dataset",
+                "default-project",
+                True,
+            ),
+            (
+                (
+                    "INSERT INTO `project1.dataset1.table1`(a, b) "
+                    "select table1.a, table2.b from `project1.dataset1.table2`, table1;"
+                ),
+                BigQueryTable(table_id="table1", dataset_id="dataset1", project_id="project1"),
+                None,
+                "default-project",
+                False,
+            ),
+            (
+                (
+                    "INSERT INTO `project2.dataset1.table1`(a, b) "
+                    "select table1.a, table2.b from `dataset1.table1`, table2;"
+                ),
+                BigQueryTable(table_id="table1", dataset_id="dataset1", project_id="project2"),
+                "default-dataset",
+                "project2",
+                True,
+            ),
+        ],
+    )
+    def test_is_big_query_table_in_sources(
+        self, query, outlet, default_dataset, default_project, expected_return
+    ):
+        assert (
+            is_big_query_table_in_sources(query, outlet, default_dataset, default_project) == expected_return
+        )
+
+    def test_exclude_outlet(self):
+        n = 10
+        dataset_id = "dataset"
+        project_id = "project"
+        inlets = [
+            BigQueryTable(table_id=str(i), dataset_id=dataset_id, project_id=project_id) for i in range(n)
+        ]
+        outlet = inlets[3]
+
+        result = exclude_outlet(inlets=inlets, outlet=outlet)
+
+        assert result == inlets[:3] + inlets[4:]
