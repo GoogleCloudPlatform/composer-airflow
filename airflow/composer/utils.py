@@ -22,6 +22,7 @@ from kubernetes import config
 from kubernetes.client import Configuration
 
 from airflow.configuration import conf
+from airflow.utils import net
 
 COMPOSER_GKE_CLUSTER_HOST = None
 
@@ -71,6 +72,18 @@ def get_composer_gke_cluster_host():
     COMPOSER_GKE_CLUSTER_HOST = client_configuration.host
 
     return COMPOSER_GKE_CLUSTER_HOST
+
+
+def get_component_hostname():
+    """Custom implementation for airflow.utils.net.get_hostname.
+
+    It makes sure the returned hostname doesn't have ".internal" suffix.
+    """
+    hostname = net.getfqdn()
+    if hostname.endswith(".internal"):
+        return hostname[:-9]
+    else:
+        return hostname
 
 
 def initialize():

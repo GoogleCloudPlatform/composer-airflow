@@ -18,8 +18,10 @@ from unittest import mock
 
 import pytest
 
+import airflow.utils.net
 from airflow import settings
 from airflow.composer.utils import (
+    get_component_hostname,
     get_composer_gke_cluster_host,
     get_composer_version,
     initialize,
@@ -98,3 +100,17 @@ class TestUtils:
         initialize()
 
         aiodebug_log_slow_callbacks_mock.enable.assert_called_once()
+
+    @pytest.mark.parametrize(
+        "hostname, expected_result",
+        [
+            ("airflow-worker-123", "airflow-worker-123"),
+            ("airflow-worker-123.internal", "airflow-worker-123"),
+            ("airflow-worker-123.internal.domain", "airflow-worker-123.internal.domain"),
+        ],
+    )
+    @mock.patch.object(airflow.utils.net, "getfqdn", autospec=True)
+    def test_get_component_hostname(self, getfqdn_mock, hostname, expected_result):
+        getfqdn_mock.return_value = hostname
+
+        assert get_component_hostname() == expected_result
