@@ -90,7 +90,7 @@ class TestAirflowLocalSettings:
         ],
     )
     @mock.patch(
-        "airflow.composer.airflow_local_settings.get_composer_gke_cluster_host",
+        "airflow.composer.utils.get_composer_gke_cluster_host",
         mock.Mock(return_value="http://internal-cluster"),
     )
     @mock.patch.dict("os.environ", {"COMPOSER_GKE_LOCATION": "us-east1"})
@@ -108,7 +108,7 @@ class TestAirflowLocalSettings:
         assert pod.metadata.namespace == expected_mutated_namespace
 
     @mock.patch(
-        "airflow.composer.airflow_local_settings.get_composer_gke_cluster_host",
+        "airflow.composer.utils.get_composer_gke_cluster_host",
         mock.Mock(return_value="http://internal-cluster"),
     )
     def test_pod_mutation_hook_external_gke_cluster(self):
@@ -122,7 +122,7 @@ class TestAirflowLocalSettings:
 
     @mock.patch.dict("os.environ", {"COMPOSER_VERSION": "3.0.0"})
     @mock.patch(
-        "airflow.composer.airflow_local_settings.get_composer_gke_cluster_host",
+        "airflow.composer.utils.get_composer_gke_cluster_host",
         mock.Mock(return_value="http://internal-cluster"),
     )
     @mock.patch("airflow.composer.kubernetes.utils.PodGenerator", autospec=True)
@@ -156,10 +156,8 @@ class TestAirflowLocalSettings:
         ],
     )
     @mock.patch("airflow.composer.kubernetes.pod_manager.patch_fetch_container_logs", autospec=True)
-    @mock.patch("airflow.composer.airflow_local_settings.get_composer_gke_cluster_host", autospec=True)
-    @mock.patch(
-        "airflow.composer.airflow_local_settings.pod_mutation_hook_composer_serverless", autospec=True
-    )
+    @mock.patch("airflow.composer.utils.get_composer_gke_cluster_host", autospec=True)
+    @mock.patch("airflow.composer.kubernetes.utils.pod_mutation_hook_composer_serverless", autospec=True)
     def test_pod_mutation_hook_patch_fetch_container_logs(
         self,
         pod_mutation_hook_composer_serverless_mock,
@@ -182,7 +180,7 @@ class TestAirflowLocalSettings:
         ["airflow", "scheduler"],
     )
     @mock.patch(
-        "airflow.composer.airflow_local_settings.pod_mutation_hook_composer_serverless",
+        "airflow.composer.kubernetes.utils.pod_mutation_hook_composer_serverless",
         autospec=True,
     )
     def test_pod_mutation_hook_scheduler(self, pod_mutation_hook_composer_serverless_mock):

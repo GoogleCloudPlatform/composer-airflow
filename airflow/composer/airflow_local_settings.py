@@ -20,9 +20,6 @@ import sys
 
 from kubernetes.client import Configuration, models as k8s
 
-from airflow.composer.kubernetes.utils import pod_mutation_hook_composer_serverless
-from airflow.composer.utils import get_composer_gke_cluster_host, is_serverless_composer
-
 log = logging.getLogger(__file__)
 
 
@@ -39,6 +36,8 @@ def dag_policy(dag):
 def pod_mutation_hook(pod: k8s.V1Pod):
     # Avoid circular imports by moving imports inside method.
     from airflow.composer.kubernetes.pod_manager import patch_fetch_container_logs
+    from airflow.composer.kubernetes.utils import pod_mutation_hook_composer_serverless
+    from airflow.composer.utils import get_composer_gke_cluster_host, is_serverless_composer
 
     if is_serverless_composer():
         patch_fetch_container_logs()
