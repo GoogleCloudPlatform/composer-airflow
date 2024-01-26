@@ -1057,6 +1057,7 @@ def add_all_provider_packages() -> None:
         "composer",
         [
             "apache.beam",
+            "celery",
             "cncf.kubernetes",
             "dbt-cloud",
             "google",
