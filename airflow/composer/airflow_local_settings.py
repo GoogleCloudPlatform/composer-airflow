@@ -18,6 +18,7 @@ from __future__ import annotations
 import logging
 import sys
 
+from celery.signals import celeryd_init
 from kubernetes.client import Configuration, models as k8s
 
 log = logging.getLogger(__file__)
@@ -53,3 +54,14 @@ def pod_mutation_hook(pod: k8s.V1Pod):
     ):
         log.info("Modifying pod spec")
         pod_mutation_hook_composer_serverless(pod)
+
+
+@celeryd_init.connect
+def setup_log_format(**kwargs):
+    """Apply same format for Celery logs as we have for all other logs.
+
+    From https://github.com/celery/celery/issues/3599.
+    """
+    from airflow.configuration import conf
+
+    kwargs["conf"].worker_log_format = conf.get("logging", "LOG_FORMAT")

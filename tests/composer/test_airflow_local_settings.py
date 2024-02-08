@@ -19,10 +19,12 @@ import os
 from unittest import mock
 
 import pytest
+from celery import signals
 from kubernetes.client import Configuration, models as k8s
 
 from airflow import settings
 from airflow.composer.airflow_local_settings import dag_policy, pod_mutation_hook
+from airflow.configuration import conf
 from airflow.models import DAG
 from airflow.security.permissions import ACTION_CAN_EDIT, ACTION_CAN_READ
 from tests.test_utils.config import conf_vars
@@ -189,3 +191,13 @@ class TestAirflowLocalSettings:
         pod_mutation_hook(pod_mock)
 
         pod_mutation_hook_composer_serverless_mock.assert_called_with(pod_mock)
+
+
+def test_setup_log_format():
+    conf_mock = mock.Mock()
+    signals.celeryd_init.send(
+        sender=None,
+        conf=conf_mock,
+    )
+
+    assert conf_mock.worker_log_format == conf.get("logging", "LOG_FORMAT")

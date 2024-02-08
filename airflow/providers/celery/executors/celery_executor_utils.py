@@ -35,7 +35,7 @@ from celery import Celery, Task, states as celery_states
 from celery.backends.base import BaseKeyValueStoreBackend
 from celery.backends.database import DatabaseBackend, Task as TaskDb, retry, session_cleanup
 from celery.result import AsyncResult
-from celery.signals import celeryd_init, import_modules as celery_import_modules
+from celery.signals import import_modules as celery_import_modules
 from setproctitle import setproctitle
 
 import airflow.settings as settings
@@ -79,15 +79,6 @@ if celery_app_name == "airflow.executors.celery_executor":
         RemovedInAirflow3Warning,
     )
 app = Celery(celery_app_name, config_source=celery_configuration)
-
-
-@celeryd_init.connect
-def setup_log_format(**kwargs):
-    """Apply same format for Celery logs as we have for all other logs.
-
-    From https://github.com/celery/celery/issues/3599.
-    """
-    kwargs["conf"].worker_log_format = conf.get("logging", "LOG_FORMAT")
 
 
 @celery_import_modules.connect
