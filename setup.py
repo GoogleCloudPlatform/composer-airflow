@@ -413,6 +413,10 @@ composer_additional = [
     # aiohttp and pygments in lower versions contain seucrity vulnerabilities.
     "aiohttp>=3.8.5",
     "pygments>2.15.0",
+    # remove once https://github.com/apache/airflow/issues/36897 is closed
+    "Flask-Session<0.6.0",
+    # TODO: Remove once https://github.com/apache/airflow/issues/37156 closed
+    "pytest<8.0.0",
 ]
 composer = (
     PROVIDER_DEPENDENCIES["mysql"][DEPS]
