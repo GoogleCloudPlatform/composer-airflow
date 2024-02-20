@@ -356,11 +356,14 @@ class TestDataprocSubmitJobOperatorLineageMixin:
         expected_inlets = [MagicMock(), MagicMock()]
         expected_outlets = [MagicMock(), MagicMock()]
         mock_extractor.return_value.data_lineage.return_value = (expected_inlets, expected_outlets)
+        job_id = "test-job-id"
+        mock_xcom_pull = mock.Mock(return_value=job_id)
+        context = {"task_instance": mock.Mock(task_id="hive_task", xcom_pull=mock_xcom_pull)}
 
         task = DataprocSubmitJobOperator(
             task_id="hive_task", job=HIVE_JOB, region=TEST_LOCATION, project_id=TEST_PROJECT_ID
         )
-        post_execute_prepare_lineage(task=task, context={})
+        post_execute_prepare_lineage(task=task, context=context)
 
         assert task.inlets == expected_inlets
         assert task.outlets == expected_outlets
@@ -368,9 +371,12 @@ class TestDataprocSubmitJobOperatorLineageMixin:
     @mock.patch(DATAPROC_PATH + ".DataprocHook")
     def test_post_execute_prepare_lineage_no_project_id(self, mock_hook):
         mock_hook.return_value.project_id = None
+        job_id = "test-job-id"
+        mock_xcom_pull = mock.Mock(return_value=job_id)
+        context = {"task_instance": mock.Mock(task_id="hive_task", xcom_pull=mock_xcom_pull)}
 
         task = DataprocSubmitJobOperator(task_id="hive_task", job=HIVE_JOB, region=TEST_LOCATION)
-        post_execute_prepare_lineage(task=task, context={})
+        post_execute_prepare_lineage(task=task, context=context)
 
         assert task.inlets == []
         assert task.outlets == []
@@ -380,11 +386,14 @@ class TestDataprocSubmitJobOperatorLineageMixin:
         m_hook = MagicMock(project_id=TEST_PROJECT_ID)
         m_hook.get_job.side_effect = NotFound(message="message")
         mock_hook.return_value = m_hook
+        job_id = "test-job-id"
+        mock_xcom_pull = mock.Mock(return_value=job_id)
+        context = {"task_instance": mock.Mock(task_id="hive_task", xcom_pull=mock_xcom_pull)}
 
         task = DataprocSubmitJobOperator(
             task_id="hive_task", job=HIVE_JOB, region=TEST_LOCATION, project_id=TEST_PROJECT_ID
         )
-        post_execute_prepare_lineage(task=task, context={})
+        post_execute_prepare_lineage(task=task, context=context)
 
         assert task.inlets == []
         assert task.outlets == []
@@ -395,11 +404,14 @@ class TestDataprocSubmitJobOperatorLineageMixin:
         inlets = []
         outlets = [MagicMock(), MagicMock()]
         mock_extractor.return_value.data_lineage.return_value = (inlets, outlets)
+        job_id = "test-job-id"
+        mock_xcom_pull = mock.Mock(return_value=job_id)
+        context = {"task_instance": mock.Mock(task_id="hive_task", xcom_pull=mock_xcom_pull)}
 
         task = DataprocSubmitJobOperator(
             task_id="hive_task", job=HIVE_JOB, region=TEST_LOCATION, project_id=TEST_PROJECT_ID
         )
-        post_execute_prepare_lineage(task=task, context={})
+        post_execute_prepare_lineage(task=task, context=context)
 
         assert task.inlets == []
         assert task.outlets == []
@@ -410,11 +422,14 @@ class TestDataprocSubmitJobOperatorLineageMixin:
         inlets = [MagicMock(), MagicMock()]
         outlets = []
         mock_extractor.return_value.data_lineage.return_value = (inlets, outlets)
+        job_id = "test-job-id"
+        mock_xcom_pull = mock.Mock(return_value=job_id)
+        context = {"task_instance": mock.Mock(task_id="hive_task", xcom_pull=mock_xcom_pull)}
 
         task = DataprocSubmitJobOperator(
             task_id="hive_task", job=HIVE_JOB, region=TEST_LOCATION, project_id=TEST_PROJECT_ID
         )
-        post_execute_prepare_lineage(task=task, context={})
+        post_execute_prepare_lineage(task=task, context=context)
 
         assert task.inlets == []
         assert task.outlets == []
@@ -423,11 +438,14 @@ class TestDataprocSubmitJobOperatorLineageMixin:
     @mock.patch(DATAPROC_PATH + ".DataprocSQLJobLineageExtractor")
     def test_post_execute_prepare_lineage_airflow_exception(self, mock_extractor, mock_hook):
         mock_extractor.return_value.data_lineage.side_effect = AirflowException
+        job_id = "test-job-id"
+        mock_xcom_pull = mock.Mock(return_value=job_id)
+        context = {"task_instance": mock.Mock(task_id="hive_task", xcom_pull=mock_xcom_pull)}
 
         task = DataprocSubmitJobOperator(
             task_id="hive_task", job=HIVE_JOB, region=TEST_LOCATION, project_id=TEST_PROJECT_ID
         )
-        post_execute_prepare_lineage(task=task, context={})
+        post_execute_prepare_lineage(task=task, context=context)
 
         assert task.inlets == []
         assert task.outlets == []

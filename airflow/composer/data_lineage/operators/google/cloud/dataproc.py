@@ -195,9 +195,14 @@ class DataprocSubmitJobOperatorLineageMixin:
             return
 
         try:
-            job = hook.get_job(job_id=self.job_id, project_id=self.project_id, region=self.region)
+            task_instance = context["task_instance"]
+            job_id: str = task_instance.xcom_pull(task_ids=task_instance.task_id)
+            job = hook.get_job(job_id=job_id, project_id=self.project_id, region=self.region)
         except NotFound:
-            log.exception(f"The job with id {self.job_id} wasn't found. Data lineage wasn't reported")
+            log.exception(f"The job with id {job_id} wasn't found. Data lineage wasn't reported")
+            return
+        except KeyError:
+            log.exception("The context didn't include task_instance. Data lineage wasn't reported")
             return
 
         data_lineage_extractor = DataprocSQLJobLineageExtractor(
