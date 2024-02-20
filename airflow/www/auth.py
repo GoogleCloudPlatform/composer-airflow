@@ -65,7 +65,7 @@ def has_access(permissions: Sequence[tuple[str, str]] | None = None) -> Callable
             else:
                 access_denied = get_access_denied_message()
                 flash(access_denied, "danger")
-            return redirect(get_auth_manager().get_url_login(next=request.url))
+            return redirect(get_auth_manager().get_url_login(next_url=request.url))
 
         return cast(T, decorated)
 
