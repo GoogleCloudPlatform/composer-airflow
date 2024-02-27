@@ -100,6 +100,10 @@ class ExecutorLoader:
 
         :return: an instance of executor class via executor_name
         """
+        from airflow.composer.kubernetes.executor import patch_kubernetes_executor_start
+
+        patch_kubernetes_executor_start()
+
         if executor_name == CELERY_KUBERNETES_EXECUTOR:
             return cls.__load_celery_kubernetes_executor()
         elif executor_name == LOCAL_KUBERNETES_EXECUTOR:

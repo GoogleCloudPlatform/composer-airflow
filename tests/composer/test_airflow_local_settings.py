@@ -114,13 +114,19 @@ class TestAirflowLocalSettings:
         mock.Mock(return_value="http://internal-cluster"),
     )
     def test_pod_mutation_hook_external_gke_cluster(self):
-        pod = k8s.V1Pod(metadata=k8s.V1ObjectMeta(namespace="default"))
+        pod = k8s.V1Pod(
+            metadata=k8s.V1ObjectMeta(namespace="default"),
+            spec=k8s.V1PodSpec(containers=[k8s.V1Container(name="base")]),
+        )
         Configuration.set_default(Configuration(host="http://external-cluster"))
 
         with mock.patch.dict("os.environ", {"COMPOSER_VERSION": "2.5.0-preview.0"}):
             pod_mutation_hook(pod)
 
-        assert pod == k8s.V1Pod(metadata=k8s.V1ObjectMeta(namespace="default"))
+        assert pod == k8s.V1Pod(
+            metadata=k8s.V1ObjectMeta(namespace="default"),
+            spec=k8s.V1PodSpec(containers=[k8s.V1Container(name="base")]),
+        )
 
     @mock.patch.dict("os.environ", {"COMPOSER_VERSION": "3.0.0"})
     @mock.patch(
@@ -170,9 +176,12 @@ class TestAirflowLocalSettings:
     ):
         pod_mutation_hook_composer_serverless_mock.return_value = mock.Mock()
         get_composer_gke_cluster_host_mock.return_value = mock.Mock()
-
+        pod = k8s.V1Pod(
+            metadata=k8s.V1ObjectMeta(namespace="n1"),
+            spec=k8s.V1PodSpec(containers=[k8s.V1Container(name="base")]),
+        )
         with mock.patch.dict("os.environ", {"COMPOSER_VERSION": composer_version}):
-            pod_mutation_hook(pod=mock.Mock())
+            pod_mutation_hook(pod=pod)
 
         assert patch_fetch_container_logs_mock.call_count == patch_fetch_container_logs_expected_calls_count
 
@@ -191,6 +200,102 @@ class TestAirflowLocalSettings:
         pod_mutation_hook(pod_mock)
 
         pod_mutation_hook_composer_serverless_mock.assert_called_with(pod_mock)
+
+    @pytest.mark.parametrize(
+        (
+            "composer_version, namespace, expected_mutated_namespace, "
+            "env_vars, expected_env_vars, pod_name, expected_pod_name, args, expected_args"
+        ),
+        [
+            (
+                "2.4.21",
+                "default",
+                "default",
+                [],
+                [],
+                "pod-name",
+                "pod-name",
+                ["worker"],
+                ["worker"],
+            ),
+            (
+                "3.0.0-preview.0",
+                "default",
+                "composer-user-workloads",
+                [],
+                [],
+                "pod-name",
+                "pod-name",
+                ["worker"],
+                ["worker"],
+            ),
+            (
+                "2.4.21",
+                "default",
+                "default",
+                [k8s.V1EnvVar(name="AIRFLOW_IS_K8S_EXECUTOR_POD", value=True)],
+                [
+                    k8s.V1EnvVar(name="AIRFLOW_IS_K8S_EXECUTOR_POD", value=True),
+                    k8s.V1EnvVar(
+                        name="AIRFLOW_K8S_EXECUTOR_POD_TASK_RUN_COMMAND",
+                        value="'airflow' 'tasks' 'run' 'dag'\\''id'",
+                    ),
+                ],
+                "pod-name-123",
+                "airflow-k8s-worker-pod-name-123",
+                ["airflow", "tasks", "run", "dag'id"],
+                ["worker"],
+            ),
+            (
+                "3.0.0-preview.0",
+                "default",
+                "composer-user-workloads",
+                [k8s.V1EnvVar(name="AIRFLOW_IS_K8S_EXECUTOR_POD", value=True)],
+                [
+                    k8s.V1EnvVar(name="AIRFLOW_IS_K8S_EXECUTOR_POD", value=True),
+                    k8s.V1EnvVar(
+                        name="AIRFLOW_K8S_EXECUTOR_POD_TASK_RUN_COMMAND",
+                        value="'airflow' 'tasks' 'run' 'dag'\\''id'",
+                    ),
+                ],
+                "pod-name-123",
+                "airflow-k8s-worker-pod-name-123",
+                ["airflow", "tasks", "run", "dag'id"],
+                ["worker"],
+            ),
+        ],
+    )
+    @mock.patch(
+        "airflow.composer.utils.get_composer_gke_cluster_host",
+        mock.Mock(return_value="http://internal-cluster"),
+    )
+    @mock.patch.dict("os.environ", {"COMPOSER_GKE_LOCATION": "us-east1"})
+    @mock.patch.dict("os.environ", {"GCP_TENANT_PROJECT": "test-project-234"})
+    def test_pod_mutation_hook_k8s_executor(
+        self,
+        composer_version,
+        namespace,
+        expected_mutated_namespace,
+        env_vars,
+        expected_env_vars,
+        pod_name,
+        expected_pod_name,
+        args,
+        expected_args,
+    ):
+        Configuration.set_default(Configuration(host="http://internal-cluster"))
+        pod = k8s.V1Pod(
+            metadata=k8s.V1ObjectMeta(name=pod_name, namespace=namespace),
+            spec=k8s.V1PodSpec(containers=[k8s.V1Container(name="base", env=env_vars, args=args)]),
+        )
+
+        with mock.patch.dict("os.environ", {"COMPOSER_VERSION": composer_version}):
+            pod_mutation_hook(pod)
+
+        assert pod.metadata.namespace == expected_mutated_namespace
+        assert pod.metadata.name == expected_pod_name
+        assert pod.spec.containers[0].env == expected_env_vars
+        assert pod.spec.containers[0].args == expected_args
 
 
 def test_setup_log_format():

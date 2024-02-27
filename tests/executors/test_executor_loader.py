@@ -134,3 +134,8 @@ class TestExecutorLoader:
         monkeypatch.delenv("_AIRFLOW__SKIP_DATABASE_EXECUTOR_COMPATIBILITY_CHECK")
         with expectation:
             ExecutorLoader.validate_database_executor_compatibility(executor)
+
+    @mock.patch("airflow.composer.kubernetes.executor.patch_kubernetes_executor_start", autospec=True)
+    def test_calls_composer_kubernetes_executor_patch(self, patch_kubernetes_executor_start_mock):
+        ExecutorLoader.load_executor("airflow.providers.celery.executors.celery_executor.CeleryExecutor")
+        patch_kubernetes_executor_start_mock.assert_called_once()

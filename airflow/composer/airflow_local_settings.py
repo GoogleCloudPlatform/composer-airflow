@@ -36,9 +36,11 @@ def dag_policy(dag):
 
 def pod_mutation_hook(pod: k8s.V1Pod):
     # Avoid circular imports by moving imports inside method.
+    from airflow.composer.kubernetes.executor import get_task_run_command_from_args
     from airflow.composer.kubernetes.pod_manager import patch_fetch_container_logs
     from airflow.composer.kubernetes.utils import pod_mutation_hook_composer_serverless
     from airflow.composer.utils import get_composer_gke_cluster_host, is_serverless_composer
+    from airflow.providers.cncf.kubernetes.kubernetes_helper_functions import add_pod_suffix
 
     if is_serverless_composer():
         patch_fetch_container_logs()
@@ -54,6 +56,31 @@ def pod_mutation_hook(pod: k8s.V1Pod):
     ):
         log.info("Modifying pod spec")
         pod_mutation_hook_composer_serverless(pod)
+
+    for container in pod.spec.containers:
+        if (
+            container.name == "base"
+            and container.env
+            and any(env_var.name == "AIRFLOW_IS_K8S_EXECUTOR_POD" for env_var in container.env)
+        ):
+            if not pod.metadata.name.startswith("airflow-k8s-worker"):
+                max_len = 80
+                new_name = "airflow-k8s-worker-" + pod.metadata.name
+                # The pod names generated are already unique, but if we have to truncate them,
+                # they will lose their unique suffix so we add it again
+                if len(new_name) > max_len:
+                    new_name = add_pod_suffix(pod_name=new_name, rand_len=8, max_len=max_len)
+                pod.metadata.name = new_name
+
+            args = container.args
+            container.env.append(
+                k8s.V1EnvVar(
+                    name="AIRFLOW_K8S_EXECUTOR_POD_TASK_RUN_COMMAND",
+                    value=get_task_run_command_from_args(args),
+                )
+            )
+            # Pass ["worker"] as args in base container to bypass GKE policy exemptor.
+            container.args = ["worker"]
 
 
 @celeryd_init.connect

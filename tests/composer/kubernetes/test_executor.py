@@ -35,9 +35,12 @@ from kubernetes.client import (
 
 from airflow.composer.kubernetes.executor import (
     POD_TEMPLATE_FILE,
+    _composer_kubernetes_executor_start,
     get_task_run_command_from_args,
+    patch_kubernetes_executor_start,
     refresh_pod_template_file,
 )
+from airflow.providers.cncf.kubernetes.executors.kubernetes_executor import KubernetesExecutor
 
 
 class TestExecutor:
@@ -168,3 +171,21 @@ class TestExecutor:
             get_task_run_command_from_args(["airflow", "tasks", "run", "dag'id"])
             == "'airflow' 'tasks' 'run' 'dag'\\''id'"
         )
+
+    @mock.patch("airflow.composer.kubernetes.executor._composer_kubernetes_executor_start", autospec=True)
+    def test_patch_fetch_container_logs(self, _composer_patch_kubernetes_executor_start_mock):
+        # test setUp
+        KubernetesExecutor.start._composer_patched = False
+
+        # Call twice to check patching occurres only once.
+        patch_kubernetes_executor_start()
+        patch_kubernetes_executor_start()
+
+        _composer_patch_kubernetes_executor_start_mock.assert_called_once()
+        assert getattr(KubernetesExecutor.start, "_composer_patched") is True
+
+    @mock.patch("airflow.composer.kubernetes.executor.refresh_pod_template_file", autospec=True)
+    def test_composer_get_container_names(self, refresh_pod_template_file_mock):
+        _composer_kubernetes_executor_start(lambda _: None)(mock.Mock())
+
+        refresh_pod_template_file_mock.assert_called_once()

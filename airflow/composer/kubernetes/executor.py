@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import functools
 import logging
 import os
 import tempfile
@@ -101,3 +102,33 @@ def get_task_run_command_from_args(args):
     # Escape all arguments and concatenate them into string to be used as a command in bash.
     # https://stackoverflow.com/questions/6306386/how-can-i-escape-an-arbitrary-string-for-use-as-a-command-line-argument-in-bash
     return " ".join(["'{}'".format(str(arg).replace("'", r"'\''")) for arg in args])
+
+
+def patch_kubernetes_executor_start():
+    log.info("Patching kubernetes executor start")
+    from airflow.providers.cncf.kubernetes.executors.kubernetes_executor import KubernetesExecutor
+
+    if getattr(KubernetesExecutor.start, "_composer_patched", False):
+        return
+
+    KubernetesExecutor.start = _composer_kubernetes_executor_start(KubernetesExecutor.start)
+    setattr(KubernetesExecutor.start, "_composer_patched", True)
+
+
+def _composer_kubernetes_executor_start(f):
+    @functools.wraps(f)
+    def wrapper(self, *args, **kwargs):
+        return_value = f(self, *args, **kwargs)
+        from airflow.composer.kubernetes.executor import (
+            POD_TEMPLATE_FILE_REFRESH_INTERVAL,
+            refresh_pod_template_file,
+        )
+
+        refresh_pod_template_file(self.kube_client.api_client)
+        self.event_scheduler.call_regular_interval(
+            POD_TEMPLATE_FILE_REFRESH_INTERVAL,
+            functools.partial(refresh_pod_template_file, self.kube_client.api_client),
+        )
+        return return_value
+
+    return wrapper
