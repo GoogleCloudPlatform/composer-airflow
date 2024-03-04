@@ -31,7 +31,7 @@ class TestUtils:
                             "matchLabels": {
                                 "machineType": "e2-custom-small-2048",
                                 "region": "us-east1",
-                                "diskSizeGb": "20",
+                                "diskSizeGb": "30",
                             },
                         },
                         "logging": ["Workload", "System"],
@@ -57,7 +57,7 @@ class TestUtils:
                         ]
                     )
                 ),
-                "40",
+                "50",
             ),
             (
                 k8s.V1Pod(
@@ -72,7 +72,7 @@ class TestUtils:
                         ]
                     )
                 ),
-                "37",
+                "47",
             ),
             (
                 k8s.V1Pod(
@@ -87,7 +87,7 @@ class TestUtils:
                         ]
                     )
                 ),
-                "20",
+                "30",
             ),
             (
                 k8s.V1Pod(
@@ -103,7 +103,7 @@ class TestUtils:
                         ]
                     )
                 ),
-                "39",
+                "49",
             ),
             (
                 k8s.V1Pod(
@@ -119,7 +119,7 @@ class TestUtils:
                         ]
                     )
                 ),
-                "39",
+                "49",
             ),
             (
                 k8s.V1Pod(
@@ -132,7 +132,7 @@ class TestUtils:
                         ]
                     )
                 ),
-                "31",
+                "41",
             ),
             (
                 k8s.V1Pod(
@@ -145,11 +145,11 @@ class TestUtils:
                         ]
                     )
                 ),
-                "32",
+                "42",
             ),
             (
                 k8s.V1Pod(spec=k8s.V1PodSpec(containers=[k8s.V1Container(name="base")])),
-                "20",
+                "30",
             ),
             (
                 k8s.V1Pod(
@@ -162,7 +162,7 @@ class TestUtils:
                         ]
                     )
                 ),
-                "120",
+                "130",
             ),
         ],
     )

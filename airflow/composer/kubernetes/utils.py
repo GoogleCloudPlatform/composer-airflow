@@ -74,7 +74,7 @@ def _get_composer_serverless_pod_metadata(pod: k8s.V1Pod):
             MAX_RESOURCES_DISK_SIZE_GB,
         )
         resources_disk_size_gb = MAX_RESOURCES_DISK_SIZE_GB
-    disk_size_gb = 20 + resources_disk_size_gb  # add 20 GB for operating system, container images etc.
+    disk_size_gb = 30 + resources_disk_size_gb  # add 30 GB for operating system, container images etc.
 
     return k8s.V1ObjectMeta(
         # All container-based tasks should be running in a dedicated "user workloads namespace".
