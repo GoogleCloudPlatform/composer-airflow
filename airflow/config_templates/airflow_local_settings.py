@@ -140,7 +140,7 @@ DEFAULT_LOGGING_CONFIG: dict[str, Any] = {
             "level": LOG_LEVEL,
             # Set to true here (and reset via set_context) so that if no file is configured we still get logs!
             "propagate": True,
-            "filters": ["mask_secrets"],
+            "filters": ["mask_secrets", "composer_filter"],
         },
         "flask_appbuilder": {
             "handlers": ["console"],

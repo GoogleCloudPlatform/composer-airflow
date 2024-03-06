@@ -44,6 +44,17 @@ class TestComposerFilter:
 
         assert message not in temp_stdout.getvalue()
 
+    def test_detecting_redis_warning_second_type(self):
+        logger = logging.getLogger("airflow.config_templates.default_celery")
+        message = (
+            "You have configured a result_backend using the protocol `redis`, "
+            "it is highly recommended to use an alternative result_backend (i.e. a database)."
+        )
+        with contextlib.redirect_stdout(io.StringIO()) as temp_stdout:
+            logger.warning(message)
+
+        assert message not in temp_stdout.getvalue()
+
     def test_detecting_stats_client_warning(self):
         logger = logging.getLogger("airflow.stats")
         message = (
@@ -139,6 +150,18 @@ class TestComposerFilter:
             logger.warning(celery_warning)
 
         assert celery_warning not in temp_stdout.getvalue()
+
+    def test_ignoring_scheduled_duration_metric_warning(self):
+        logger = logging.getLogger("airflow.tasks")
+        message = (
+            "cannot record scheduled_duration for task echo because previous state change "
+            "time has not been saved"
+        )
+
+        with contextlib.redirect_stdout(io.StringIO()) as temp_stdout:
+            logger.warning(message)
+
+        assert message not in temp_stdout.getvalue()
 
     @pytest.mark.parametrize(
         "section, key, deprecated_key, expected",

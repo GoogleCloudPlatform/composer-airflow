@@ -31,8 +31,11 @@ CELERY_KNOWN_DEPRECATION_WARNING_RE = re2.compile(
 
 
 def _is_redis_warning(record):
-    """Method that detects using Redis as result backend warning."""
-    return record.getMessage().startswith("You have configured a result_backend of redis://")
+    """Method that detects using Redis as result backend warnings."""
+    record_message = record.getMessage()
+    return record_message.startswith(
+        "You have configured a result_backend of redis://"
+    ) or record_message.startswith("You have configured a result_backend using the protocol `redis`")
 
 
 def _is_stats_client_warning(record):
@@ -88,6 +91,11 @@ def _is_celery_known_deprecation_warning(record):
     return CELERY_KNOWN_DEPRECATION_WARNING_RE.match(record.getMessage())
 
 
+def _is_scheduled_duration_metric_warning(record):
+    """Method that detects warnings about scheduled_duration metric, which should not be emitted."""
+    return "cannot record scheduled_duration for task" in record.getMessage()
+
+
 class ComposerFilter(logging.Filter):
     """Custom Composer log filter."""
 
@@ -134,6 +142,11 @@ class ComposerFilter(logging.Filter):
             return False
 
         if _is_celery_known_deprecation_warning(record):
+            return False
+
+        # This warning is produced in standard use as well, there is an issue for that:
+        # https://github.com/apache/airflow/issues/34493.
+        if _is_scheduled_duration_metric_warning(record):
             return False
 
         return True
