@@ -206,8 +206,8 @@ class Job(Base, LoggingMixin):
             # Update last heartbeat time
             with create_session() as session:
                 # Make the session aware of this object
-                session.merge(self)
                 self.latest_heartbeat = timezone.utcnow()
+                session.merge(self)
                 session.commit()
                 # At this point, the DB has updated.
                 previous_heartbeat = self.latest_heartbeat
