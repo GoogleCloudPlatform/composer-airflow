@@ -166,8 +166,9 @@ class ComposerTaskHandler(StreamTaskHandler, LoggingMixin):
             return f'"{escaped_value}"'
 
         _, project = self._credentials_and_project_id
+        log_name = f'"projects/{project}/logs/airflow-worker" OR "projects/{project}/logs/airflow-k8s-worker"'
         log_filters = [
-            f'logName="projects/{project}/logs/airflow-worker"',
+            f"logName=({log_name})",
             'resource.type="cloud_composer_environment"',
             f'resource.labels.project_id="{project}"',
             f'resource.labels.environment_name="{self.ENVIRONMENT_NAME}"',
