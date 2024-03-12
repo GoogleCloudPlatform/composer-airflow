@@ -118,8 +118,7 @@ class TestComposerLoggingHandlerTask:
                     'labels.task-id="task_for_testing_composer_log_handler"\n'
                     'labels.workflow="dag_for_testing_composer_task_handler"\n'
                     'labels.execution-date="2022-01-01T00:00:00+00:00"\n'
-                    'labels.try-number="1"\n'
-                    'labels.worker_id="default-hostname"'
+                    'labels.try-number="1"'
                 ),
                 order_by="timestamp asc",
                 page_size=1000,
@@ -147,8 +146,7 @@ class TestComposerLoggingHandlerTask:
                     'timestamp<="2022-01-03T00:05:00+00:00"\n'
                     'labels.task-id="task_for_testing_composer_log_handler"\n'
                     'labels.workflow="dag_for_testing_composer_task_handler"\n'
-                    'labels.execution-date="2022-01-01T00:00:00+00:00"\n'
-                    'labels.worker_id="default-hostname"'
+                    'labels.execution-date="2022-01-01T00:00:00+00:00"'
                 ),
                 order_by="timestamp asc",
                 page_size=1000,
@@ -229,8 +227,7 @@ class TestComposerLoggingHandlerTask:
             'labels.task-id="task_for_testing_composer_log_handler"\n'
             'labels.workflow="dag_for_testing_composer_task_handler"\n'
             'labels.execution-date="2022-01-01T00:00:00+00:00"\n'
-            'labels.try-number="1"\n'
-            'labels.worker_id="default-hostname"'
+            'labels.try-number="1"'
         )
 
         assert [
@@ -273,8 +270,7 @@ class TestComposerLoggingHandlerTask:
             'labels.task-id="task_for_testing_composer_log_handler"\n'
             'labels.workflow="dag_for_testing_composer_task_handler"\n'
             'labels.execution-date="2022-01-01T00:00:00+00:00"\n'
-            'labels.try-number="1"\n'
-            'labels.worker_id="default-hostname"'
+            'labels.try-number="1"'
         )
 
         assert [
@@ -434,7 +430,6 @@ class TestComposerLoggingHandlerTask:
             "workflow": "test_dag_id",
             "execution-date": "2022-01-01T00:00:00+00:00",
             "try-number": "1",
-            "worker_id": "test_hostname",
         }
         assert actual_labels == expected_labels
 
@@ -456,6 +451,5 @@ class TestComposerLoggingHandlerTask:
             "execution-date": "2022-01-01T00:00:00+00:00",
             "map-index": "3",
             "try-number": "1",
-            "worker_id": "test_hostname",
         }
         assert actual_labels == expected_labels

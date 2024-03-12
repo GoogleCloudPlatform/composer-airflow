@@ -64,7 +64,6 @@ class ComposerTaskHandler(StreamTaskHandler, LoggingMixin):
     LABEL_MAP_INDEX = "map-index"
     LABEL_TRY_NUMBER = "try-number"
     LOG_NAME = "Google Composer Task Logger"
-    LABEL_HOSTNAME = "worker_id"
     ENVIRONMENT_NAME = os.environ.get("COMPOSER_ENVIRONMENT")
     ENVIRONMENT_LOCATION = os.environ.get("COMPOSER_LOCATION")
     END_TIME_FILTER_OFFSET = timedelta(minutes=5)
@@ -306,7 +305,6 @@ class ComposerTaskHandler(StreamTaskHandler, LoggingMixin):
             cls.LABEL_DAG_ID: ti.dag_id,
             cls.LABEL_EXECUTION_DATE: str(ti.execution_date.isoformat()),
             cls.LABEL_TRY_NUMBER: str(ti.try_number),
-            cls.LABEL_HOSTNAME: str(ti.hostname),
         }
         if ti.map_index != -1:
             # If we add "map-index" label always to filter, this will not work for logs in Cloud Logging that
