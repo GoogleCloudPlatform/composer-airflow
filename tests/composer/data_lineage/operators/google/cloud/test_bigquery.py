@@ -53,6 +53,10 @@ class TestBigQueryInsertJobOperator:
                                     "datasetId": "dataset-2",
                                     "tableId": "table-2",
                                 },
+                                {
+                                    "projectId": "project-2",
+                                    "tableId": "ephemeral-table",
+                                },
                             ]
                         },
                     },

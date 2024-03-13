@@ -87,6 +87,7 @@ class BigQueryInsertJobOperatorLineageMixin:
 
         # We use referencedTables as it's the most reliable way to get all tables used in the query.
         # This contains the target table (if any) so we take care of excluding it if necessary.
+        # Ephemeral tables, defined with tableDefinitions, don't include "datasetId", so we ignore them.
         input_tables = props.get("statistics", {}).get("query", {}).get("referencedTables", [])
         inlets = [
             BigQueryTable(
@@ -95,6 +96,7 @@ class BigQueryInsertJobOperatorLineageMixin:
                 table_id=input_table["tableId"],
             )
             for input_table in input_tables
+            if input_table.get("datasetId")
         ]
 
         output_table = props.get("configuration", {}).get("query", {}).get("destinationTable")
@@ -144,6 +146,7 @@ class BigQueryExecuteQueryOperatorLineageMixin:
 
         # We use referencedTables as it's the most reliable way to get all tables used in the query.
         # This contains the target table (if any) so we take care of excluding it if necessary.
+        # Ephemeral tables, defined with tableDefinitions, don't include "datasetId", so we ignore them.
         input_tables = props.get("statistics", {}).get("query", {}).get("referencedTables", [])
         inlets = [
             BigQueryTable(
@@ -152,6 +155,7 @@ class BigQueryExecuteQueryOperatorLineageMixin:
                 table_id=input_table["tableId"],
             )
             for input_table in input_tables
+            if input_table.get("datasetId")
         ]
 
         output_table = props.get("configuration", {}).get("query", {}).get("destinationTable")
