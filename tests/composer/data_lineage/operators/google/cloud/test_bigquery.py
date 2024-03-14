@@ -161,6 +161,51 @@ class TestBigQueryInsertJobOperator:
         assert task.inlets == []
         assert task.outlets == []
 
+    @patch(BIGQUERY_PATH + ".is_big_query_table_in_sources", autospec=True)
+    @patch(BIGQUERY_PATH + ".BigQueryHook", autospec=True)
+    def test_post_execute_prepare_lineage_parse_query_error(self, mock_bigquery_hook, mock_table_in_sources):
+        def _mock_get_job(project_id, location, job_id):
+            assert project_id == "test-project"
+            assert location == "location"
+            assert job_id == "test-job-id"
+            return mock.Mock(
+                _properties={
+                    "statistics": {
+                        "query": {"referencedTables": []},
+                    },
+                    "configuration": {
+                        "query": {
+                            "destinationTable": {
+                                "projectId": "project-2",
+                                "datasetId": "dataset-2",
+                                "tableId": "table-2",
+                            },
+                        },
+                    },
+                },
+            )
+
+        task = BigQueryInsertJobOperator(
+            task_id="test-task",
+            configuration={},
+            project_id="test-project",
+            location="location",
+        )
+        mock_bigquery_hook.return_value = mock.Mock(
+            get_job=mock.Mock(side_effect=_mock_get_job),
+        )
+        mock_table_in_sources.side_effect = RecursionError()
+
+        task.job_id = "test-job-id"
+
+        job_id_path = "test-project:location:test-job-id"
+        mock_xcom_pull = mock.Mock(return_value=job_id_path)
+        context = {"task_instance": mock.Mock(task_id="test-task-id", xcom_pull=mock_xcom_pull)}
+
+        post_execute_prepare_lineage(task, context)
+
+        mock_xcom_pull.assert_called_with(task_ids="test-task-id", key="job_id_path")
+
     @patch(BIGQUERY_PATH + ".BigQueryHook", autospec=True)
     def test_post_execute_prepare_lineage_get_job_error(self, mock_bigquery_hook):
         def _mock_get_job(project_id, location, job_id):

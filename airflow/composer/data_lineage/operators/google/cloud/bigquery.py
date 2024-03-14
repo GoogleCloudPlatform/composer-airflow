@@ -46,7 +46,11 @@ def _should_exclude_outlet(props: dict, outlet: BigQueryTable):
 
     try:
         return not is_big_query_table_in_sources(query, outlet, default_dataset, default_project)
-    except SQLLineageException:
+    except (SQLLineageException, RecursionError):
+        log.exception("Error parsing sql query. Failed to check if the outlet is also a valid inlet.")
+        return True
+    except Exception:
+        # We catch all exceptions here as this is just a corner case and we shouldn't fail because of this.
         log.exception("Error parsing sql query. Failed to check if the outlet is also a valid inlet.")
         return True
 
