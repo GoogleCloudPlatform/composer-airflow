@@ -1073,7 +1073,10 @@ def add_all_provider_packages() -> None:
             "ssh",
             "sqlite",
         ],
-        {},
+        {
+            # TODO: remove when Airflow version >= 2.8.0
+            "celery": "<=3.6.0",
+        },
     )
 
 
