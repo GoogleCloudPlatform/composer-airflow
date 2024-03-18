@@ -393,8 +393,6 @@ composer_additional = [
     "google-apitools",
     "google-cloud-aiplatform",
     "google-cloud-asset",
-    # This package is hosted from AR repository, it is not available in public pypi.
-    "google-cloud-datacatalog-lineage-producer-client",
     "google-cloud-datastore",
     "google-cloud-documentai",
     "google-cloud-filestore",
