@@ -64,7 +64,9 @@ def pod_mutation_hook(pod: k8s.V1Pod):
             and any(env_var.name == "AIRFLOW_IS_K8S_EXECUTOR_POD" for env_var in container.env)
         ):
             if not pod.metadata.name.startswith("airflow-k8s-worker"):
-                max_len = 80
+                # The pod name should be at maximum 63 characters length.
+                # https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#dns-label-names
+                max_len = 63
                 new_name = "airflow-k8s-worker-" + pod.metadata.name
                 # The pod names generated are already unique, but if we have to truncate them,
                 # they will lose their unique suffix so we add it again

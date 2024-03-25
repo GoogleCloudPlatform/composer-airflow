@@ -297,6 +297,26 @@ class TestAirflowLocalSettings:
         assert pod.spec.containers[0].env == expected_env_vars
         assert pod.spec.containers[0].args == expected_args
 
+    def test_pod_mutation_hook_k8s_executor_long_name(self):
+        pod = k8s.V1Pod(
+            metadata=k8s.V1ObjectMeta(name="A" * 100),
+            spec=k8s.V1PodSpec(
+                containers=[
+                    k8s.V1Container(
+                        name="base",
+                        args=[],
+                        env=[k8s.V1EnvVar(name="AIRFLOW_IS_K8S_EXECUTOR_POD", value=True)],
+                    )
+                ]
+            ),
+        )
+
+        pod_mutation_hook(pod)
+
+        assert len(pod.metadata.name) == 63
+        # Pod name should start with airflow-k8s-worker and has random suffix of the 8 characters length.
+        assert pod.metadata.name[:-8] == f"airflow-k8s-worker-{'A' * 35}-"
+
 
 def test_setup_log_format():
     conf_mock = mock.Mock()
