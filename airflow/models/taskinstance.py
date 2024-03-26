@@ -2928,7 +2928,10 @@ class TaskInstance(Base, LoggingMixin):
                 break
 
         if self.duration is not None and self.state in State.finished:
-            Stats.incr(f"task.count.{self.dag_id}@-@{self.task_id}@-@{self.operator}@-@{self.state}", 1)
+            Stats.incr(
+                f"task.count.{self.dag_id}@-@{self.task_id}@-@{self.operator}@-@{self.state}@-@{self.queue}",
+                1,
+            )
             Stats.gauge(
                 f"task.duration.{self.dag_id}@-@{self.task_id}@-@{self.operator}@-@{self.state}",
                 self.duration,

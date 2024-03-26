@@ -2085,7 +2085,7 @@ class TestTaskInstance:
         ti.refresh_from_db()
         assert ti.state == State.SUCCESS
         incr_mock.assert_called_with(
-            "task.count.dag@-@op1@-@EmptyOperator@-@success",
+            "task.count.dag@-@op1@-@EmptyOperator@-@success@-@default",
             1,
         )
         gauge_mock.assert_has_calls(
@@ -2794,7 +2794,7 @@ class TestTaskInstance:
         assert context_arg_3 and "task_instance" in context_arg_3
         mock_on_retry_3.assert_not_called()
         incr_mock.assert_called_with(
-            "task.count.test_handle_failure@-@test_handle_failure_on_force_fail@-@EmptyOperator@-@failed",
+            "task.count.test_handle_failure@-@test_handle_failure_on_force_fail@-@EmptyOperator@-@failed@-@default",
             1,
         )
 
