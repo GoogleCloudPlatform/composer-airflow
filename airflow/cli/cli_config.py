@@ -536,6 +536,18 @@ ARG_DB_RETRY_DELAY = Arg(
     type=positive_int(allow_zero=False),
     help="Wait time between retries in seconds",
 )
+ARG_DB_TRIM_RETENTION_DAYS = Arg(
+    ("--retention-days",),
+    help="Data older than this number of days will get trimmed",
+    type=int,
+    required=True,
+)
+ARG_DB_TRIM_ACK_WIP = Arg(
+    ("--acknowledge-work-in-progress",),
+    help="For the time being this feature is work in progress, use at your own risk.",
+    action="store_true",
+    required=True,
+)
 
 # pool
 ARG_POOL_NAME = Arg(("pool",), metavar="NAME", help="Pool name")
@@ -1662,6 +1674,12 @@ DB_COMMANDS = (
         help="Drop archived tables created through the db clean command",
         func=lazy_load_command("airflow.cli.commands.db_command.drop_archived"),
         args=(ARG_DB_TABLES, ARG_YES),
+    ),
+    ActionCommand(
+        name="trim",
+        help="Trim is executed to cleanup database in small transactions",
+        func=lazy_load_command("airflow.composer.cli.commands.db_command.trim"),
+        args=(ARG_DB_TRIM_RETENTION_DAYS, ARG_DB_TRIM_ACK_WIP),
     ),
 )
 CONNECTIONS_COMMANDS = (
