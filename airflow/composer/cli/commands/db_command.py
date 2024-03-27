@@ -1,7 +1,5 @@
 #
 # Copyright 2023 Google LLC
-# TODO: This license is not consistent with license used in the project.
-#       Delete the inconsistent license and above line and rerun pre-commit to insert a good license.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,11 +15,27 @@
 
 from __future__ import annotations
 
+import logging
+
 from airflow.composer.db_command.db_trim import execute_trim
 from airflow.utils import cli as cli_utils
+
+logger = logging.getLogger(__name__)
+
+MINIMAL_RETENTION_DAYS = 30
+MAXIMAL_RETENTION_DAYS = 730
 
 
 @cli_utils.action_cli(check_db=False)
 def trim(args):
-    if args.retention_days:
+    args.retention_days = int(args.retention_days)
+    if MAXIMAL_RETENTION_DAYS >= args.retention_days >= MINIMAL_RETENTION_DAYS:
         execute_trim(args.retention_days)
+    else:
+        logger.error(
+            f"Provided number of days ({args.retention_days}) is not within "
+            f"({MINIMAL_RETENTION_DAYS}, {MAXIMAL_RETENTION_DAYS}) range"
+        )
+        raise ValueError(
+            f"Retention horizon must be in range({MINIMAL_RETENTION_DAYS}, {MAXIMAL_RETENTION_DAYS})"
+        )

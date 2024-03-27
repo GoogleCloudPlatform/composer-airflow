@@ -1,7 +1,5 @@
 #
 # Copyright 2023 Google LLC
-# TODO: This license is not consistent with license used in the project.
-#       Delete the inconsistent license and above line and rerun pre-commit to insert a good license.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -102,7 +100,7 @@ class TestDbTrim:
         cls.parser = cli_parser.get_parser()
 
     @pytest.mark.parametrize(
-        "tables,extra_args", [(test_tables, ["--retention-days", "36500", "--acknowledge-work-in-progress"])]
+        "tables,extra_args", [(test_tables, ["--retention-days", "730", "--acknowledge-work-in-progress"])]
     )
     def test_e2e_db_trim(self, tables, extra_args):
         trim_execute_time = make_aware(datetime.datetime(year=2000, month=1, day=1))
@@ -136,9 +134,7 @@ class TestDbTrim:
             else:
                 assert before_count_tables[key] == after_count_tables[key]
 
-    @pytest.mark.parametrize(
-        "extra_args", [(["--retention-days", "36500", "--acknowledge-work-in-progress"])]
-    )
+    @pytest.mark.parametrize("extra_args", [(["--retention-days", "730", "--acknowledge-work-in-progress"])])
     def test_e2e_emit_retention_gap_metric(self, extra_args):
         config = Config(int(extra_args[1]))
         with open(
@@ -171,19 +167,42 @@ class TestDbTrim:
         for i in range(len(expected_order)):
             assert expected_order[i]["model"].__tablename__ == tables[i]["airflow_db_model"].__tablename__
 
+    @pytest.mark.parametrize(
+        "retention_days",
+        [(30), (100), (730)],
+    )
     @mock.patch("airflow.composer.cli.commands.db_command.trim")
-    def test_cli_db_trim(self, mock_db_trim):
+    def test_cli_db_trim_within_range_success(self, mock_db_trim, retention_days):
         args = self.parser.parse_args(
             [
                 "db",
                 "trim",
                 "--retention-days",
-                "36500",
+                f"{retention_days}",
                 "--acknowledge-work-in-progress",
             ]
         )
         db_command.trim(args)
         mock_db_trim.assert_called_once_with(args)
+
+    @pytest.mark.parametrize(
+        "retention_days",
+        [(-5), (13), (1000)],
+    )
+    def test_cli_db_trim_within_range_failure(self, retention_days):
+        args = self.parser.parse_args(
+            [
+                "db",
+                "trim",
+                "--retention-days",
+                f"{retention_days}",
+                "--acknowledge-work-in-progress",
+            ]
+        )
+        with pytest.raises(ValueError) as value_exception:
+            db_command.trim(args)
+
+        assert "Retention horizon must be in range(30, 730)" in str(value_exception.value)
 
     @mock.patch("airflow.composer.db_command.db_trim.trim_session_table")
     @mock.patch("airflow.composer.db_command.db_trim.trim_table")
