@@ -1,0 +1,9 @@
+DELETE FROM session WHERE id = 1;
+DELETE FROM session WHERE id = 2;
+DELETE FROM session WHERE id = 3;
+DELETE FROM session WHERE id = 4;
+DELETE FROM session WHERE id = 5;
+DELETE FROM session WHERE id = 6;
+DELETE FROM session WHERE id = 7;
+DELETE FROM session WHERE id = 8;
+DELETE FROM session WHERE id = 9;
