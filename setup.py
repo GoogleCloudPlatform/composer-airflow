@@ -393,6 +393,7 @@ composer_additional = [
     "google-apitools",
     "google-cloud-aiplatform",
     "google-cloud-asset",
+    "google-cloud-datacatalog-lineage-producer-client",
     "google-cloud-datastore",
     "google-cloud-documentai",
     "google-cloud-filestore",
