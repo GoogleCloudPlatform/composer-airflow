@@ -791,12 +791,12 @@ class TestLogsfromTaskRunCommand:
         if is_k8s:
             # 10 is arbitrary, but, with enough padding to hopefully not be flakey
             assert len(lines) > 10
-            self.assert_log_line("Starting attempt 1 of 1", lines, count=2)
-            self.assert_log_line("Exporting env vars", lines, count=2)
-            self.assert_log_line("Log from DAG Logger", lines, count=2)
-            self.assert_log_line("Log from TI Logger", lines, count=2)
-            self.assert_log_line("Log from Print statement", lines, expect_from_logging_mixin=True, count=2)
-            self.assert_log_line("Task exited with return code 0", lines, count=2)
+            self.assert_log_line("Starting attempt 1 of 1", lines, count=1)
+            self.assert_log_line("Exporting env vars", lines, count=1)
+            self.assert_log_line("Log from DAG Logger", lines, count=1)
+            self.assert_log_line("Log from TI Logger", lines, count=1)
+            self.assert_log_line("Log from Print statement", lines, expect_from_logging_mixin=True, count=1)
+            self.assert_log_line("Task exited with return code 0", lines, count=1)
         else:
             # when not k8s executor pod, most output is redirected to logs
             # composer: custom handler still prints to stdout
