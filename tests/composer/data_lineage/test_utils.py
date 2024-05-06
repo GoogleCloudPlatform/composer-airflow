@@ -55,8 +55,8 @@ class TestUtils:
 
         assert airflow.composer.data_lineage.utils.LOCATION_PATH == "projects/project-1/locations/us-central1"
 
-    @mock.patch("airflow.composer.data_lineage.utils.sqlparse.parse")
-    @mock.patch("airflow.composer.data_lineage.utils.sqlparse.format")
+    @mock.patch("sqlparse.parse")
+    @mock.patch("sqlparse.format")
     def test_parsed_sql_statements(self, mock_format, mock_parse):
         sql = "SELECT * FROM test_table"
         mock_format_result = mock.MagicMock()

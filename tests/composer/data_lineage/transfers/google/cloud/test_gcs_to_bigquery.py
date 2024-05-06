@@ -107,7 +107,7 @@ class TestGCSToBigQuery:
         assert task.inlets == expected_inlets
         assert task.outlets == expected_outlets
 
-    @patch("airflow.composer.data_lineage.transfers.google.cloud.gcs_to_bigquery.BigQueryHook", autospec=True)
+    @patch("airflow.providers.google.cloud.hooks.bigquery.BigQueryHook", autospec=True)
     def test_post_execute_prepare_lineage_big_query_hook_error(self, mock_hook, operator):
         mock_hook.side_effect = AirflowException
 

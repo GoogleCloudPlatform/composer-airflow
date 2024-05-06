@@ -16,32 +16,20 @@ from __future__ import annotations
 
 import logging
 from collections import namedtuple
-from typing import Sequence
+from typing import TYPE_CHECKING, Sequence
 
-import sqlparse
-from google.api_core.client_options import ClientOptions
-from google.api_core.exceptions import NotFound
-from google.cloud.dataproc_v1 import (
-    Cluster,
-    ClusterControllerClient,
-    GetClusterRequest,
-    HiveJob,
-    Job,
-    PrestoJob,
-    SparkJob,
-    TrinoJob,
-)
-from sqllineage.core.models import Table
-from sqllineage.exceptions import SQLLineageException
-from sqllineage.runner import LineageRunner
+if TYPE_CHECKING:
+    from google.cloud.dataproc_v1 import (
+        Cluster,
+        Job,
+    )
+
+    from airflow.composer.data_lineage.entities import DataprocMetastoreTable
+    from airflow.providers.google.cloud.operators.dataproc import DataprocSubmitJobOperator
 
 from airflow import AirflowException
-from airflow.composer.data_lineage.entities import DataprocMetastoreTable
-from airflow.providers.google.cloud.hooks.dataproc import DataprocHook
-from airflow.providers.google.cloud.operators.dataproc import DataprocSubmitJobOperator
 
 log = logging.getLogger(__name__)
-
 
 ParsedSQLTable = namedtuple("ParsedSQLTable", "schema table")
 
@@ -71,6 +59,9 @@ class DataprocSQLJobLineageExtractor:
         )
 
     def _build_lineage_entities(self, tables: list[ParsedSQLTable]) -> list[DataprocMetastoreTable]:
+
+        from airflow.composer.data_lineage.entities import DataprocMetastoreTable
+
         instance_id = self.metastore_instance_id
         return [
             DataprocMetastoreTable(
@@ -85,6 +76,7 @@ class DataprocSQLJobLineageExtractor:
 
     @property
     def metastore_instance_id(self) -> str:
+
         cluster = self.dataproc_cluster
         config = cluster.config
         if not config:
@@ -103,6 +95,13 @@ class DataprocSQLJobLineageExtractor:
 
     @property
     def dataproc_cluster(self) -> Cluster:
+        from google.api_core.client_options import ClientOptions
+        from google.api_core.exceptions import NotFound
+        from google.cloud.dataproc_v1 import (
+            ClusterControllerClient,
+            GetClusterRequest,
+        )
+
         if not self._dataproc_cluster:
             client_options = ClientOptions(api_endpoint=f"{self.location}-dataproc.googleapis.com:443")
             client = ClusterControllerClient(client_options=client_options)
@@ -129,6 +128,13 @@ class DataprocSQLJobLineageExtractor:
         Returns:
             Sequence of SQL queries.
         """
+        from google.cloud.dataproc_v1 import (
+            HiveJob,
+            PrestoJob,
+            SparkJob,
+            TrinoJob,
+        )
+
         job_fields: list[HiveJob | SparkJob | PrestoJob | TrinoJob] = [
             self.job.hive_job,
             self.job.spark_sql_job,
@@ -157,6 +163,10 @@ class DataprocSQLJobLineageExtractor:
         Raises:
             AirflowException: if SQL parsing failed.
         """
+        import sqlparse
+        from sqllineage.core.models import Table
+        from sqllineage.exceptions import SQLLineageException
+        from sqllineage.runner import LineageRunner
 
         def _parsed_sql_table(table: Table) -> ParsedSQLTable:
             db = default_schema if table.schema.raw_name == table.schema.unknown else table.schema.raw_name
@@ -189,6 +199,11 @@ class DataprocSubmitJobOperatorLineageMixin:
     """Mixin class for DataprocSubmitJobOperator."""
 
     def post_execute_prepare_lineage(self: DataprocSubmitJobOperator, context: dict):  # type: ignore
+
+        from google.api_core.exceptions import NotFound
+
+        from airflow.providers.google.cloud.hooks.dataproc import DataprocHook
+
         hook = DataprocHook(gcp_conn_id=self.gcp_conn_id, impersonation_chain=self.impersonation_chain)
         if hook.project_id is None:
             log.exception("The project_id is missing. Data lineage wasn't reported")

@@ -19,7 +19,7 @@ from unittest.mock import PropertyMock, patch
 from airflow import AirflowException
 from airflow.composer.data_lineage.entities import BigQueryTable
 from airflow.composer.data_lineage.operators import post_execute_prepare_lineage
-from airflow.composer.data_lineage.transfers.google.cloud.bigquery_to_bigquery import BigQueryHook
+from airflow.providers.google.cloud.hooks.bigquery import BigQueryHook
 from airflow.providers.google.cloud.transfers.bigquery_to_bigquery import BigQueryToBigQueryOperator
 
 
@@ -81,7 +81,7 @@ class TestBigQueryToBigQuery:
         assert task.outlets == expected_outlets
 
     @patch(
-        "airflow.composer.data_lineage.transfers.google.cloud.bigquery_to_bigquery.BigQueryHook",
+        "airflow.providers.google.cloud.hooks.bigquery.BigQueryHook",
         autospec=True,
     )
     def test_post_execute_prepare_lineage_create_hook_error(self, mock_hook):

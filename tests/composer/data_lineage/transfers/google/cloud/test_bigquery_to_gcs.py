@@ -21,8 +21,8 @@ import pytest
 from airflow import AirflowException
 from airflow.composer.data_lineage.entities import BigQueryTable, GCSEntity
 from airflow.composer.data_lineage.operators import post_execute_prepare_lineage
-from airflow.composer.data_lineage.transfers.google.cloud.bigquery_to_gcs import BigQueryHook
 from airflow.contrib.operators.bigquery_to_gcs import BigQueryToCloudStorageOperator
+from airflow.providers.google.cloud.hooks.bigquery import BigQueryHook
 from airflow.providers.google.cloud.transfers.bigquery_to_gcs import BigQueryToGCSOperator
 
 TASK_ID = "test-task_id"
@@ -107,7 +107,7 @@ class TestBigQueryToGCS:
         assert task.outlets == expected_outlets
 
     @patch(
-        "airflow.composer.data_lineage.transfers.google.cloud.bigquery_to_gcs.BigQueryHook",
+        "airflow.providers.google.cloud.hooks.bigquery.BigQueryHook",
         autospec=True,
     )
     def test_post_execute_prepare_lineage_create_hook_error(self, mock_hook, operator):

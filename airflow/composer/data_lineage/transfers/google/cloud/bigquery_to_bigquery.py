@@ -15,11 +15,12 @@
 from __future__ import annotations
 
 import logging
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from airflow.providers.google.cloud.transfers.bigquery_to_bigquery import BigQueryToBigQueryOperator
 
 from airflow import AirflowException
-from airflow.composer.data_lineage.entities import BigQueryTable
-from airflow.providers.google.cloud.hooks.bigquery import BigQueryHook
-from airflow.providers.google.cloud.transfers.bigquery_to_bigquery import BigQueryToBigQueryOperator
 
 log = logging.getLogger(__name__)
 
@@ -28,6 +29,9 @@ class BigQueryToBigQueryOperatorLineageMixin:
     """Mixin class for BigQueryToBigQueryOperator."""
 
     def post_execute_prepare_lineage(self: BigQueryToBigQueryOperator, context: dict):  # type: ignore
+        from airflow.composer.data_lineage.entities import BigQueryTable
+        from airflow.providers.google.cloud.hooks.bigquery import BigQueryHook
+
         try:
             hook = BigQueryHook(
                 gcp_conn_id=self.gcp_conn_id,

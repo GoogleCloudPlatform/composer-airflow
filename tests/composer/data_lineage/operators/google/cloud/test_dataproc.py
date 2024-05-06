@@ -30,8 +30,9 @@ from airflow.composer.data_lineage.operators.google.cloud.dataproc import (
 )
 from airflow.providers.google.cloud.operators.dataproc import DataprocSubmitJobOperator
 
-DATAPROC_PATH = "airflow.composer.data_lineage.operators.google.cloud.dataproc"
-DATAPROC_LINEAGE_EXTRACTOR_PATH = DATAPROC_PATH + ".DataprocSQLJobLineageExtractor"
+DATAPROC_LINEAGE_EXTRACTOR_PATH = (
+    "airflow.composer.data_lineage.operators.google.cloud.dataproc.DataprocSQLJobLineageExtractor"
+)
 
 TEST_PROJECT_ID = "test_project_id"
 TEST_LOCATION = "test_location"
@@ -176,9 +177,9 @@ class TestDataprocSQLJobLineageExtractor:
         with pytest.raises(AirflowException):
             _ = extractor.metastore_instance_id
 
-    @mock.patch(DATAPROC_PATH + ".ClientOptions")
-    @mock.patch(DATAPROC_PATH + ".ClusterControllerClient")
-    @mock.patch(DATAPROC_PATH + ".GetClusterRequest")
+    @mock.patch("google.api_core.client_options.ClientOptions")
+    @mock.patch("google.cloud.dataproc_v1.ClusterControllerClient")
+    @mock.patch("google.cloud.dataproc_v1.GetClusterRequest")
     def test_dataproc_metastore_cluster(self, mock_request, mock_client, mock_client_options, hive_job):
         expected_client_options = MagicMock()
         expected_cluster = MagicMock()
@@ -202,9 +203,9 @@ class TestDataprocSQLJobLineageExtractor:
             project_id=TEST_PROJECT_ID, region=TEST_LOCATION, cluster_name=TEST_DATAPROC_CLUSTER
         )
 
-    @mock.patch(DATAPROC_PATH + ".ClientOptions")
-    @mock.patch(DATAPROC_PATH + ".ClusterControllerClient")
-    @mock.patch(DATAPROC_PATH + ".GetClusterRequest")
+    @mock.patch("google.api_core.client_options.ClientOptions")
+    @mock.patch("google.cloud.dataproc_v1.ClusterControllerClient")
+    @mock.patch("google.cloud.dataproc_v1.GetClusterRequest")
     def test_dataproc_metastore_cluster_not_found(
         self, mock_request, mock_client, mock_client_options, hive_job
     ):
@@ -325,7 +326,7 @@ class TestDataprocSQLJobLineageExtractor:
             extractor.parse_queries()
 
     @pytest.mark.parametrize("exception", [SQLLineageException, IndexError])
-    @mock.patch(f"{DATAPROC_PATH}.LineageRunner.source_tables", new_callable=PropertyMock)
+    @mock.patch("sqllineage.runner.LineageRunner.source_tables", new_callable=PropertyMock)
     def test_parse_queries_sqllineage_source_tables_exception(self, mock_source_tables, exception, hive_job):
         hive_job.hive_job.query_list.queries = [SQL_SELECT_FROM_TABLE1]
         mock_source_tables.side_effect = exception
@@ -337,7 +338,7 @@ class TestDataprocSQLJobLineageExtractor:
             extractor.parse_queries()
 
     @pytest.mark.parametrize("exception", [SQLLineageException, IndexError])
-    @mock.patch(f"{DATAPROC_PATH}.LineageRunner.target_tables", new_callable=PropertyMock)
+    @mock.patch("sqllineage.runner.LineageRunner.target_tables", new_callable=PropertyMock)
     def test_parse_queries_sqllineage_target_tables_exception(self, mock_target_tables, exception, hive_job):
         hive_job.hive_job.query_list.queries = [SQL_SELECT_FROM_TABLE1]
         mock_target_tables.side_effect = exception
@@ -350,8 +351,10 @@ class TestDataprocSQLJobLineageExtractor:
 
 
 class TestDataprocSubmitJobOperatorLineageMixin:
-    @mock.patch(DATAPROC_PATH + ".DataprocHook")
-    @mock.patch(DATAPROC_PATH + ".DataprocSQLJobLineageExtractor")
+    @mock.patch("airflow.providers.google.cloud.hooks.dataproc.DataprocHook")
+    @mock.patch(
+        "airflow.composer.data_lineage.operators.google.cloud.dataproc.DataprocSQLJobLineageExtractor"
+    )
     def test_post_execute_prepare_lineage(self, mock_extractor, mock_hook):
         expected_inlets = [MagicMock(), MagicMock()]
         expected_outlets = [MagicMock(), MagicMock()]
@@ -368,7 +371,7 @@ class TestDataprocSubmitJobOperatorLineageMixin:
         assert task.inlets == expected_inlets
         assert task.outlets == expected_outlets
 
-    @mock.patch(DATAPROC_PATH + ".DataprocHook")
+    @mock.patch("airflow.providers.google.cloud.hooks.dataproc.DataprocHook")
     def test_post_execute_prepare_lineage_no_project_id(self, mock_hook):
         mock_hook.return_value.project_id = None
         job_id = "test-job-id"
@@ -381,7 +384,7 @@ class TestDataprocSubmitJobOperatorLineageMixin:
         assert task.inlets == []
         assert task.outlets == []
 
-    @mock.patch(DATAPROC_PATH + ".DataprocHook")
+    @mock.patch("airflow.providers.google.cloud.hooks.dataproc.DataprocHook")
     def test_post_execute_prepare_lineage_no_job(self, mock_hook):
         m_hook = MagicMock(project_id=TEST_PROJECT_ID)
         m_hook.get_job.side_effect = NotFound(message="message")
@@ -398,8 +401,10 @@ class TestDataprocSubmitJobOperatorLineageMixin:
         assert task.inlets == []
         assert task.outlets == []
 
-    @mock.patch(DATAPROC_PATH + ".DataprocHook")
-    @mock.patch(DATAPROC_PATH + ".DataprocSQLJobLineageExtractor")
+    @mock.patch("airflow.providers.google.cloud.hooks.dataproc.DataprocHook")
+    @mock.patch(
+        "airflow.composer.data_lineage.operators.google.cloud.dataproc.DataprocSQLJobLineageExtractor"
+    )
     def test_post_execute_prepare_lineage_no_inlets(self, mock_extractor, mock_hook):
         inlets = []
         outlets = [MagicMock(), MagicMock()]
@@ -416,8 +421,10 @@ class TestDataprocSubmitJobOperatorLineageMixin:
         assert task.inlets == []
         assert task.outlets == []
 
-    @mock.patch(DATAPROC_PATH + ".DataprocHook")
-    @mock.patch(DATAPROC_PATH + ".DataprocSQLJobLineageExtractor")
+    @mock.patch("airflow.providers.google.cloud.hooks.dataproc.DataprocHook")
+    @mock.patch(
+        "airflow.composer.data_lineage.operators.google.cloud.dataproc.DataprocSQLJobLineageExtractor"
+    )
     def test_post_execute_prepare_lineage_no_outlets(self, mock_extractor, mock_hook):
         inlets = [MagicMock(), MagicMock()]
         outlets = []
@@ -434,8 +441,10 @@ class TestDataprocSubmitJobOperatorLineageMixin:
         assert task.inlets == []
         assert task.outlets == []
 
-    @mock.patch(DATAPROC_PATH + ".DataprocHook")
-    @mock.patch(DATAPROC_PATH + ".DataprocSQLJobLineageExtractor")
+    @mock.patch("airflow.providers.google.cloud.hooks.dataproc.DataprocHook")
+    @mock.patch(
+        "airflow.composer.data_lineage.operators.google.cloud.dataproc.DataprocSQLJobLineageExtractor"
+    )
     def test_post_execute_prepare_lineage_airflow_exception(self, mock_extractor, mock_hook):
         mock_extractor.return_value.data_lineage.side_effect = AirflowException
         job_id = "test-job-id"

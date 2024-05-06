@@ -15,18 +15,13 @@
 from __future__ import annotations
 
 import logging
-from urllib.parse import urlparse
+from typing import TYPE_CHECKING
 
-import sqlparse
-from sqllineage.exceptions import SQLLineageException
-from sqllineage.runner import LineageRunner
+if TYPE_CHECKING:
+    from airflow.providers.google.cloud.transfers.mysql_to_gcs import MySQLToGCSOperator
 
 from airflow import AirflowException
-from airflow.composer.data_lineage.entities import GCSEntity, MySQLTable
-from airflow.composer.data_lineage.utils import parsed_sql_statements
 from airflow.exceptions import AirflowNotFoundException
-from airflow.providers.google.cloud.transfers.mysql_to_gcs import MySQLToGCSOperator
-from airflow.providers.mysql.hooks.mysql import MySqlHook
 
 log = logging.getLogger(__name__)
 
@@ -35,6 +30,17 @@ class MySQLToGCSOperatorLineageMixin:
     """Mixin class for MySQLToGCSOperator."""
 
     def post_execute_prepare_lineage(self: MySQLToGCSOperator, context: dict):  # type: ignore
+
+        from urllib.parse import urlparse
+
+        import sqlparse
+        from sqllineage.exceptions import SQLLineageException
+        from sqllineage.runner import LineageRunner
+
+        from airflow.composer.data_lineage.entities import GCSEntity, MySQLTable
+        from airflow.composer.data_lineage.utils import parsed_sql_statements
+        from airflow.providers.mysql.hooks.mysql import MySqlHook
+
         # 1. Parse connection URI
         try:
             hook = MySqlHook(mysql_conn_id=self.mysql_conn_id)

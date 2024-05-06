@@ -28,7 +28,7 @@ from airflow.providers.google.cloud.operators.bigquery import (
     BigQueryInsertJobOperator,
 )
 
-BIGQUERY_PATH = "airflow.composer.data_lineage.operators.google.cloud.bigquery"
+BIGQUERY_PATH = "airflow.providers.google.cloud.hooks.bigquery"
 
 
 class TestBigQueryInsertJobOperator:
@@ -161,7 +161,7 @@ class TestBigQueryInsertJobOperator:
         assert task.inlets == []
         assert task.outlets == []
 
-    @patch(BIGQUERY_PATH + ".is_big_query_table_in_sources", autospec=True)
+    @patch("airflow.composer.data_lineage.utils.is_big_query_table_in_sources", autospec=True)
     @patch(BIGQUERY_PATH + ".BigQueryHook", autospec=True)
     def test_post_execute_prepare_lineage_parse_query_error(self, mock_bigquery_hook, mock_table_in_sources):
         def _mock_get_job(project_id, location, job_id):

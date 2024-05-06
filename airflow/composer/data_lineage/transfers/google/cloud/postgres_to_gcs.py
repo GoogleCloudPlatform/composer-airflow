@@ -15,18 +15,13 @@
 from __future__ import annotations
 
 import logging
-from urllib.parse import urlparse
+from typing import TYPE_CHECKING
 
-import sqlparse
-from sqllineage.exceptions import SQLLineageException
-from sqllineage.runner import LineageRunner
+if TYPE_CHECKING:
+    from airflow.providers.google.cloud.transfers.postgres_to_gcs import PostgresToGCSOperator
 
 from airflow import AirflowException
-from airflow.composer.data_lineage.entities import GCSEntity, PostgresTable
-from airflow.composer.data_lineage.utils import parsed_sql_statements
 from airflow.exceptions import AirflowNotFoundException
-from airflow.providers.google.cloud.transfers.postgres_to_gcs import PostgresToGCSOperator
-from airflow.providers.postgres.hooks.postgres import PostgresHook
 
 log = logging.getLogger(__name__)
 
@@ -35,6 +30,17 @@ class PostgresToGCSOperatorLineageMixin:
     """Mixin class for PostgresToGCSOperator."""
 
     def post_execute_prepare_lineage(self: PostgresToGCSOperator, context: dict):  # type: ignore
+
+        from urllib.parse import urlparse
+
+        import sqlparse
+        from sqllineage.exceptions import SQLLineageException
+        from sqllineage.runner import LineageRunner
+
+        from airflow.composer.data_lineage.entities import GCSEntity, PostgresTable
+        from airflow.composer.data_lineage.utils import parsed_sql_statements
+        from airflow.providers.postgres.hooks.postgres import PostgresHook
+
         # 1. Parse connection URI
         try:
             hook = PostgresHook(postgres_conn_id=self.postgres_conn_id)

@@ -150,7 +150,7 @@ class TestMySQLToGCSOperator:
         assert task.inlets == []
         assert task.outlets == []
 
-    @patch("airflow.composer.data_lineage.transfers.google.cloud.mysql_to_gcs.MySqlHook", autospec=True)
+    @patch("airflow.providers.mysql.hooks.mysql.MySqlHook", autospec=True)
     def test_post_execute_prepare_lineage_hook_creation_error(self, hook_mock, operator):
         hook_mock.side_effect = AirflowException
 

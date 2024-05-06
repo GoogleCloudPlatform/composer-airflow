@@ -15,23 +15,23 @@
 from __future__ import annotations
 
 import logging
+from typing import TYPE_CHECKING
 
-from google.api_core.exceptions import GoogleAPICallError
-from sqllineage.exceptions import SQLLineageException
-
-from airflow.composer.data_lineage.entities import BigQueryTable
-from airflow.composer.data_lineage.utils import exclude_outlet, is_big_query_table_in_sources
-from airflow.exceptions import AirflowNotFoundException
-from airflow.providers.google.cloud.hooks.bigquery import BigQueryHook
-from airflow.providers.google.cloud.operators.bigquery import (
-    BigQueryExecuteQueryOperator,
-    BigQueryInsertJobOperator,
-)
+if TYPE_CHECKING:
+    from airflow.composer.data_lineage.entities import BigQueryTable
+    from airflow.providers.google.cloud.operators.bigquery import (
+        BigQueryExecuteQueryOperator,
+        BigQueryInsertJobOperator,
+    )
 
 log = logging.getLogger(__name__)
 
 
 def _should_exclude_outlet(props: dict, outlet: BigQueryTable):
+    from sqllineage.exceptions import SQLLineageException
+
+    from airflow.composer.data_lineage.utils import is_big_query_table_in_sources
+
     query = props.get("configuration", {}).get("query", {}).get("query", "")
     default_dataset = (
         props.get("configuration", {}).get("query", {}).get("defaultDataset", {}).get("datasetId")
@@ -59,6 +59,14 @@ class BigQueryInsertJobOperatorLineageMixin:
     """Mixin class for BigQueryInsertJobOperator."""
 
     def post_execute_prepare_lineage(self: BigQueryInsertJobOperator, context: dict):  # type: ignore
+
+        from google.api_core.exceptions import GoogleAPICallError
+
+        from airflow.composer.data_lineage.entities import BigQueryTable
+        from airflow.composer.data_lineage.utils import exclude_outlet
+        from airflow.exceptions import AirflowNotFoundException
+        from airflow.providers.google.cloud.hooks.bigquery import BigQueryHook
+
         task_instance = context["task_instance"]
         job_id_path: str = task_instance.xcom_pull(task_ids=task_instance.task_id, key="job_id_path")
         if not job_id_path:
@@ -122,6 +130,14 @@ class BigQueryExecuteQueryOperatorLineageMixin:
     """Mixin class for BigQueryExecuteQueryOperator."""
 
     def post_execute_prepare_lineage(self: BigQueryExecuteQueryOperator, context: dict):  # type: ignore
+
+        from google.api_core.exceptions import GoogleAPICallError
+
+        from airflow.composer.data_lineage.entities import BigQueryTable
+        from airflow.composer.data_lineage.utils import exclude_outlet
+        from airflow.exceptions import AirflowNotFoundException
+        from airflow.providers.google.cloud.hooks.bigquery import BigQueryHook
+
         task_instance = context["task_instance"]
         job_id_path: str = task_instance.xcom_pull(task_ids=task_instance.task_id, key="job_id_path")
         if not job_id_path:

@@ -200,7 +200,7 @@ class TestPostgresToGCSOperator:
         assert task.outlets == []
 
     @patch(
-        "airflow.composer.data_lineage.transfers.google.cloud.postgres_to_gcs.PostgresHook",
+        "airflow.providers.postgres.hooks.postgres.PostgresHook",
         autospec=True,
     )
     def test_post_execute_prepare_lineage_create_hook_error(self, mock_hook, operator):

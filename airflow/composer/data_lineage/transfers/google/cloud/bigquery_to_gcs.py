@@ -14,13 +14,14 @@
 # limitations under the License.
 from __future__ import annotations
 
-import logging
+from typing import TYPE_CHECKING
 
 from airflow import AirflowException
-from airflow.composer.data_lineage.entities import BigQueryTable, GCSEntity
-from airflow.providers.google.cloud.hooks.bigquery import BigQueryHook
-from airflow.providers.google.cloud.hooks.gcs import _parse_gcs_url
-from airflow.providers.google.cloud.transfers.bigquery_to_gcs import BigQueryToGCSOperator
+
+if TYPE_CHECKING:
+    from airflow.providers.google.cloud.transfers.bigquery_to_gcs import BigQueryToGCSOperator
+
+import logging
 
 log = logging.getLogger(__name__)
 
@@ -29,6 +30,10 @@ class BigQueryToGCSOperatorLineageMixin:
     """Mixin class for BigQueryToGCSOperator."""
 
     def post_execute_prepare_lineage(self: BigQueryToGCSOperator, context: dict):  # type: ignore
+        from airflow.composer.data_lineage.entities import BigQueryTable, GCSEntity
+        from airflow.providers.google.cloud.hooks.bigquery import BigQueryHook
+        from airflow.providers.google.cloud.hooks.gcs import _parse_gcs_url
+
         try:
             hook = BigQueryHook(
                 gcp_conn_id=self.gcp_conn_id,

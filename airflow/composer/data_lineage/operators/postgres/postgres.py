@@ -14,20 +14,14 @@
 # limitations under the License.
 from __future__ import annotations
 
-import itertools
-import logging
-from typing import List
-from urllib.parse import urlparse
+from typing import TYPE_CHECKING
 
-import sqlparse
-from sqllineage.exceptions import SQLLineageException
-from sqllineage.runner import LineageRunner
+if TYPE_CHECKING:
+    from airflow.providers.postgres.operators.postgres import PostgresOperator
+
+import logging
 
 from airflow import AirflowException
-from airflow.composer.data_lineage.entities import PostgresTable
-from airflow.composer.data_lineage.exceptions import UnexpectedDbSchemaError
-from airflow.exceptions import AirflowNotFoundException
-from airflow.providers.postgres.operators.postgres import PostgresOperator
 
 log = logging.getLogger(__name__)
 
@@ -36,6 +30,17 @@ class PostgresOperatorLineageMixin:
     """Mixin class for PostgresOperator."""
 
     def post_execute_prepare_lineage(self: PostgresOperator, context: dict):  # type: ignore
+        import itertools
+        from typing import List
+        from urllib.parse import urlparse
+
+        import sqlparse
+        from sqllineage.exceptions import SQLLineageException
+        from sqllineage.runner import LineageRunner
+
+        from airflow.composer.data_lineage.exceptions import UnexpectedDbSchemaError
+        from airflow.exceptions import AirflowNotFoundException
+
         try:
             hook = self.get_db_hook()
         except AirflowException as airflow_exception:
@@ -98,6 +103,9 @@ def _map_to_postgres_tables(lineage_tables: list, db_default: str, host: str, po
         If database is specified in the 'lineage_tables' parameter, it will be overwritten.
         List of PostgresTable objects.
     """
+    from airflow.composer.data_lineage.entities import PostgresTable
+    from airflow.composer.data_lineage.exceptions import UnexpectedDbSchemaError
+
     result_tables = []
     for lineage_table in lineage_tables:
         db_schema_parts = lineage_table.schema.raw_name.split(".")

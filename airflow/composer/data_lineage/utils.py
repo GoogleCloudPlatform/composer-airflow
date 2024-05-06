@@ -17,12 +17,13 @@ from __future__ import annotations
 import hashlib
 import os
 import uuid
-from typing import TypeVar
+from typing import TYPE_CHECKING, TypeVar
 
-import sqlparse
-from sqllineage.core.models import Schema, Table
 from sqllineage.runner import LineageRunner
-from sqlparse.sql import Statement
+
+if TYPE_CHECKING:
+    from sqllineage.core.models import Table
+    from sqlparse.sql import Statement
 
 from airflow.composer.data_lineage.entities import BigQueryTable
 
@@ -68,6 +69,8 @@ T = TypeVar("T")
 
 
 def _build_BigQueryTable(source_table: Table, default_dataset: str, default_project: str) -> BigQueryTable:
+    from sqllineage.core.models import Schema
+
     table = source_table.raw_name
     dataset_id, project_id = default_dataset, default_project
     schema = source_table.schema
@@ -114,6 +117,8 @@ def parsed_sql_statements(sql: str) -> list[Statement]:
     Returns:
         list of objects representing Statements.
     """
+    import sqlparse
+
     return [
         s
         for s in sqlparse.parse(
