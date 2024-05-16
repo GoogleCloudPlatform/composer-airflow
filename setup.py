@@ -378,7 +378,7 @@ webhdfs = [
 ]
 composer_additional = [
     "aiodebug",
-    # TODO: b/315286145 - Remove after the issue is fixed in community
+    # TODO: Internal bug - Remove after the issue is fixed in community
     # https://github.com/apache/airflow/issues/35434
     "connexion<=2.14.2",
     "crcmod<2.0",

@@ -21,6 +21,7 @@ import pytest
 import airflow.utils.net
 from airflow import settings
 from airflow.composer.utils import (
+    COMPOSER_DEFAULT_CELERY_CONFIG,
     get_component_hostname,
     get_composer_gke_cluster_host,
     get_composer_version,
@@ -29,6 +30,7 @@ from airflow.composer.utils import (
     is_serverless_composer,
     is_triggerer_enabled,
 )
+from airflow.providers.celery.executors.default_celery import DEFAULT_CELERY_CONFIG
 from tests.test_utils.config import conf_vars
 
 
@@ -114,3 +116,8 @@ class TestUtils:
         getfqdn_mock.return_value = hostname
 
         assert get_component_hostname() == expected_result
+
+    def test_composer_default_celery_config(self):
+        assert DEFAULT_CELERY_CONFIG.items() <= COMPOSER_DEFAULT_CELERY_CONFIG.items()
+        assert "redis_backend_health_check_interval" in COMPOSER_DEFAULT_CELERY_CONFIG
+        assert COMPOSER_DEFAULT_CELERY_CONFIG["redis_backend_health_check_interval"] == 30

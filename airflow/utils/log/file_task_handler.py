@@ -207,10 +207,10 @@ class FileTaskHandler(logging.Handler):
         Reference:
 
         WatchedFileHandler:
-        https://github.com/python/cpython/blob/3.9/Lib/logging/handlers.py
+        https://github.com/python/cpython/bloInternal bug.9/Lib/logging/handlers.py
 
         Handler, FileHandler and raiseExceptions:
-        https://github.com/python/cpython/blob/3.9/Lib/logging/__init__.py
+        https://github.com/python/cpython/bloInternal bug.9/Lib/logging/__init__.py
         """
 
         def __init__(self, filename, mode="a", encoding="utf-8", delay=False):

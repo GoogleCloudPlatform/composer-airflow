@@ -251,7 +251,7 @@ class BigQueryHook(GoogleBaseHook, DbApiHook):
         PEP 249 connections, except for SQLite.
 
         .. seealso::
-            https://github.com/pandas-dev/pandas/blob/055d008615272a1ceca9720dc365a2abd316f353/pandas/io/sql.py#L415
+            https://github.com/pandas-dev/pandas/bloInternal bugd008615272a1ceca9720dc365a2abd316f353/pandas/io/sql.py#L415
             https://github.com/pandas-dev/pandas/issues/6900
 
         :param sql: The BigQuery SQL to execute.

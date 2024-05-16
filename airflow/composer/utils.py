@@ -14,6 +14,7 @@
 # limitations under the License.
 from __future__ import annotations
 
+import copy
 import os
 import sys
 
@@ -22,9 +23,15 @@ from kubernetes import config
 from kubernetes.client import Configuration
 
 from airflow.configuration import conf
+from airflow.providers.celery.executors.default_celery import DEFAULT_CELERY_CONFIG
 from airflow.utils import net
 
 COMPOSER_GKE_CLUSTER_HOST = None
+
+# Enables redis health check in celery. It is set to prevent dags from failing
+# when redis closes connection.
+COMPOSER_DEFAULT_CELERY_CONFIG = copy.deepcopy(DEFAULT_CELERY_CONFIG)
+COMPOSER_DEFAULT_CELERY_CONFIG["redis_backend_health_check_interval"] = 30
 
 
 def get_composer_version():

@@ -184,7 +184,7 @@ Commit                                                                          
 `d9f70dffd1 <https://github.com/apache/airflow/commit/d9f70dffd1813fa6356d8981167eca6d5f317bb1>`_  2023-05-16   ``Add CloudBuild build id log (#30516)``
 `caeca2d143 <https://github.com/apache/airflow/commit/caeca2d143152ef037ccbaae858f1e2fa6763674>`_  2023-05-15   ``Add protocol to define methods relied upon by KubernetesPodOperator (#31298)``
 `d3a2dbe028 <https://github.com/apache/airflow/commit/d3a2dbe028e4a8c2da9fcb2b3257e2117c413a73>`_  2023-05-15   ``GKEPodHook needs to have all methods KPO calls (#31266)``
-`fb6c501124 <https://github.com/apache/airflow/commit/fb6c501124186f695b9dfa497cde10298ac12e9f>`_  2023-05-13   ``Add flag apply_gcs_prefix to S3ToGCSOperator (b/245077385) (#31127)``
+`fb6c501124 <https://github.com/apache/airflow/commit/fb6c501124186f695b9dfa497cde10298ac12e9f>`_  2023-05-13   ``Add flag apply_gcs_prefix to S3ToGCSOperator (Internal bug) (#31127)``
 `a66edcbb2c <https://github.com/apache/airflow/commit/a66edcbb2c9c04031326a3965c76a419043338ff>`_  2023-05-13   ``'CreateBatchPredictionJobOperator' Add batch_size param for Vertex AI BatchPredictionJob objects (#31118)``
 `d1fe67184d <https://github.com/apache/airflow/commit/d1fe67184da26fb0bca2416e26f321747fa4aa5d>`_  2023-05-12   ``Add 'use_legacy_sql' param to 'BigQueryGetDataOperator' (#31190)``
 `b8f73768ec <https://github.com/apache/airflow/commit/b8f73768ec13f8d4cc1605cca3fa93be6caac473>`_  2023-05-09   ``Add 'as_dict' param to 'BigQueryGetDataOperator' (#30887)``

@@ -224,7 +224,7 @@ Misc
 
 * ``Add 'use_legacy_sql' param to 'BigQueryGetDataOperator' (#31190)``
 * ``Add 'as_dict' param to 'BigQueryGetDataOperator' (#30887)``
-* ``Add flag apply_gcs_prefix to S3ToGCSOperator (b/245077385) (#31127)``
+* ``Add flag apply_gcs_prefix to S3ToGCSOperator (Internal bug) (#31127)``
 * ``Add 'priority' parameter to BigQueryHook (#30655)``
 * ``Bump minimum Airflow version in providers (#30917)``
 * ``implement gcs_schema_object for BigQueryCreateExternalTableOperator (#30961)``
