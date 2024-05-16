@@ -44,8 +44,9 @@ _KEEP_CONFIGS_SETTINGS: dict[str, dict[str, set[str]]] = {
     # Keep always these configurations
     "always": {
         "database": {"sql_alchemy_conn"},
-        "core": {"sql_alchemy_conn"},
+        "core": {"sql_alchemy_conn", "executor"},
         "celery": {"result_backend", "broker_url"},
+        "webserver": {"web_server_name"},
     },
     # Keep per enabled integrations
     "celery": {"celery": {"*"}, "celery_broker_transport_options": {"*"}},
