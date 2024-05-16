@@ -458,6 +458,7 @@ DEPENDENCIES = [
     "opentelemetry-exporter-otlp>=1.24.0",
     "packaging>=23.0",
     "pathspec>=0.9.0",
+    "pem>=23.1.0",
     'pendulum>=2.1.2,<4.0;python_version<"3.12"',
     'pendulum>=3.0.0,<4.0;python_version>="3.12"',
     "pluggy>=1.5.0",
@@ -489,6 +490,98 @@ DEPENDENCIES = [
     "werkzeug>=3.1.3,<4",
 ]
 
+COMPOSER_DEPENDENCIES = [
+    "apache-airflow-providers-apache-beam",
+    "apache-airflow-providers-apache-kafka",
+    # Celery provider 3.9.0 breaks for airflow < 3, will be fixed in 3.9.1
+    # TODO: Internal bug - Also Celery provider >3.10.0 breaks for Airflow <= 2.10.5
+    "apache-airflow-providers-celery <=3.10.0,!=3.9.0",
+    # v10.10.0 has a regression breaking XCom in deferrable K8s operators.
+    "apache-airflow-providers-cncf-kubernetes!=10.10.0",
+    "apache-airflow-providers-dbt-cloud",
+    "apache-airflow-providers-google",
+    "apache-airflow-providers-hashicorp",
+    "apache-airflow-providers-http",
+    "apache-airflow-providers-mysql",
+    "apache-airflow-providers-postgres",
+    "apache-airflow-providers-openlineage",
+    "apache-airflow-providers-sendgrid",
+    "apache-airflow-providers-sqlite",
+    "apache-airflow-providers-ssh",
+    "apache-airflow-providers-standard",
+    "aiodebug",
+    # aiohttp and pygments in lower versions contain security vulnerabilities.
+    "aiohttp>=3.8.5",
+    # TODO: Internal bug - Remove once the bug is fixed, 8.2.1 used since 8.2.2 is yanked
+    "click<=8.2.1",  # only as constraint
+    "confluent-kafka",
+    "crcmod<2.0",
+    "cryptography",
+    "dbt-adapters>=1.22.5",  # Only as a constraint to help pip resolver
+    "dbt-bigquery>=1.11.0",  # Composer dependency, constraint to help pip resolver
+    "dbt-core>=1.11.2",  # Composer dependency, constraint to help pip resolver
+    "firebase-admin",
+    "flask_limiter<=3.12",  # Only as a constraint
+    # TODO: remove once https://github.com/apache/airflow/issues/36897 is closed
+    "Flask-Session<0.6.0",
+    # Due to security vulnerability Flower version >= 2.0.0 required.
+    "flower>=2.0.0",
+    "gcsfs",
+    "google-apitools",
+    "google-cloud-aiplatform[evaluation]",
+    "google-cloud-asset",
+    "google-cloud-bigquery-storage",
+    # To overcome dependency build fail with older versioned downloaded
+    "google-cloud-datacatalog-lineage-producer-client>=0.2.2",
+    "google-cloud-datastore",
+    "google-cloud-documentai",
+    "google-cloud-filestore",
+    "google-cloud-firestore",
+    "google-cloud-pubsublite<1.0.0",
+    "keyrings.google-artifactregistry-auth",
+    "numpy<2.0.0",  # Only as a constraint
+    "pandas<=2.1.4",  # Only as a constraint
+    "paramiko<=3.5.1",  # Only as a constraint
+    "pip==23.2.1",
+    "pyOpenSSL",
+    "pipdeptree",
+    "pygments>2.15.0",
+    # Only as a constraint, we can remove once it's fixed as it's not a Composer dependency
+    # https://github.com/pytest-dev/pytest/issues/13477
+    # https://github.com/apache/airflow/pull/58166
+    "pytest!=8.4.0,<9.0.0",
+    "setuptools>=78.1.1",  # Only as a constraint to avoid vulnerabilities
+    # Only as a constraint, we can remove once it's fixed as it's not a Composer dependency
+    # https://github.com/googleapis/python-spanner-sqlalchemy/issues/682
+    "sqlalchemy-spanner!=1.12.0",
+    "sqllineage",
+    "sqlparse",
+    "tensorflow",
+    # TODO: Internal bug - Review if possible to remove constraint in Airflow >= 2.11
+    "universal-pathlib<=0.2.6",  # Only as constraint
+    "urllib3>=2.6.0",  # Only as constraint to solve SV
+    "virtualenv>=20.24.0",
+    "websockets",
+    # Versions < 2.2.3 contain security vulnerabilities.
+    "werkzeug>=2.2.3",
+    # TODO: remove when https://github.com/apache/airflow/issues/43228 is fixed
+    "wtforms>=3.1.0,<3.2.0",
+]
+
+COMPOSER_EXTRAS_DEPENDENCIES = [
+    "apache-beam",
+    "celery",
+    "mysql",
+    "password",
+    "postgres",
+    "redis",
+    "statsd",
+    "virtualenv",
+]
+
+# Do not delete the comment below, it is used during Kokoro to insert
+# some dynamic code
+# COMPOSER DEPENDENCIES OVERRIDE #
 
 ALL_DYNAMIC_EXTRA_DICTS: list[tuple[dict[str, list[str]], str]] = [
     (CORE_EXTRAS, "Core extras"),
@@ -831,7 +924,8 @@ class CustomBuildHook(BuildHookInterface[BuilderConfig]):
         # 3rd-party dependencies for airflow for the CI image. It is exposed in the wheel package
         # because we want to use for building the image cache from GitHub URL.
         self.optional_dependencies["devel-ci"] = sorted(self.all_devel_ci_dependencies)
-        self._dependencies = DEPENDENCIES
+        self._dependencies = DEPENDENCIES + COMPOSER_DEPENDENCIES
+        self._add_composer_extras_to_dependencies()
 
         if version == "standard":
             # Inject preinstalled providers into the dependencies for standard packages
@@ -859,6 +953,20 @@ class CustomBuildHook(BuildHookInterface[BuilderConfig]):
                     plugins[plugin["name"]] = plugin_class[::-1].replace(".", ":", 1)[::-1]
             entry_points["airflow.plugins"] = plugins
             self.metadata.core._entry_points = entry_points
+
+    def _add_composer_extras_to_dependencies(self):
+        """
+        Add Composer Extras.
+
+        We need to add the extras used in Composer because in our airflow builder image
+        (used when the user wants to add their pypi dependencies),
+        we call pip install -r requirements, which will not call
+        hatch_build.py. Thus, pip will not know where to look for
+        the extras. To resolve this issue, we add in this function
+        the depenpendencies used by each extra.
+        """
+        for extra in COMPOSER_EXTRAS_DEPENDENCIES:
+            self._dependencies.extend(self.optional_dependencies[extra])
 
     def _add_devel_ci_dependencies(self, deps: list[str], python_exclusion: str) -> None:
         """
