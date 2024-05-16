@@ -504,6 +504,74 @@ DEPENDENCIES = [
     "werkzeug>=2.0,<3",
 ]
 
+COMPOSER_DEPENDENCIES = [
+    "apache-airflow[apache.beam]",
+    "apache-airflow[celery]",
+    "apache-airflow[mysql]",
+    "apache-airflow[password]",
+    "apache-airflow[postgres]",
+    "apache-airflow[redis]",
+    "apache-airflow[statsd]",
+    "apache-airflow[virtualenv]",
+    "apache-airflow-providers-apache-beam",
+    "apache-airflow-providers-celery",
+    "apache-airflow-providers-cncf-kubernetes",
+    "apache-airflow-providers-dbt-cloud",
+    "apache-airflow-providers-google",
+    "apache-airflow-providers-hashicorp",
+    "apache-airflow-providers-http",
+    "apache-airflow-providers-mysql",
+    "apache-airflow-providers-postgres",
+    "apache-airflow-providers-sendgrid",
+    "apache-airflow-providers-ssh",
+    "apache-airflow-providers-sqlite",
+    "aiodebug",
+    # TODO: b/315286145 - Remove after the issue is fixed in community
+    # https://github.com/apache/airflow/issues/35434
+    "connexion<=2.14.2",
+    "crcmod<2.0",
+    "cryptography",
+    # Newer versions of dbt-core libraries are not compatible with pydantic>=2.0.0
+    "dbt-bigquery==1.5.4",
+    "dbt-core==1.5.4",
+    "firebase-admin",
+    # Due to security vulnerability Flower version >= 2.0.0 required.
+    "flower>=2.0.0",
+    "gcsfs",
+    "google-apitools",
+    "google-cloud-aiplatform",
+    "google-cloud-asset",
+    # "google-cloud-datacatalog-lineage-producer-client",
+    "google-cloud-datastore",
+    "google-cloud-documentai",
+    "google-cloud-filestore",
+    # higher version of package have conflict in the dependencies with the google-ads package
+    "google-cloud-firestore",
+    "google-cloud-pubsublite<1.0.0",
+    "keyrings.google-artifactregistry-auth",
+    "pip==23.2.1",
+    "pyOpenSSL",
+    "pipdeptree",
+    "sqllineage",
+    "sqlparse",
+    "tensorflow",
+    "virtualenv>=20.24.0",
+    # Versions < 2.2.3 contain security vulnerabilities.
+    "werkzeug>=2.2.3",
+    # aiohttp and pygments in lower versions contain seucrity vulnerabilities.
+    "aiohttp>=3.8.5",
+    "pygments>2.15.0",
+    # remove once https://github.com/apache/airflow/issues/36897 is closed
+    "Flask-Session<0.6.0",
+    # Remove in Airflow >= 2.9.0
+    "fsspec==2023.12.2",
+    # TODO: Remove once https://github.com/apache/airflow/issues/37156 closed
+    "pytest<8.0.0",
+]
+
+# Do not delete the comment below, it is used during Kokoro to insert
+# some dynamic code
+# COMPOSER DEPENDENCIES OVERRIDE #
 
 ALL_DYNAMIC_EXTRA_DICTS: list[tuple[dict[str, list[str]], str]] = [
     (CORE_EXTRAS, "Core extras"),
@@ -754,7 +822,7 @@ class CustomBuildHook(BuildHookInterface[BuilderConfig]):
         # 3rd-party dependencies for airflow for the CI image. It is exposed in the wheel package
         # because we want to use for building the image cache from GitHub URL.
         self.optional_dependencies["devel-ci"] = sorted(self.all_devel_ci_dependencies)
-        self._dependencies = DEPENDENCIES
+        self._dependencies = DEPENDENCIES + COMPOSER_DEPENDENCIES
 
         if version == "standard":
             # Inject preinstalled providers into the dependencies for standard packages

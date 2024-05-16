@@ -1,9 +1,9 @@
 # List of all the providers that are pre-installed when you run `pip install apache-airflow` without extras
+# http and sqlite were removed here because they were added in Composer dependencies. We cannot have
+# them in both places for installation priority reasons.
 common.io
 common.sql
 fab>=1.0.2rc1
 ftp
-http
 imap
 smtp
-sqlite
