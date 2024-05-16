@@ -49,8 +49,9 @@ if not keep_env_variables:
         # Keep always these configurations
         "always": {
             "database": {"sql_alchemy_conn"},
-            "core": {"sql_alchemy_conn"},
+            "core": {"sql_alchemy_conn", "executor"},
             "celery": {"result_backend", "broker_url"},
+            "webserver": {"web_server_name"},
         },
         # Keep per enabled integrations
         "celery": {"celery": {"*"}, "celery_broker_transport_options": {"*"}},

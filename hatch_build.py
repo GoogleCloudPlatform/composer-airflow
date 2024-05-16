@@ -499,6 +499,75 @@ DEPENDENCIES = [
     "werkzeug>=2.0,<3",
 ]
 
+COMPOSER_DEPENDENCIES = [
+    "apache-airflow-providers-apache-beam",
+    # Celery provider 3.9.0 breaks for airflow < 3, will be fixed in 3.9.1
+    "apache-airflow-providers-celery!=3.9.0",
+    "apache-airflow-providers-cncf-kubernetes",
+    "apache-airflow-providers-dbt-cloud",
+    # TODO: remove constraint (both google and postgres) once we decide to release 11.0.0+ version in Composer.
+    "apache-airflow-providers-google<11.0.0",
+    "apache-airflow-providers-hashicorp",
+    "apache-airflow-providers-http",
+    "apache-airflow-providers-mysql",
+    "apache-airflow-providers-postgres<6.0.0",
+    "apache-airflow-providers-openlineage",
+    "apache-airflow-providers-sendgrid",
+    "apache-airflow-providers-sqlite",
+    "apache-airflow-providers-ssh",
+    "apache-airflow-providers-standard",
+    "aiodebug",
+    # aiohttp and pygments in lower versions contain security vulnerabilities.
+    "aiohttp>=3.8.5",
+    "crcmod<2.0",
+    "cryptography",
+    "dbt-bigquery",
+    "dbt-core",
+    "firebase-admin",
+    # TODO: remove once https://github.com/apache/airflow/issues/36897 is closed
+    "Flask-Session<0.6.0",
+    # Due to security vulnerability Flower version >= 2.0.0 required.
+    "flower>=2.0.0",
+    "gcsfs",
+    "google-apitools",
+    "google-cloud-aiplatform[evaluation]",
+    "google-cloud-asset",
+    "google-cloud-datacatalog-lineage-producer-client",
+    "google-cloud-datastore",
+    "google-cloud-documentai",
+    "google-cloud-filestore",
+    "google-cloud-firestore",
+    "google-cloud-pubsublite<1.0.0",
+    "keyrings.google-artifactregistry-auth",
+    "pip==23.2.1",
+    "pyOpenSSL",
+    "pipdeptree",
+    "pygments>2.15.0",
+    "sqllineage",
+    "sqlparse",
+    "tensorflow",
+    "virtualenv>=20.24.0",
+    "websockets",
+    # Versions < 2.2.3 contain security vulnerabilities.
+    "werkzeug>=2.2.3",
+    # TODO: remove when https://github.com/apache/airflow/issues/43228 is fixed
+    "wtforms>=3.1.0,<3.2.0",
+]
+
+COMPOSER_EXTRAS_DEPENDENCIES = [
+    "apache-beam",
+    "celery",
+    "mysql",
+    "password",
+    "postgres",
+    "redis",
+    "statsd",
+    "virtualenv",
+]
+
+# Do not delete the comment below, it is used during Kokoro to insert
+# some dynamic code
+# COMPOSER DEPENDENCIES OVERRIDE #
 
 ALL_DYNAMIC_EXTRA_DICTS: list[tuple[dict[str, list[str]], str]] = [
     (CORE_EXTRAS, "Core extras"),
@@ -830,7 +899,8 @@ class CustomBuildHook(BuildHookInterface[BuilderConfig]):
         # 3rd-party dependencies for airflow for the CI image. It is exposed in the wheel package
         # because we want to use for building the image cache from GitHub URL.
         self.optional_dependencies["devel-ci"] = sorted(self.all_devel_ci_dependencies)
-        self._dependencies = DEPENDENCIES
+        self._dependencies = DEPENDENCIES + COMPOSER_DEPENDENCIES
+        self._add_composer_extras_to_dependencies()
 
         if version == "standard":
             # Inject preinstalled providers into the dependencies for standard packages
@@ -858,6 +928,20 @@ class CustomBuildHook(BuildHookInterface[BuilderConfig]):
                     plugins[plugin["name"]] = plugin_class[::-1].replace(".", ":", 1)[::-1]
             entry_points["airflow.plugins"] = plugins
             self.metadata.core._entry_points = entry_points
+
+    def _add_composer_extras_to_dependencies(self):
+        """
+        Add Composer Extras.
+
+        We need to add the extras used in Composer because in our airflow builder image
+        (used when the user wants to add their pypi dependencies),
+        we call pip install -r requirements, which will not call
+        hatch_build.py. Thus, pip will not know where to look for
+        the extras. To resolve this issue, we add in this function
+        the depenpendencies used by each extra.
+        """
+        for extra in COMPOSER_EXTRAS_DEPENDENCIES:
+            self._dependencies.extend(self.optional_dependencies[extra])
 
     def _add_devel_ci_dependencies(self, deps: list[str], python_exclusion: str) -> None:
         """
