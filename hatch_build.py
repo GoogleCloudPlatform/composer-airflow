@@ -435,7 +435,7 @@ DEPENDENCIES = [
     "dill>=0.2.2",
     "flask-caching>=2.0.0",
     # Flask-Session 0.6 add new arguments into the SqlAlchemySessionInterface constructor as well as
-    # all parameters now are mandatory which make AirflowDatabaseSessionInterface incopatible with this version.
+    # all parameters now are mandatory which make AirflowDatabaseSessionInterface incompatible with this version.
     "flask-session>=0.4.0,<0.6",
     "flask-wtf>=1.1.0",
     # Flask 2.3 is scheduled to introduce a number of deprecation removals - some of them might be breaking
@@ -505,6 +505,72 @@ DEPENDENCIES = [
     "werkzeug>=2.0,<3",
 ]
 
+COMPOSER_DEPENDENCIES = [
+    "apache-airflow-providers-apache-beam",
+    "apache-airflow-providers-celery",
+    "apache-airflow-providers-cncf-kubernetes",
+    "apache-airflow-providers-dbt-cloud",
+    # TODO: remove this constraint in Airflow 2.10.2+ when changes from
+    #  https://github.com/apache/airflow/pull/42280 will be released.
+    "apache-airflow-providers-fab==1.3.0",
+    "apache-airflow-providers-google",
+    "apache-airflow-providers-hashicorp",
+    "apache-airflow-providers-http",
+    "apache-airflow-providers-mysql",
+    "apache-airflow-providers-postgres",
+    "apache-airflow-providers-sendgrid",
+    "apache-airflow-providers-ssh",
+    "apache-airflow-providers-sqlite",
+    "aiodebug",
+    # aiohttp and pygments in lower versions contain security vulnerabilities.
+    "aiohttp>=3.8.5",
+    "crcmod<2.0",
+    "cryptography",
+    "dbt-bigquery",
+    "dbt-core",
+    "firebase-admin",
+    # TODO: remove once https://github.com/apache/airflow/issues/36897 is closed
+    "Flask-Session<0.6.0",
+    # Due to security vulnerability Flower version >= 2.0.0 required.
+    "flower>=2.0.0",
+    "gcsfs",
+    "google-apitools",
+    "google-cloud-aiplatform",
+    "google-cloud-asset",
+    "google-cloud-datacatalog-lineage-producer-client",
+    "google-cloud-datastore",
+    "google-cloud-documentai",
+    "google-cloud-filestore",
+    "google-cloud-firestore",
+    "google-cloud-pubsublite<1.0.0",
+    "keyrings.google-artifactregistry-auth",
+    "pip==23.2.1",
+    "pyOpenSSL",
+    "pipdeptree",
+    "pygments>2.15.0",
+    "pytest",
+    "sqllineage",
+    "sqlparse",
+    "tensorflow",
+    "virtualenv>=20.24.0",
+    # Versions < 2.2.3 contain security vulnerabilities.
+    "werkzeug>=2.2.3",
+]
+
+COMPOSER_EXTRAS_DEPENDENCIES = [
+    "apache-beam",
+    "celery",
+    "mysql",
+    "password",
+    "postgres",
+    "redis",
+    "statsd",
+    "virtualenv",
+]
+
+# Do not delete the comment below, it is used during Kokoro to insert
+# some dynamic code
+# COMPOSER DEPENDENCIES OVERRIDE #
 
 ALL_DYNAMIC_EXTRA_DICTS: list[tuple[dict[str, list[str]], str]] = [
     (CORE_EXTRAS, "Core extras"),
@@ -836,7 +902,8 @@ class CustomBuildHook(BuildHookInterface[BuilderConfig]):
         # 3rd-party dependencies for airflow for the CI image. It is exposed in the wheel package
         # because we want to use for building the image cache from GitHub URL.
         self.optional_dependencies["devel-ci"] = sorted(self.all_devel_ci_dependencies)
-        self._dependencies = DEPENDENCIES
+        self._dependencies = DEPENDENCIES + COMPOSER_DEPENDENCIES
+        self._add_composer_extras_to_dependencies()
 
         if version == "standard":
             # Inject preinstalled providers into the dependencies for standard packages
@@ -864,6 +931,51 @@ class CustomBuildHook(BuildHookInterface[BuilderConfig]):
                     plugins[plugin["name"]] = plugin_class[::-1].replace(".", ":", 1)[::-1]
             entry_points["airflow.plugins"] = plugins
             self.metadata.core._entry_points = entry_points
+
+    def _add_composer_extras_to_dependencies(self):
+        """
+        Add Composer Extras.
+
+        We need to unwrap the extras because in our airflow builder image
+        (used when the user wants to add their pypi dependencies),
+        we call pip install -r requirements, which will not call
+        hatch_build.py. Thus, pip will not know where to look for
+        the extras. To resolve this issue, we add in this function
+        the depenpendencies used by each extra.
+        """
+
+        all_extras: dict[str, list] = {} # dict from extra name to list of deps
+        for key in PROVIDER_DEPENDENCIES:
+            normalize_extra_key = normalize_extra(key)
+            all_extras[normalize_extra_key] = PROVIDER_DEPENDENCIES[key]["deps"]
+
+        for elem in ALL_DYNAMIC_EXTRA_DICTS:
+            extra_dict = elem[0]
+            for key in extra_dict:
+                normalize_extra_key = normalize_extra(key)
+                all_extras[normalize_extra_key] = extra_dict[key]
+
+        extra_unwrapped_dependencies = set()
+        for composer_extra in COMPOSER_EXTRAS_DEPENDENCIES:
+            normalized_extra_name = normalize_extra(composer_extra)
+            extra_unwrapped_dependencies.update(
+                self._unwrap(all_extras[normalized_extra_name], all_extras)
+            )
+
+        self._dependencies.extend(list(extra_unwrapped_dependencies))
+
+    def _unwrap(self, deps_set: set[str], all_extras: dict[str, list]) -> set[str]:
+        result = set()
+        for dep in deps_set:
+            match = re.search(r"\[(.*?)\]", dep)
+            if match:
+                value = match.group(1)
+                normalized_value = normalize_extra(value)
+                result.update(self._unwrap(set(all_extras[normalized_value]), all_extras))
+            else:
+                result.add(dep)
+
+        return result
 
     def _add_devel_ci_dependencies(self, deps: list[str], python_exclusion: str) -> None:
         """

@@ -30,6 +30,7 @@ from airflow.utils.usage_data_collection import (
     to_bucket,
     usage_data_collection,
 )
+import urllib.parse
 
 
 @pytest.mark.parametrize("is_enabled, is_prerelease", [(False, True), (True, True)])
@@ -61,15 +62,17 @@ def test_scarf_analytics(
     scarf_endpoint = "https://apacheairflow.gateway.scarf.sh/scheduler"
     usage_data_collection()
 
-    expected_scarf_url = (
-        f"{scarf_endpoint}?version={airflow_version}"
-        f"&python_version={python_version}"
-        f"&platform={platform_sys}"
-        f"&arch={platform_machine}"
-        f"&database=postgres"
-        f"&db_version=12.3"
-        f"&executor={executor}"
-    )
+    expected_params = {
+        "version": airflow_version,
+        "python_version": python_version,
+        "platform": platform_sys,
+        "arch": platform_machine,
+        "database": "postgres",
+        "db_version": "12.3",
+        "executor": executor,
+    }
+    encoded_params = urllib.parse.urlencode(expected_params)
+    expected_scarf_url = f"{scarf_endpoint}?{encoded_params}"
 
     mock_get.assert_called_once_with(expected_scarf_url, timeout=5.0)
 
