@@ -383,9 +383,8 @@ composer_additional = [
     "connexion<=2.14.2",
     "crcmod<2.0",
     "cryptography",
-    # Newer versions of dbt-core libraries are not compatible with pydantic>=2.0.0
-    "dbt-bigquery==1.5.4",
-    "dbt-core==1.5.4",
+    "dbt-bigquery",
+    "dbt-core",
     "firebase-admin",
     # Due to security vulnerability Flower version >= 2.0.0 required.
     "flower>=2.0.0",
