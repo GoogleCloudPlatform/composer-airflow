@@ -1208,7 +1208,7 @@ repos:
         require_serial: true
         additional_dependencies: ['rich>=12.4.4']
         stages: [ 'manual' ]
-      - id: mypy-airflow
+      - id: mypy-airflow-manual
         stages: [ 'manual' ]
         name: Run mypy for airflow (manual)
         language: python
