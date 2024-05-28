@@ -20,7 +20,6 @@ from __future__ import annotations
 import logging
 from collections import defaultdict
 from datetime import timedelta
-from unittest import mock
 from unittest.mock import patch
 
 import pendulum
@@ -402,7 +401,12 @@ def test_mapped_expand_against_params(dag_maker, dag_params, task_params, expect
     assert t.expand_input.value == {"params": [{"c": "x"}, {"d": 1}]}
 
 
-def test_mapped_render_template_fields_validating_operator(dag_maker, session):
+def test_mapped_render_template_fields_validating_operator(dag_maker, session, tmp_path):
+    file_template_dir = tmp_path / "path" / "to"
+    file_template_dir.mkdir(parents=True, exist_ok=True)
+    file_template = file_template_dir / "file.ext"
+    file_template.write_text("loaded data")
+
     with set_current_task_instance_session(session=session):
 
         class MyOperator(BaseOperator):
@@ -424,7 +428,7 @@ def test_mapped_render_template_fields_validating_operator(dag_maker, session):
         def execute(self, context):
             pass
 
-        with dag_maker(session=session):
+        with dag_maker(session=session, template_searchpath=tmp_path.__fspath__()):
             task1 = BaseOperator(task_id="op1")
             output1 = task1.output
             mapped = MyOperator.partial(
@@ -451,11 +455,7 @@ def test_mapped_render_template_fields_validating_operator(dag_maker, session):
         mapped_ti: TaskInstance = dr.get_task_instance(mapped.task_id, session=session)
         mapped_ti.map_index = 0
 
-        assert isinstance(mapped_ti.task, MappedOperator)
-        with patch("builtins.open", mock.mock_open(read_data=b"loaded data")), patch(
-            "os.path.isfile", return_value=True
-        ), patch("os.path.getmtime", return_value=0):
-            mapped.render_template_fields(context=mapped_ti.get_template_context(session=session))
+        mapped.render_template_fields(context=mapped_ti.get_template_context(session=session))
         assert isinstance(mapped_ti.task, MyOperator)
 
         assert mapped_ti.task.partial_template == "a", "Should be templated!"
@@ -465,7 +465,11 @@ def test_mapped_render_template_fields_validating_operator(dag_maker, session):
         assert mapped_ti.task.file_template == "loaded data", "Should be templated!"
 
 
-def test_mapped_expand_kwargs_render_template_fields_validating_operator(dag_maker, session):
+def test_mapped_expand_kwargs_render_template_fields_validating_operator(dag_maker, session, tmp_path):
+    file_template_dir = tmp_path / "path" / "to"
+    file_template_dir.mkdir(parents=True, exist_ok=True)
+    file_template = file_template_dir / "file.ext"
+    file_template.write_text("loaded data")
 
     with set_current_task_instance_session(session=session):
 
@@ -488,7 +492,7 @@ def test_mapped_expand_kwargs_render_template_fields_validating_operator(dag_mak
             def execute(self, context):
                 pass
 
-        with dag_maker(session=session):
+        with dag_maker(session=session, template_searchpath=tmp_path.__fspath__()):
             mapped = MyOperator.partial(
                 task_id="a", partial_template="{{ ti.task_id }}", partial_static="{{ ti.task_id }}"
             ).expand_kwargs(
@@ -500,10 +504,7 @@ def test_mapped_expand_kwargs_render_template_fields_validating_operator(dag_mak
         mapped_ti: TaskInstance = dr.get_task_instance(mapped.task_id, session=session, map_index=0)
 
         assert isinstance(mapped_ti.task, MappedOperator)
-        with patch("builtins.open", mock.mock_open(read_data=b"loaded data")), patch(
-            "os.path.isfile", return_value=True
-        ), patch("os.path.getmtime", return_value=0):
-            mapped.render_template_fields(context=mapped_ti.get_template_context(session=session))
+        mapped.render_template_fields(context=mapped_ti.get_template_context(session=session))
         assert isinstance(mapped_ti.task, MyOperator)
 
         assert mapped_ti.task.partial_template == "a", "Should be templated!"
