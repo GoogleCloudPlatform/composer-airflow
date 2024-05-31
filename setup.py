@@ -392,6 +392,8 @@ composer_additional = [
     "google-apitools",
     "google-cloud-aiplatform",
     "google-cloud-asset",
+    # remove once https://github.com/apache/airflow/issues/39541 is resolved
+    "google-cloud-bigquery<3.21.0,>=3.0.1",
     "google-cloud-datacatalog-lineage-producer-client",
     "google-cloud-datastore",
     "google-cloud-documentai",
@@ -408,7 +410,7 @@ composer_additional = [
     "tensorflow",
     # Versions < 2.2.3 contain security vulnerabilities.
     "werkzeug>=2.2.3",
-    # aiohttp and pygments in lower versions contain seucrity vulnerabilities.
+    # aiohttp and pygments in lower versions contain security vulnerabilities.
     "aiohttp>=3.8.5",
     "pygments>2.15.0",
     # remove once https://github.com/apache/airflow/issues/36897 is closed
