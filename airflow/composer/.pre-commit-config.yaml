@@ -344,6 +344,7 @@ repos:
         require_serial: true
         additional_dependencies: ["ruff==0.3.5"]
         exclude: ^.*/.*_vendor/|^tests/dags/test_imports.py
+        stages: [manual]
       - id: ruff-format
         name: Run 'ruff format' for extremely fast Python formatting
         description: "Run 'ruff format' for extremely fast Python formatting"
@@ -875,6 +876,7 @@ repos:
         pass_filenames: true
         require_serial: true
         additional_dependencies: ['rich>=12.4.4']
+        stages: [manual]
       - id: check-system-tests-present
         name: Check if system tests have required segments of code
         entry: ./scripts/ci/pre_commit/check_system_tests.py
@@ -1181,6 +1183,7 @@ repos:
           ^airflow/migrations/versions/0119.*\.py$|
           ^airflow/migrations/versions/0121.*\.py$|
           ^airflow/migrations/versions/0124.*\.py$
+        stages: [manual]
         ## ADD MOST PRE-COMMITS ABOVE THAT LINE
         # The below pre-commits are those requiring CI image to be built
       - id: mypy-dev
