@@ -355,6 +355,7 @@ repos:
         require_serial: true
         additional_dependencies: ["ruff==0.3.5"]
         exclude: ^.*/.*_vendor/|^tests/dags/test_imports.py|^airflow/contrib/
+        stages: [manual]
       - id: replace-bad-characters
         name: Replace bad characters
         entry: ./scripts/ci/pre_commit/replace_bad_characters.py
