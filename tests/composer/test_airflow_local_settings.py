@@ -315,13 +315,16 @@ class TestAirflowLocalSettings:
         assert pod.metadata.name[:-8] == f"airflow-k8s-worker-{'A' * 35}-"
 
 
-def test_setup_log_format():
+def test_setup_logging_on_celeryd_init():
     from airflow.composer import airflow_local_settings
 
     conf_mock = mock.Mock()
+    conf_mock.broker_connection_retry = True
+
     signals.celeryd_init.send(
         sender=None,
         conf=conf_mock,
     )
 
     assert conf_mock.worker_log_format == conf.get("logging", "LOG_FORMAT")
+    assert conf_mock.broker_connection_retry_on_startup is True
