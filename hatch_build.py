@@ -532,8 +532,8 @@ COMPOSER_DEPENDENCIES = [
     "crcmod<2.0",
     "cryptography",
     # Newer versions of dbt-core libraries are not compatible with pydantic>=2.0.0
-    "dbt-bigquery==1.5.4",
-    "dbt-core==1.5.4",
+    "dbt-bigquery",
+    "dbt-core",
     "firebase-admin",
     # Due to security vulnerability Flower version >= 2.0.0 required.
     "flower>=2.0.0",
@@ -541,6 +541,8 @@ COMPOSER_DEPENDENCIES = [
     "google-apitools",
     "google-cloud-aiplatform",
     "google-cloud-asset",
+    # remove once https://github.com/apache/airflow/issues/39541 is resolved
+    "google-cloud-bigquery<3.21.0,>=3.0.1",
     # "google-cloud-datacatalog-lineage-producer-client",
     "google-cloud-datastore",
     "google-cloud-documentai",
