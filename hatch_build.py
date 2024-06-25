@@ -562,8 +562,6 @@ COMPOSER_DEPENDENCIES = [
     "pygments>2.15.0",
     # remove once https://github.com/apache/airflow/issues/36897 is closed
     "Flask-Session<0.6.0",
-    # Remove in Airflow >= 2.9.0
-    "fsspec==2023.12.2",
     # TODO: Remove once https://github.com/apache/airflow/issues/37156 closed
     "pytest<8.0.0",
 ]
