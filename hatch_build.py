@@ -526,9 +526,6 @@ COMPOSER_DEPENDENCIES = [
     "apache-airflow-providers-ssh",
     "apache-airflow-providers-sqlite",
     "aiodebug",
-    # TODO: b/315286145 - Remove after the issue is fixed in community
-    # https://github.com/apache/airflow/issues/35434
-    "connexion<=2.14.2",
     "crcmod<2.0",
     "cryptography",
     # Newer versions of dbt-core libraries are not compatible with pydantic>=2.0.0
