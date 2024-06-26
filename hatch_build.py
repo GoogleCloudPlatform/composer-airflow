@@ -540,7 +540,7 @@ COMPOSER_DEPENDENCIES = [
     "google-cloud-asset",
     # remove once https://github.com/apache/airflow/issues/39541 is resolved
     "google-cloud-bigquery<3.21.0,>=3.0.1",
-    # "google-cloud-datacatalog-lineage-producer-client",
+    "google-cloud-datacatalog-lineage-producer-client",
     "google-cloud-datastore",
     "google-cloud-documentai",
     "google-cloud-filestore",
