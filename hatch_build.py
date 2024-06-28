@@ -438,7 +438,7 @@ DEPENDENCIES = [
     "dill>=0.2.2",
     "flask-caching>=1.5.0",
     # Flask-Session 0.6 add new arguments into the SqlAlchemySessionInterface constructor as well as
-    # all parameters now are mandatory which make AirflowDatabaseSessionInterface incopatible with this version.
+    # all parameters now are mandatory which make AirflowDatabaseSessionInterface incompatible with this version.
     "flask-session>=0.4.0,<0.6",
     "flask-wtf>=0.15",
     # Flask 2.3 is scheduled to introduce a number of deprecation removals - some of them might be breaking
@@ -526,19 +526,23 @@ COMPOSER_DEPENDENCIES = [
     "apache-airflow-providers-ssh",
     "apache-airflow-providers-sqlite",
     "aiodebug",
+    # aiohttp and pygments in lower versions contain seucrity vulnerabilities.
+    "aiohttp>=3.8.5",
     "crcmod<2.0",
     "cryptography",
     # Newer versions of dbt-core libraries are not compatible with pydantic>=2.0.0
     "dbt-bigquery",
     "dbt-core",
     "firebase-admin",
+    # TODO: remove once https://github.com/apache/airflow/issues/36897 is closed
+    "Flask-Session<0.6.0",
     # Due to security vulnerability Flower version >= 2.0.0 required.
     "flower>=2.0.0",
     "gcsfs",
     "google-apitools",
     "google-cloud-aiplatform",
     "google-cloud-asset",
-    # remove once https://github.com/apache/airflow/issues/39541 is resolved
+    # TODO: remove once https://github.com/apache/airflow/issues/39541 is resolved
     "google-cloud-bigquery<3.21.0,>=3.0.1",
     "google-cloud-datacatalog-lineage-producer-client",
     "google-cloud-datastore",
@@ -551,19 +555,17 @@ COMPOSER_DEPENDENCIES = [
     "pip==23.2.1",
     "pyOpenSSL",
     "pipdeptree",
+    "pygments>2.15.0",
+    # TODO: Remove once https://github.com/apache/airflow/issues/37156 is closed
+    "pytest<8.0.0",
+    # TODO: remove once new version of Docker is released (https://github.com/docker/docker-py/pull/3257)
+    "requests>=2.24.0,<3.0.0,!=2.32.*",
     "sqllineage",
     "sqlparse",
     "tensorflow",
     "virtualenv>=20.24.0",
     # Versions < 2.2.3 contain security vulnerabilities.
     "werkzeug>=2.2.3",
-    # aiohttp and pygments in lower versions contain seucrity vulnerabilities.
-    "aiohttp>=3.8.5",
-    "pygments>2.15.0",
-    # remove once https://github.com/apache/airflow/issues/36897 is closed
-    "Flask-Session<0.6.0",
-    # TODO: Remove once https://github.com/apache/airflow/issues/37156 closed
-    "pytest<8.0.0",
 ]
 
 # Do not delete the comment below, it is used during Kokoro to insert
