@@ -14,7 +14,6 @@ from airflow.composer.kubernetes.utils import (
 
 
 class TestUtils:
-    @mock.patch.dict("os.environ", {"COMPOSER_GKE_LOCATION": "us-east1"})
     @mock.patch.dict("os.environ", {"GCP_TENANT_PROJECT": "test-project-234"})
     def test_get_composer_serverless_pod_metadata(self):
         actual = _get_composer_serverless_pod_metadata(
@@ -30,7 +29,6 @@ class TestUtils:
                         "selector": {
                             "matchLabels": {
                                 "machineType": "e2-custom-small-2048",
-                                "region": "us-east1",
                                 "diskSizeGb": "30",
                             },
                         },

@@ -45,7 +45,6 @@ def _get_composer_serverless_pod_metadata(pod: k8s.V1Pod):
 
     Refer to go/composer25-kpo-k8s-executor for details.
     """
-    region = os.environ["COMPOSER_GKE_LOCATION"]
     tenant_project_id = os.environ["GCP_TENANT_PROJECT"]
 
     resources_disk_size_gb = 0
@@ -90,7 +89,6 @@ def _get_composer_serverless_pod_metadata(pod: k8s.V1Pod):
                             "machineType": _get_composer_serverless_machine_type(
                                 pod.spec.containers[0].resources
                             ),
-                            "region": region,
                             "diskSizeGb": str(disk_size_gb),
                         }
                     },
