@@ -54,7 +54,7 @@ def _is_providers_hook_missing_attribute_warning(record):
     return PROVIDERS_HOOK_MISSING_ATTRIBUTE_WARNING_RE.match(record.getMessage())
 
 
-def _is_duplicate_key_value_in_permision_tables_warning(record):
+def _is_duplicate_key_value_in_permission_tables_warning(record):
     """Method that detects postgres warning for violating unique constraint in permission tables."""
     constraints = [
         "ab_permission_view_permission_id_view_menu_id_key",
@@ -62,6 +62,11 @@ def _is_duplicate_key_value_in_permision_tables_warning(record):
         "ab_view_menu_name_key",
         "ab_permission_name_key",
         "ab_role_name_key",
+        "ab_permission_view_permission_id_view_menu_id_uq",
+        "ab_permission_view_role_permission_view_id_role_id_uq",
+        "ab_view_menu_name_uq",
+        "ab_permission_name_uq",
+        "ab_role_name_uq",
     ]
     record_message = record.getMessage()
     return (
@@ -117,7 +122,7 @@ class ComposerFilter(logging.Filter):
         # These errors are known issue of Airflow 2.3.0-2.3.4 and they occur on webserver
         # startup but don't mean any malfunctioning and can be ignored.
         # https://github.com/apache/airflow/issues/23512
-        if _is_duplicate_key_value_in_permision_tables_warning(record):
+        if _is_duplicate_key_value_in_permission_tables_warning(record):
             return False
 
         # Warnings about running Flower, which inspects Airflow. Those warnings are not actionable
