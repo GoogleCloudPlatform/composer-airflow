@@ -85,6 +85,19 @@ def _is_scheduled_duration_metric_warning(record):
     return "cannot record scheduled_duration for task" in record.getMessage()
 
 
+def _is_unformatted_permission_tables_warning(record):
+    """Method that detects unformatted postgres warning for updating permission tables."""
+    unformatted_messages = [
+        "Add Permission: %s",
+        "Add Permission to Role Error: %s",
+        "Add Role: %s",
+        "Add View Menu Error: %s",
+        "Creation of Permission View Error: %s",
+    ]
+    record_message = record.getMessage()
+    return any([c in record_message for c in unformatted_messages])
+
+
 class ComposerFilter(logging.Filter):
     """Custom Composer log filter."""
 
@@ -123,6 +136,8 @@ class ComposerFilter(logging.Filter):
         # startup but don't mean any malfunctioning and can be ignored.
         # https://github.com/apache/airflow/issues/23512
         if _is_duplicate_key_value_in_permission_tables_warning(record):
+            return False
+        if _is_unformatted_permission_tables_warning(record):
             return False
 
         # Warnings about running Flower, which inspects Airflow. Those warnings are not actionable

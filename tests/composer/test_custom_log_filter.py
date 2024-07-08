@@ -194,3 +194,21 @@ class TestComposerFilter:
         ).decode()
 
         assert message not in output
+
+    @pytest.mark.parametrize(
+        "unformatted_permission_warning",
+        [
+            "Add Permission: %s",
+            "Add Permission to Role Error: %s",
+            "Add Role: %s",
+            "Add View Menu Error: %s",
+            "Creation of Permission View Error: %s",
+        ],
+    )
+    def test_ignoring_unformatted_permission_tables_warning(self, unformatted_permission_warning):
+        logger = logging.getLogger("airflow.www.fab_security")
+        with mock.patch("os.environ", {"AIRFLOW_WEBSERVER": "True"}):
+            with contextlib.redirect_stdout(io.StringIO()) as temp_stdout:
+                logger.error(unformatted_permission_warning)
+
+        assert unformatted_permission_warning not in temp_stdout.getvalue()
