@@ -18,7 +18,7 @@ from unittest.mock import patch
 
 import pytest
 
-from airflow import AirflowException
+from airflow.exceptions import AirflowException
 from airflow.composer.data_lineage.entities import GCSEntity, PostgresTable
 from airflow.composer.data_lineage.operators import post_execute_prepare_lineage
 from airflow.contrib.operators.postgres_to_gcs_operator import PostgresToGoogleCloudStorageOperator

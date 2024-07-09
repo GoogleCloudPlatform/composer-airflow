@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 
 import logging
 
-from airflow import AirflowException
+from airflow.exceptions import AirflowException
 
 log = logging.getLogger(__name__)
 

@@ -18,7 +18,7 @@ from unittest.mock import PropertyMock, patch
 
 import pytest
 
-from airflow import AirflowException
+from airflow.exceptions import AirflowException
 from airflow.composer.data_lineage.entities import BigQueryTable, GCSEntity
 from airflow.composer.data_lineage.operators import post_execute_prepare_lineage
 from airflow.contrib.operators.bigquery_to_gcs import BigQueryToCloudStorageOperator

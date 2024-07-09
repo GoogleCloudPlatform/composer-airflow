@@ -20,8 +20,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from airflow.providers.google.cloud.transfers.postgres_to_gcs import PostgresToGCSOperator
 
-from airflow import AirflowException
-from airflow.exceptions import AirflowNotFoundException
+from airflow.exceptions import AirflowException, AirflowNotFoundException
 
 log = logging.getLogger(__name__)
 

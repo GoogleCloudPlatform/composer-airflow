@@ -27,7 +27,7 @@ if TYPE_CHECKING:
     from airflow.composer.data_lineage.entities import DataprocMetastoreTable
     from airflow.providers.google.cloud.operators.dataproc import DataprocSubmitJobOperator
 
-from airflow import AirflowException
+from airflow.exceptions import AirflowException
 
 log = logging.getLogger(__name__)
 

@@ -21,7 +21,7 @@ import pytest
 from google.api_core.exceptions import NotFound
 from sqllineage.exceptions import SQLLineageException
 
-from airflow import AirflowException
+from airflow.exceptions import AirflowException
 from airflow.composer.data_lineage.entities import DataprocMetastoreTable
 from airflow.composer.data_lineage.operators import post_execute_prepare_lineage
 from airflow.composer.data_lineage.operators.google.cloud.dataproc import (

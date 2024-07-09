@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-from airflow import AirflowException
+from airflow.exceptions import AirflowException
 from airflow.composer.data_lineage.entities import PostgresTable
 from airflow.composer.data_lineage.operators import post_execute_prepare_lineage
 from airflow.exceptions import AirflowNotFoundException

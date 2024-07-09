@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from unittest.mock import PropertyMock, patch
 
-from airflow import AirflowException
+from airflow.exceptions import AirflowException
 from airflow.composer.data_lineage.entities import BigQueryTable
 from airflow.composer.data_lineage.operators import post_execute_prepare_lineage
 from airflow.providers.google.cloud.hooks.bigquery import BigQueryHook

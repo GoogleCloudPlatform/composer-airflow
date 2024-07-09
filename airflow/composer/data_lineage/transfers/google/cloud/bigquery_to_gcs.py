@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from airflow import AirflowException
+from airflow.exceptions import AirflowException
 
 if TYPE_CHECKING:
     from airflow.providers.google.cloud.transfers.bigquery_to_gcs import BigQueryToGCSOperator
