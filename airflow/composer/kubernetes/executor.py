@@ -13,7 +13,7 @@ from airflow.configuration import AIRFLOW_HOME, conf
 
 POD_TEMPLATE_FILE = os.path.join(AIRFLOW_HOME, "composer_kubernetes_pod_template_file.yaml")
 POD_TEMPLATE_FILE_REFRESH_INTERVAL = conf.getint(
-    "kubernetes", "pod_template_file_refresh_interval", fallback=60
+    "kubernetes_executor", "pod_template_file_refresh_interval", fallback=60
 )
 AIRFLOW_WORKER = "airflow-worker"
 COMPOSER_VERSIONED_NAMESPACE = os.environ.get("COMPOSER_VERSIONED_NAMESPACE")
