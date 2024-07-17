@@ -1278,3 +1278,14 @@ repos:
         files: ^airflow/migrations/versions/.*\.py$|^docs/apache-airflow/migrations-ref\.rst$
         additional_dependencies: ['rich>=12.4.4']
         ## ONLY ADD PRE-COMMITS HERE THAT REQUIRE CI IMAGE
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: 'v1.10.1'
+    hooks:
+      - id: mypy
+        name: mypy-composer
+        description: 'Mypy linter for Composer Airflow.'
+        args: ['--install-types', '--non-interactive', '--follow-imports=silent']
+        files: ^.*\.py$
+        exclude: ^.*/.*_vendor/|^airflow/migrations|^airflow/providers|^dev|^scripts|^docs|^provider_packages|^tests/providers|^tests/system/providers|^tests/dags/test_imports.py|^clients/python/test_.*\.py
+        require_serial: true
+        additional_dependencies: ['attrs']
