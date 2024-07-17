@@ -38,7 +38,7 @@ def pod_mutation_hook(pod: k8s.V1Pod):
     from airflow.composer.kubernetes.pod_manager import patch_fetch_container_logs
     from airflow.composer.kubernetes.utils import pod_mutation_hook_composer_serverless
     from airflow.composer.utils import get_composer_gke_cluster_host, is_serverless_composer
-    from airflow.providers.cncf.kubernetes.kubernetes_helper_functions import add_pod_suffix
+    from airflow.providers.cncf.kubernetes.kubernetes_helper_functions import add_unique_suffix
 
     if is_serverless_composer():
         patch_fetch_container_logs()
@@ -69,7 +69,7 @@ def pod_mutation_hook(pod: k8s.V1Pod):
                 # The pod names generated are already unique, but if we have to truncate them,
                 # they will lose their unique suffix so we add it again
                 if len(new_name) > max_len:
-                    new_name = add_pod_suffix(pod_name=new_name, rand_len=8, max_len=max_len)
+                    new_name = add_unique_suffix(name=new_name, rand_len=8, max_len=max_len)
                 pod.metadata.name = new_name
 
             args = container.args
