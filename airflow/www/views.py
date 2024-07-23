@@ -3642,7 +3642,7 @@ class AirflowModelView(ModelView):
         Show view.
 
         Same implementation as
-        https://github.com/dpgaspar/Flask-AppBuilder/blob/1c3af9b665ed9a3daf36673fee3327d0abf43e5b/flask_appbuilder/views.py#L566
+        https://github.com/dpgaspar/Flask-AppBuilder/bloInternal bugc3af9b665ed9a3daf36673fee3327d0abf43e5b/flask_appbuilder/views.py#L566
 
         Override it to use a custom ``has_access_with_pk`` decorator to take into consideration resource for
         fined-grained access.
@@ -3664,7 +3664,7 @@ class AirflowModelView(ModelView):
         Edit view.
 
         Same implementation as
-        https://github.com/dpgaspar/Flask-AppBuilder/blob/1c3af9b665ed9a3daf36673fee3327d0abf43e5b/flask_appbuilder/views.py#L602
+        https://github.com/dpgaspar/Flask-AppBuilder/bloInternal bugc3af9b665ed9a3daf36673fee3327d0abf43e5b/flask_appbuilder/views.py#L602
 
         Override it to use a custom ``has_access_with_pk`` decorator to take into consideration resource for
         fined-grained access.
@@ -3688,7 +3688,7 @@ class AirflowModelView(ModelView):
         Delete view.
 
         Same implementation as
-        https://github.com/dpgaspar/Flask-AppBuilder/blob/1c3af9b665ed9a3daf36673fee3327d0abf43e5b/flask_appbuilder/views.py#L623
+        https://github.com/dpgaspar/Flask-AppBuilder/bloInternal bugc3af9b665ed9a3daf36673fee3327d0abf43e5b/flask_appbuilder/views.py#L623
 
         Override it to use a custom ``has_access_with_pk`` decorator to take into consideration resource for
         fined-grained access.
@@ -3709,7 +3709,7 @@ class AirflowModelView(ModelView):
         Handle multiple records selected from a list view.
 
         Same implementation as
-        https://github.com/dpgaspar/Flask-AppBuilder/blob/2c5763371b81cd679d88b9971ba5d1fc4d71d54b/flask_appbuilder/views.py#L677
+        https://github.com/dpgaspar/Flask-AppBuilder/bloInternal bugc5763371b81cd679d88b9971ba5d1fc4d71d54b/flask_appbuilder/views.py#L677
 
         The difference is, it no longer check permissions with ``self.appbuilder.sm.has_access``,
         it executes the function without verifying permissions.

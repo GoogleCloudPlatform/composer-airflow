@@ -306,7 +306,7 @@ config:
           ``core_v1_api`` method when using the Kubernetes Executor.
           This should be an object and can contain any of the options listed in the ``v1DeleteOptions``
           class defined here:
-          https://github.com/kubernetes-client/python/blob/41f11a09995efcd0142e25946adc7591431bfb2f/kubernetes/client/models/v1_delete_options.py#L19
+          https://github.com/kubernetes-client/python/bloInternal bugf11a09995efcd0142e25946adc7591431bfb2f/kubernetes/client/models/v1_delete_options.py#L19
         version_added: ~
         type: string
         example: '{"grace_period_seconds": 10}'

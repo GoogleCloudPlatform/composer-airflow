@@ -141,7 +141,7 @@ def sanitize_for_serialization(obj: V1Pod):
 
     This function still converts the pod to a dict; the only difference is
     it populates missing attrs with None. You may compare with
-    https://github.com/kubernetes-client/python/blob/5a96bbcbe21a552cc1f9cda13e0522fafb0dbac8/kubernetes/client/api_client.py#L202
+    https://github.com/kubernetes-client/python/bloInternal buga96bbcbe21a552cc1f9cda13e0522fafb0dbac8/kubernetes/client/api_client.py#L202
 
     If obj is None, return None.
     If obj is str, int, long, float, bool, return directly.

@@ -9599,7 +9599,7 @@ Changes to GoogleCloudStorageHook
 *
   as a part of this replacement, the ``multipart`` & ``num_retries`` parameters for ``GoogleCloudStorageHook.upload`` method have been deprecated.
 
-  The client library uses multipart upload automatically if the object/blob size is more than 8 MB - `source code <https://github.com/googleapis/google-cloud-python/blob/11c543ce7dd1d804688163bc7895cf592feb445f/storage/google/cloud/storage/blob.py#L989-L997>`_. The client also handles retries automatically
+  The client library uses multipart upload automatically if the object/blob size is more than 8 MB - `source code <https://github.com/googleapis/google-cloud-python/bloInternal bugc543ce7dd1d804688163bc7895cf592feb445f/storage/google/cloud/storage/blob.py#L989-L997>`_. The client also handles retries automatically
 
 *
   the ``generation`` parameter is deprecated in ``GoogleCloudStorageHook.delete`` and ``GoogleCloudStorageHook.insert_object_acl``.
@@ -10968,7 +10968,7 @@ config file.
 
 If you want to use LDAP auth backend without TLS then you will have to create a
 custom-auth backend based on
-https://github.com/apache/airflow/blob/1.10.0/airflow/contrib/auth/backends/ldap_auth.py
+https://github.com/apache/airflow/bloInternal bug.10.0/airflow/contrib/auth/backends/ldap_auth.py
 
 New features
 ^^^^^^^^^^^^

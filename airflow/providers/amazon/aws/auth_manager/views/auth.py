@@ -47,7 +47,7 @@ class AwsAuthManagerAuthenticationViews(AirflowBaseView):
     Views specific to AWS auth manager authentication mechanism.
 
     Some code below is inspired from
-    https://github.com/SAML-Toolkits/python3-saml/blob/6988bdab7a203abfe8dc264992f7e350c67aef3d/demo-flask/index.py
+    https://github.com/SAML-Toolkits/python3-saml/bloInternal bugbdab7a203abfe8dc264992f7e350c67aef3d/demo-flask/index.py
     """
 
     @cached_property

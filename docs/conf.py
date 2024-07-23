@@ -405,7 +405,7 @@ html_context = {
     # More information:
     # https://github.com/readthedocs/readthedocs.org/blob/master/readthedocs/doc_builder/templates/doc_builder/conf.py.tmpl#L100-L103
     # https://github.com/readthedocs/sphinx_rtd_theme/blob/master/sphinx_rtd_theme/breadcrumbs.html#L45
-    # https://github.com/apache/airflow-site/blob/91f760c/sphinx_airflow_theme/sphinx_airflow_theme/suggest_change_button.html#L36-L40
+    # https://github.com/apache/airflow-site/bloInternal bugf760c/sphinx_airflow_theme/sphinx_airflow_theme/suggest_change_button.html#L36-L40
     #
     "theme_vcs_pageview_mode": "edit",
     "conf_py_path": f"/docs/{PACKAGE_NAME}/",
