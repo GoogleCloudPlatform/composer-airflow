@@ -208,7 +208,8 @@ def prepare_filter_criterion(session, table, primary_key, expiration_datetime, s
     """Return filter all restrictions."""
     additional_filter = []
 
-    # TODO(apilaskowski): For now works only for dag_run (and it is the only one requiring it)
+    # Works only for dag_run, because Airflow required last dag_run to be present, otherwise it will
+    # schedule this DAG again.
     if table["airflow_db_model"].__tablename__ == "dag_run" and table.get("keep_last", False) is True:
         additional_filter.append(
             tuple_(*primary_key).not_in(
