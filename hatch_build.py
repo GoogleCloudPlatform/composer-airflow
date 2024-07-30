@@ -505,7 +505,7 @@ DEPENDENCIES = [
 ]
 
 COMPOSER_DEPENDENCIES = [
-    "apache-airflow[apache.beam]",
+    "apache-airflow[apache-beam]",
     "apache-airflow[celery]",
     "apache-airflow[mysql]",
     "apache-airflow[password]",
