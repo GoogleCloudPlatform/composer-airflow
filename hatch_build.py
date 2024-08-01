@@ -505,14 +505,6 @@ DEPENDENCIES = [
 ]
 
 COMPOSER_DEPENDENCIES = [
-    "apache-airflow[apache-beam]",
-    "apache-airflow[celery]",
-    "apache-airflow[mysql]",
-    "apache-airflow[password]",
-    "apache-airflow[postgres]",
-    "apache-airflow[redis]",
-    "apache-airflow[statsd]",
-    "apache-airflow[virtualenv]",
     "apache-airflow-providers-apache-beam",
     "apache-airflow-providers-celery",
     "apache-airflow-providers-cncf-kubernetes",
@@ -566,6 +558,17 @@ COMPOSER_DEPENDENCIES = [
     "virtualenv>=20.24.0",
     # Versions < 2.2.3 contain security vulnerabilities.
     "werkzeug>=2.2.3",
+]
+
+COMPOSER_EXTRAS_DEPENDENCIES = [
+    "apache-beam",
+    "celery",
+    "mysql",
+    "password",
+    "postgres",
+    "redis",
+    "statsd",
+    "virtualenv",
 ]
 
 # Do not delete the comment below, it is used during Kokoro to insert
@@ -822,6 +825,7 @@ class CustomBuildHook(BuildHookInterface[BuilderConfig]):
         # because we want to use for building the image cache from GitHub URL.
         self.optional_dependencies["devel-ci"] = sorted(self.all_devel_ci_dependencies)
         self._dependencies = DEPENDENCIES + COMPOSER_DEPENDENCIES
+        self._add_composer_extras_to_dependencies()
 
         if version == "standard":
             # Inject preinstalled providers into the dependencies for standard packages
@@ -837,6 +841,51 @@ class CustomBuildHook(BuildHookInterface[BuilderConfig]):
         # via build_data (or so it seem) so we need to modify internal _optional_dependencies
         # field in core.metadata until this is possible
         self.metadata.core._optional_dependencies = self.optional_dependencies
+
+    def _add_composer_extras_to_dependencies(self):
+        """
+        Add Composer Extras.
+
+        We need to unwrap the extras because in our airflow builder image
+        (used when the user wants to add their pypi dependencies),
+        we call pip install -r requirements, which will not call
+        hatch_build.py. Thus, pip will not know where to look for
+        the extras. To resolve this issue, we add in this function
+        the depenpendencies used by each extra.
+        """
+
+        all_extras: dict[str, list] = {} # dict from extra name to list of deps
+        for key in PROVIDER_DEPENDENCIES:
+            normalize_extra_key = normalize_extra(key)
+            all_extras[normalize_extra_key] = PROVIDER_DEPENDENCIES[key]["deps"]
+
+        for elem in ALL_DYNAMIC_EXTRA_DICTS:
+            extra_dict = elem[0]
+            for key in extra_dict:
+                normalize_extra_key = normalize_extra(key)
+                all_extras[normalize_extra_key] = extra_dict[key]
+
+        extra_unwrapped_dependencies = set()
+        for composer_extra in COMPOSER_EXTRAS_DEPENDENCIES:
+            normalized_extra_name = normalize_extra(composer_extra)
+            extra_unwrapped_dependencies.update(
+                self._unwrap(all_extras[normalized_extra_name], all_extras)
+            )
+
+        self._dependencies.extend(list(extra_unwrapped_dependencies))
+
+    def _unwrap(self, deps_set: set[str], all_extras: dict[str, list]) -> set[str]:
+        result = set()
+        for dep in deps_set:
+            match = re.search(r"\[(.*?)\]", dep)
+            if match:
+                value = match.group(1)
+                normalized_value = normalize_extra(value)
+                result.update(self._unwrap(set(all_extras[normalized_value]), all_extras))
+            else:
+                result.add(dep)
+
+        return result
 
     def _add_devel_ci_dependencies(self, deps: list[str], python_exclusion: str) -> None:
         """
