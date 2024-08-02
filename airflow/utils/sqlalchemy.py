@@ -22,10 +22,12 @@ import copy
 import datetime
 import json
 import logging
+from importlib import metadata
 from typing import TYPE_CHECKING, Any, Generator, Iterable, overload
 
 import pendulum
 from dateutil import relativedelta
+from packaging import version
 from sqlalchemy import TIMESTAMP, PickleType, and_, event, false, nullsfirst, or_, true, tuple_
 from sqlalchemy.dialects import mssql, mysql
 from sqlalchemy.sql import Select
@@ -604,3 +606,7 @@ def tuple_not_in_condition(
     if not clauses:
         return true()
     return and_(*clauses)
+
+
+def is_sqlalchemy_v1() -> bool:
+    return version.parse(metadata.version("sqlalchemy")).major == 1
