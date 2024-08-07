@@ -771,7 +771,7 @@ def get_all_db_dependencies() -> list[str]:
 all_dbs = get_all_db_dependencies()
 
 # All db user extras here
-EXTRAS_DEPENDENCIES["all_dbs"] = all_dbs
+EXTRAS_DEPENDENCIES["all-dbs"] = all_dbs
 
 # Requirements for all "user" extras (no devel). They are de-duplicated. Note that we do not need
 # to separately add providers dependencies - they have been already added as 'providers' extras above
@@ -785,7 +785,7 @@ _all_dependencies_without_airflow_providers = [k for k in _all_dependencies if "
 # but not the providers themselves
 EXTRAS_DEPENDENCIES["all"] = _all_dependencies_without_airflow_providers
 
-# This can be simplified to devel_hadoop + _all_dependencies due to inclusions
+# This can be simplified to devel-hadoop + _all_dependencies due to inclusions
 # but we keep it for explicit sake. We are de-duplicating it anyway.
 devel_all = get_unique_dependency_list(
     [_all_dependencies_without_airflow_providers, doc, doc_gen, devel, devel_hadoop]
@@ -795,7 +795,7 @@ devel_all = get_unique_dependency_list(
 PACKAGES_EXCLUDED_FOR_ALL: list[str] = []
 PACKAGES_EXCLUDED_FOR_ALL.extend(
     [
-        # Exclude this package from devel_all/devel_ci extras, it is not needed there and
+        # Exclude this package from devel-all/devel-ci extras, it is not needed there and
         # since this package is hosted from AR repo it requires setting up authentication
         # that we can avoid if we will not install it.
         "google-cloud-datacatalog-lineage-producer-client",
@@ -817,7 +817,7 @@ def is_package_excluded(package: str, exclusion_list: list[str]) -> bool:
 
 def remove_provider_limits(package: str) -> str:
     """
-    Remove the limit for providers in devel_all to account for pre-release and development packages.
+    Remove the limit for providers in devel-all to account for pre-release and development packages.
 
     :param package: package name (beginning of it)
     :return: true if package should be excluded
@@ -842,11 +842,11 @@ devel_ci = devel_all
 # Those are extras that we have to add for development purposes
 # They can be use to install some predefined set of dependencies.
 EXTRAS_DEPENDENCIES["doc"] = doc
-EXTRAS_DEPENDENCIES["doc_gen"] = doc_gen
+EXTRAS_DEPENDENCIES["doc-gen"] = doc_gen
 EXTRAS_DEPENDENCIES["devel"] = devel  # devel already includes doc
-EXTRAS_DEPENDENCIES["devel_hadoop"] = devel_hadoop  # devel_hadoop already includes devel
-EXTRAS_DEPENDENCIES["devel_all"] = devel_all
-EXTRAS_DEPENDENCIES["devel_ci"] = devel_ci
+EXTRAS_DEPENDENCIES["devel-hadoop"] = devel_hadoop  # devel-hadoop already includes devel
+EXTRAS_DEPENDENCIES["devel-all"] = devel_all
+EXTRAS_DEPENDENCIES["devel-ci"] = devel_ci
 
 
 def sort_extras_dependencies() -> dict[str, list[str]]:
@@ -947,7 +947,7 @@ class AirflowDistribution(Distribution):
             )
         # needed for `pip check` to correctly discover restrictions that was added specially for Composer
         # Exclude "google-cloud-datacatalog-lineage-producer-client" package from Composer Airflow
-        # install_requires. This will make possible to install composer-airflow[devel_ci] without access to AR
+        # install_requires. This will make possible to install composer-airflow[devel-ci] without access to AR
         # repo (this library is hosted in AR) and we do not really need to have it in install_requires for
         # "pip check", as we do not have any constraint for a specific version and
         # "pip install .[composer]"/"pip download .[composer]" will anyway install/download it.
@@ -1052,11 +1052,11 @@ def add_all_provider_packages() -> None:
     for provider_id in ALL_PROVIDERS:
         replace_extra_dependencies_with_provider_packages(provider_id, [provider_id])
     add_provider_packages_to_extra_dependencies("all", ALL_PROVIDERS)
-    add_provider_packages_to_extra_dependencies("devel_ci", ALL_PROVIDERS)
-    add_provider_packages_to_extra_dependencies("devel_all", ALL_PROVIDERS)
-    add_provider_packages_to_extra_dependencies("all_dbs", ALL_DB_PROVIDERS)
+    add_provider_packages_to_extra_dependencies("devel-ci", ALL_PROVIDERS)
+    add_provider_packages_to_extra_dependencies("devel-all", ALL_PROVIDERS)
+    add_provider_packages_to_extra_dependencies("all-dbs", ALL_DB_PROVIDERS)
     add_provider_packages_to_extra_dependencies(
-        "devel_hadoop", ["apache.hdfs", "apache.hive", "presto", "trino"]
+        "devel-hadoop", ["apache.hdfs", "apache.hive", "presto", "trino"]
     )
     add_all_deprecated_provider_packages()
     add_provider_packages_to_extra_dependencies(

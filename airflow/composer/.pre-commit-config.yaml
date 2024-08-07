@@ -904,6 +904,7 @@ repos:
         # This is fast, so not too much downside
         always_run: true
       - id: update-breeze-cmd-output
+        stages: ["manual"]
         name: Update output of breeze commands in BREEZE.rst
         entry: ./scripts/ci/pre_commit/pre_commit_breeze_cmd_line.py
         language: python
