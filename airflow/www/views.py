@@ -2090,7 +2090,7 @@ class Airflow(AirflowBaseView):
             .limit(5)
         )
         recent_confs = {
-            run_id: json.dumps(run_conf)
+            run_id: json.dumps(run_conf, cls=utils_json.WebEncoder)
             for run_id, run_conf in ((run.run_id, run.conf) for run in recent_runs)
             if isinstance(run_conf, dict) and any(run_conf)
         }
@@ -2110,6 +2110,7 @@ class Airflow(AirflowBaseView):
                         {str(k): v.resolve(suppress_exception=True) for k, v in dag.params.items()},
                         indent=4,
                         ensure_ascii=False,
+                        cls=utils_json.WebEncoder,
                     )
                 except TypeError:
                     flash("Could not pre-populate conf field due to non-JSON-serializable data-types")
