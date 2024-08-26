@@ -509,6 +509,9 @@ COMPOSER_DEPENDENCIES = [
     "apache-airflow-providers-celery",
     "apache-airflow-providers-cncf-kubernetes",
     "apache-airflow-providers-dbt-cloud",
+    # fab provider>=1.3.0 requires changes in Airflow core https://github.com/apache/airflow/pull/40703,
+    # remove this constraint for newer version of Airflow.
+    "apache-airflow-providers-fab<1.3.0",
     "apache-airflow-providers-google",
     "apache-airflow-providers-hashicorp",
     "apache-airflow-providers-http",
