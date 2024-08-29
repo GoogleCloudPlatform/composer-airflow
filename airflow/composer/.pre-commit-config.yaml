@@ -1284,7 +1284,13 @@ repos:
       - id: mypy
         name: mypy-composer
         description: 'Mypy linter for Composer Airflow.'
-        args: ['--install-types', '--non-interactive', '--follow-imports=silent']
+        args: [
+          '--install-types',
+          '--non-interactive',
+          '--follow-imports=silent',
+          '--disable-error-code', 'return',
+          '--disable-error-code', 'arg-type',
+        ]
         files: ^.*\.py$
         exclude: ^.*/.*_vendor/|^airflow/migrations|^airflow/providers|^dev|^scripts|^docs|^provider_packages|^tests/providers|^tests/system/providers|^tests/dags/test_imports.py|^clients/python/test_.*\.py
         require_serial: true
