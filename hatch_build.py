@@ -510,8 +510,8 @@ COMPOSER_DEPENDENCIES = [
     "apache-airflow-providers-celery",
     "apache-airflow-providers-cncf-kubernetes",
     "apache-airflow-providers-dbt-cloud",
-    # fab provider>=1.3.0 requires changes in Airflow core https://github.com/apache/airflow/pull/40703,
-    # remove this constraint for newer version of Airflow.
+    # fab provider>=1.3.0 requires changes in Airflow core https://github.com/apache/airflow/pull/40703
+    # TODO: remove this constraint in Airflow 2.10.0+.
     "apache-airflow-providers-fab<1.3.0",
     "apache-airflow-providers-google",
     "apache-airflow-providers-hashicorp",
@@ -522,11 +522,10 @@ COMPOSER_DEPENDENCIES = [
     "apache-airflow-providers-ssh",
     "apache-airflow-providers-sqlite",
     "aiodebug",
-    # aiohttp and pygments in lower versions contain seucrity vulnerabilities.
+    # aiohttp and pygments in lower versions contain security vulnerabilities.
     "aiohttp>=3.8.5",
     "crcmod<2.0",
     "cryptography",
-    # Newer versions of dbt-core libraries are not compatible with pydantic>=2.0.0
     "dbt-bigquery",
     "dbt-core",
     "firebase-admin",
@@ -538,13 +537,12 @@ COMPOSER_DEPENDENCIES = [
     "google-apitools",
     "google-cloud-aiplatform",
     "google-cloud-asset",
-    # TODO: remove once https://github.com/apache/airflow/issues/39541 is resolved
-    "google-cloud-bigquery<3.21.0,>=3.0.1",
+    # Excluded versions contain bug https://github.com/apache/airflow/issues/39541 which is resolved in 3.24.0
+    "google-cloud-bigquery>=3.0.1,!=3.21.*,!=3.22.0,!=3.23.*",
     "google-cloud-datacatalog-lineage-producer-client",
     "google-cloud-datastore",
     "google-cloud-documentai",
     "google-cloud-filestore",
-    # higher version of package have conflict in the dependencies with the google-ads package
     "google-cloud-firestore",
     "google-cloud-pubsublite<1.0.0",
     "keyrings.google-artifactregistry-auth",
@@ -552,10 +550,9 @@ COMPOSER_DEPENDENCIES = [
     "pyOpenSSL",
     "pipdeptree",
     "pygments>2.15.0",
-    # TODO: Remove once https://github.com/apache/airflow/issues/37156 is closed
+    # TODO: Bump pytest version in Airflow 2.10.0+ since the community issue is resolved
+    # https://github.com/apache/airflow/issues/37156 is closed
     "pytest<8.0.0",
-    # TODO: remove once new version of Docker is released (https://github.com/docker/docker-py/pull/3257)
-    "requests>=2.24.0,<3.0.0,!=2.32.*",
     "sqllineage",
     "sqlparse",
     "tensorflow",
