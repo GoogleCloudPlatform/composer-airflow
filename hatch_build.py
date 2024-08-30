@@ -537,8 +537,6 @@ COMPOSER_DEPENDENCIES = [
     "google-apitools",
     "google-cloud-aiplatform",
     "google-cloud-asset",
-    # TODO: remove once https://github.com/apache/airflow/issues/39541 is resolved
-    "google-cloud-bigquery<3.21.0,>=3.0.1",
     "google-cloud-datacatalog-lineage-producer-client",
     "google-cloud-datastore",
     "google-cloud-documentai",
