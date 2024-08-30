@@ -537,8 +537,6 @@ COMPOSER_DEPENDENCIES = [
     "google-apitools",
     "google-cloud-aiplatform",
     "google-cloud-asset",
-    # Excluded versions contain bug https://github.com/apache/airflow/issues/39541 which is resolved in 3.24.0
-    "google-cloud-bigquery>=3.0.1,!=3.21.*,!=3.22.0,!=3.23.*",
     "google-cloud-datacatalog-lineage-producer-client",
     "google-cloud-datastore",
     "google-cloud-documentai",
