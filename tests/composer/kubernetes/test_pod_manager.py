@@ -233,6 +233,42 @@ class TestPodManager:
             mock.call("D"),
         ]
 
+    @mock.patch("airflow.composer.kubernetes.pod_manager.time.sleep", autospec=True)
+    @mock.patch("airflow.composer.kubernetes.pod_manager.requests", autospec=True)
+    def test_stream_peer_vm_logs_many_iterations(self, requests_mock, time_sleep_mock):
+        num_iterations = 10000
+        pod_mock = mock.Mock()
+
+        def container_is_running_side_effect(pod, container_name=None):
+            assert pod == pod_mock
+            assert container_name == "peervm-placeholder"
+            container_is_running_side_effect.call_counter += 1
+            if container_is_running_side_effect.call_counter <= num_iterations:
+                return True
+            else:
+                return False
+
+        container_is_running_side_effect.call_counter = 0
+        self_mock = mock.Mock(container_is_running=mock.Mock(side_effect=container_is_running_side_effect))
+
+        def requests_get_side_effect(url, params=None):
+            return mock.Mock(
+                status_code=200,
+                json=mock.Mock(return_value={"logs": []}),
+            )
+
+        requests_mock.get = mock.Mock(side_effect=requests_get_side_effect)
+
+        _stream_peer_vm_logs(
+            self_mock,
+            pod=pod_mock,
+            container_name="base",
+            peer_vm_endpoint="10.5.0.1",
+            after_timestamp="2023-05-02T10:11:12.0Z",
+        )
+
+        time_sleep_mock.assert_has_calls([mock.call(1)] * (num_iterations + 1))
+
     @pytest.mark.parametrize(
         "original_container_names, expected_container_names",
         [
