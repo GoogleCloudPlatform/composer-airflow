@@ -17,6 +17,8 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
+from airflow.composer.data_lineage.utils import xcom_pull
+
 if TYPE_CHECKING:
     from airflow.composer.data_lineage.entities import BigQueryTable
     from airflow.providers.google.cloud.operators.bigquery import (
@@ -68,7 +70,7 @@ class BigQueryInsertJobOperatorLineageMixin:
         from airflow.providers.google.cloud.hooks.bigquery import BigQueryHook
 
         task_instance = context["task_instance"]
-        job_id_path: str = task_instance.xcom_pull(task_ids=task_instance.task_id, key="job_id_path")
+        job_id_path: str = xcom_pull(task_instance=task_instance, key="job_id_path")
         if not job_id_path:
             log.exception("No job_id_path found.")
             return
