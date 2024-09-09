@@ -17,9 +17,11 @@ from __future__ import annotations
 import hashlib
 import os
 import uuid
-from typing import TYPE_CHECKING, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from sqllineage.runner import LineageRunner
+
+from airflow.models import TaskInstance
 
 if TYPE_CHECKING:
     from sqllineage.core.models import Table
@@ -126,3 +128,21 @@ def parsed_sql_statements(sql: str) -> list[Statement]:
         )
         if s.token_first(skip_cm=True)
     ]
+
+
+def xcom_pull(task_instance: TaskInstance, key: str | None = None) -> Any:
+    """Pull data from xcom.
+
+    Args:
+        task_instance: Task instance.
+        key: Key to pull data from.
+
+    Returns:
+        value from xcom.
+    """
+    kwargs = dict(task_ids=task_instance.task_id)
+    if key is not None:
+        kwargs["key"] = key
+    if task_instance.map_index == -1:
+        return task_instance.xcom_pull(**kwargs)
+    return task_instance.xcom_pull(**kwargs)[task_instance.map_index]

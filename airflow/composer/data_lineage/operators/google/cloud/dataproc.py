@@ -18,6 +18,8 @@ import logging
 from collections import namedtuple
 from typing import TYPE_CHECKING, Sequence
 
+from airflow.composer.data_lineage.utils import xcom_pull
+
 if TYPE_CHECKING:
     from google.cloud.dataproc_v1 import (
         Cluster,
@@ -211,7 +213,7 @@ class DataprocSubmitJobOperatorLineageMixin:
 
         try:
             task_instance = context["task_instance"]
-            job_id: str = task_instance.xcom_pull(task_ids=task_instance.task_id)
+            job_id: str = xcom_pull(task_instance=task_instance)
             job = hook.get_job(job_id=job_id, project_id=self.project_id, region=self.region)
         except NotFound:
             log.exception(f"The job with id {job_id} wasn't found. Data lineage wasn't reported")

@@ -20,6 +20,7 @@ import pytest
 
 import airflow.utils.net
 from airflow import settings
+from airflow.composer.data_lineage.utils import xcom_pull
 from airflow.composer.utils import (
     COMPOSER_DEFAULT_CELERY_CONFIG,
     get_component_hostname,
@@ -121,3 +122,34 @@ class TestUtils:
         assert DEFAULT_CELERY_CONFIG.items() <= COMPOSER_DEFAULT_CELERY_CONFIG.items()
         assert "redis_backend_health_check_interval" in COMPOSER_DEFAULT_CELERY_CONFIG
         assert COMPOSER_DEFAULT_CELERY_CONFIG["redis_backend_health_check_interval"] == 30
+
+    def test_xcom_pull(self):
+        test_key = "test_key"
+        test_task_id = "test_task_id"
+        test_map_index = -1
+
+        mock_task_instance = mock.MagicMock()
+        mock_task_instance.task_id = test_task_id
+        mock_task_instance.map_index = test_map_index
+        expected = mock_task_instance.xcom_pull.return_value
+
+        actual = xcom_pull(task_instance=mock_task_instance, key=test_key)
+
+        assert actual == expected
+        mock_task_instance.xcom_pull.assert_called_once_with(task_ids=test_task_id, key=test_key)
+
+    def test_xcom_pull_mapped_index(self):
+        test_key = "test_key"
+        test_task_id = "test_task_id"
+        test_map_index = 1
+
+        mock_task_instance = mock.MagicMock()
+        mock_task_instance.task_id = test_task_id
+        mock_task_instance.map_index = test_map_index
+        expected = mock.MagicMock()
+        mock_task_instance.xcom_pull.return_value = [mock.MagicMock(), expected, mock.MagicMock()]
+
+        actual = xcom_pull(task_instance=mock_task_instance, key=test_key)
+
+        assert actual == expected
+        mock_task_instance.xcom_pull.assert_called_once_with(task_ids=test_task_id, key=test_key)
