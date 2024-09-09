@@ -84,7 +84,7 @@ class TestBigQueryInsertJobOperator:
         task.job_id = "test-job-id"
 
         job_id_path = "test-project:location:test-job-id"
-        context = {"task_instance": mock.Mock(xcom_pull=mock.Mock(return_value=job_id_path))}
+        context = {"task_instance": mock.Mock(xcom_pull=mock.Mock(return_value=job_id_path), map_index=-1)}
 
         post_execute_prepare_lineage(task, context)
 
@@ -139,7 +139,7 @@ class TestBigQueryInsertJobOperator:
 
         job_id_path = "test-project:location:test-job-id"
         mock_xcom_pull = mock.Mock(return_value=job_id_path)
-        context = {"task_instance": mock.Mock(task_id="test-task-id", xcom_pull=mock_xcom_pull)}
+        context = {"task_instance": mock.Mock(task_id="test-task-id", xcom_pull=mock_xcom_pull, map_index=-1)}
 
         post_execute_prepare_lineage(task, context)
 
@@ -150,7 +150,7 @@ class TestBigQueryInsertJobOperator:
         task = BigQueryExecuteQueryOperator(sql="SQL", task_id="test-task", location="location")
         mock_bigquery_hook.side_effect = AirflowNotFoundException
         job_id_path = "test-project:location:test-job-id"
-        context = {"task_instance": mock.Mock(xcom_pull=mock.Mock(return_value=job_id_path))}
+        context = {"task_instance": mock.Mock(xcom_pull=mock.Mock(return_value=job_id_path), map_index=-1)}
 
         post_execute_prepare_lineage(task, context)
 
@@ -200,7 +200,7 @@ class TestBigQueryInsertJobOperator:
 
         job_id_path = "test-project:location:test-job-id"
         mock_xcom_pull = mock.Mock(return_value=job_id_path)
-        context = {"task_instance": mock.Mock(task_id="test-task-id", xcom_pull=mock_xcom_pull)}
+        context = {"task_instance": mock.Mock(task_id="test-task-id", xcom_pull=mock_xcom_pull, map_index=-1)}
 
         post_execute_prepare_lineage(task, context)
 
@@ -225,7 +225,7 @@ class TestBigQueryInsertJobOperator:
         )
         task.job_id = "test-job-id"
         job_id_path = "test-project:location:test-job-id"
-        context = {"task_instance": mock.Mock(xcom_pull=mock.Mock(return_value=job_id_path))}
+        context = {"task_instance": mock.Mock(xcom_pull=mock.Mock(return_value=job_id_path), map_index=-1)}
 
         post_execute_prepare_lineage(task, context)
 
@@ -249,7 +249,7 @@ class TestBigQueryInsertJobOperator:
         mock_bigquery_hook.return_value = mock.Mock(get_job=mock.Mock(side_effect=_mock_get_job))
         task.job_id = "test-job-id"
         job_id_path = "test-project:location:test-job-id"
-        context = {"task_instance": mock.Mock(xcom_pull=mock.Mock(return_value=job_id_path))}
+        context = {"task_instance": mock.Mock(xcom_pull=mock.Mock(return_value=job_id_path), map_index=-1)}
 
         post_execute_prepare_lineage(task, context)
 
@@ -304,7 +304,7 @@ class TestBigQueryInsertJobOperator:
         task.job_id = "test-job-id"
 
         job_id_path = "test-project:location:test-job-id"
-        context = {"task_instance": mock.Mock(xcom_pull=mock.Mock(return_value=job_id_path))}
+        context = {"task_instance": mock.Mock(xcom_pull=mock.Mock(return_value=job_id_path), map_index=-1)}
 
         post_execute_prepare_lineage(task, context)
 
@@ -428,7 +428,7 @@ class TestBigQueryInsertJobOperator:
         task.job_id = "test-job-id"
 
         job_id_path = "test-project:location:test-job-id"
-        context = {"task_instance": mock.Mock(xcom_pull=mock.Mock(return_value=job_id_path))}
+        context = {"task_instance": mock.Mock(xcom_pull=mock.Mock(return_value=job_id_path), map_index=-1)}
 
         post_execute_prepare_lineage(task, context)
 
@@ -485,7 +485,7 @@ class TestBigQueryExecuteQueryOperator:
         task.job_id = "test-job-id"
 
         job_id_path = "test-project:location:test-job-id"
-        context = {"task_instance": mock.Mock(xcom_pull=mock.Mock(return_value=job_id_path))}
+        context = {"task_instance": mock.Mock(xcom_pull=mock.Mock(return_value=job_id_path), map_index=-1)}
 
         post_execute_prepare_lineage(task, context)
 
@@ -541,7 +541,9 @@ class TestBigQueryExecuteQueryOperator:
 
         job_id_path = "test-project:location:test-job-id"
         mock_xcom_pull = mock.Mock(return_value=job_id_path)
-        context = {"task_instance": mock.Mock(task_id="test-task-id2", xcom_pull=mock_xcom_pull)}
+        context = {
+            "task_instance": mock.Mock(task_id="test-task-id2", xcom_pull=mock_xcom_pull, map_index=-1)
+        }
 
         post_execute_prepare_lineage(task, context)
 
@@ -552,7 +554,7 @@ class TestBigQueryExecuteQueryOperator:
         task = BigQueryExecuteQueryOperator(sql="SQL", task_id="test-task", location="location")
         mock_bigquery_hook.side_effect = AirflowNotFoundException
         job_id_path = "test-project:location:test-job-id"
-        context = {"task_instance": mock.Mock(xcom_pull=mock.Mock(return_value=job_id_path))}
+        context = {"task_instance": mock.Mock(xcom_pull=mock.Mock(return_value=job_id_path), map_index=-1)}
 
         post_execute_prepare_lineage(task, context)
 
@@ -578,7 +580,7 @@ class TestBigQueryExecuteQueryOperator:
         task.job_id = "test-job-id"
 
         job_id_path = "test-project:location:test-job-id"
-        context = {"task_instance": mock.Mock(xcom_pull=mock.Mock(return_value=job_id_path))}
+        context = {"task_instance": mock.Mock(xcom_pull=mock.Mock(return_value=job_id_path), map_index=-1)}
 
         post_execute_prepare_lineage(task, context)
 
@@ -600,7 +602,7 @@ class TestBigQueryExecuteQueryOperator:
         task.job_id = "test-job-id"
 
         job_id_path = "test-project:location:test-job-id"
-        context = {"task_instance": mock.Mock(xcom_pull=mock.Mock(return_value=job_id_path))}
+        context = {"task_instance": mock.Mock(xcom_pull=mock.Mock(return_value=job_id_path), map_index=-1)}
 
         post_execute_prepare_lineage(task, context)
 
@@ -646,7 +648,7 @@ class TestBigQueryExecuteQueryOperator:
         task.job_id = "test-job-id"
 
         job_id_params = {}
-        context = {"task_instance": mock.Mock(xcom_pull=mock.Mock(return_value=job_id_params))}
+        context = {"task_instance": mock.Mock(xcom_pull=mock.Mock(return_value=job_id_params), map_index=-1)}
 
         post_execute_prepare_lineage(task, context)
 

@@ -361,7 +361,7 @@ class TestDataprocSubmitJobOperatorLineageMixin:
         mock_extractor.return_value.data_lineage.return_value = (expected_inlets, expected_outlets)
         job_id = "test-job-id"
         mock_xcom_pull = mock.Mock(return_value=job_id)
-        context = {"task_instance": mock.Mock(task_id="hive_task", xcom_pull=mock_xcom_pull)}
+        context = {"task_instance": mock.Mock(task_id="hive_task", xcom_pull=mock_xcom_pull, map_index=-1)}
 
         task = DataprocSubmitJobOperator(
             task_id="hive_task", job=HIVE_JOB, region=TEST_LOCATION, project_id=TEST_PROJECT_ID
@@ -376,7 +376,7 @@ class TestDataprocSubmitJobOperatorLineageMixin:
         mock_hook.return_value.project_id = None
         job_id = "test-job-id"
         mock_xcom_pull = mock.Mock(return_value=job_id)
-        context = {"task_instance": mock.Mock(task_id="hive_task", xcom_pull=mock_xcom_pull)}
+        context = {"task_instance": mock.Mock(task_id="hive_task", xcom_pull=mock_xcom_pull, map_index=-1)}
 
         task = DataprocSubmitJobOperator(task_id="hive_task", job=HIVE_JOB, region=TEST_LOCATION)
         post_execute_prepare_lineage(task=task, context=context)
@@ -391,7 +391,7 @@ class TestDataprocSubmitJobOperatorLineageMixin:
         mock_hook.return_value = m_hook
         job_id = "test-job-id"
         mock_xcom_pull = mock.Mock(return_value=job_id)
-        context = {"task_instance": mock.Mock(task_id="hive_task", xcom_pull=mock_xcom_pull)}
+        context = {"task_instance": mock.Mock(task_id="hive_task", xcom_pull=mock_xcom_pull, map_index=-1)}
 
         task = DataprocSubmitJobOperator(
             task_id="hive_task", job=HIVE_JOB, region=TEST_LOCATION, project_id=TEST_PROJECT_ID
@@ -411,7 +411,7 @@ class TestDataprocSubmitJobOperatorLineageMixin:
         mock_extractor.return_value.data_lineage.return_value = (inlets, outlets)
         job_id = "test-job-id"
         mock_xcom_pull = mock.Mock(return_value=job_id)
-        context = {"task_instance": mock.Mock(task_id="hive_task", xcom_pull=mock_xcom_pull)}
+        context = {"task_instance": mock.Mock(task_id="hive_task", xcom_pull=mock_xcom_pull, map_index=-1)}
 
         task = DataprocSubmitJobOperator(
             task_id="hive_task", job=HIVE_JOB, region=TEST_LOCATION, project_id=TEST_PROJECT_ID
@@ -431,7 +431,7 @@ class TestDataprocSubmitJobOperatorLineageMixin:
         mock_extractor.return_value.data_lineage.return_value = (inlets, outlets)
         job_id = "test-job-id"
         mock_xcom_pull = mock.Mock(return_value=job_id)
-        context = {"task_instance": mock.Mock(task_id="hive_task", xcom_pull=mock_xcom_pull)}
+        context = {"task_instance": mock.Mock(task_id="hive_task", xcom_pull=mock_xcom_pull, map_index=-1)}
 
         task = DataprocSubmitJobOperator(
             task_id="hive_task", job=HIVE_JOB, region=TEST_LOCATION, project_id=TEST_PROJECT_ID
@@ -449,7 +449,7 @@ class TestDataprocSubmitJobOperatorLineageMixin:
         mock_extractor.return_value.data_lineage.side_effect = AirflowException
         job_id = "test-job-id"
         mock_xcom_pull = mock.Mock(return_value=job_id)
-        context = {"task_instance": mock.Mock(task_id="hive_task", xcom_pull=mock_xcom_pull)}
+        context = {"task_instance": mock.Mock(task_id="hive_task", xcom_pull=mock_xcom_pull, map_index=-1)}
 
         task = DataprocSubmitJobOperator(
             task_id="hive_task", job=HIVE_JOB, region=TEST_LOCATION, project_id=TEST_PROJECT_ID
