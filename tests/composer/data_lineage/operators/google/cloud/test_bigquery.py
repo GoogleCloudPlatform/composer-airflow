@@ -104,6 +104,77 @@ class TestBigQueryInsertJobOperator:
         ]
 
     @patch(BIGQUERY_PATH + ".BigQueryHook", autospec=True)
+    def test_post_execute_prepare_lineage_partition(self, mock_bigquery_hook):
+        def _mock_get_job(project_id, location, job_id):
+            assert project_id == "test-project"
+            assert location == "location"
+            assert job_id == "test-job-id"
+            return mock.Mock(
+                _properties={
+                    "statistics": {
+                        "query": {
+                            "referencedTables": [
+                                {
+                                    "projectId": "project-1",
+                                    "datasetId": "dataset-1",
+                                    "tableId": "table-1$partition1",
+                                },
+                                {
+                                    "projectId": "project-2",
+                                    "datasetId": "dataset-2",
+                                    "tableId": "table-2$partition2",
+                                },
+                                {
+                                    "projectId": "project-2",
+                                    "tableId": "ephemeral-table$partition3",
+                                },
+                            ]
+                        },
+                    },
+                    "configuration": {
+                        "query": {
+                            "destinationTable": {
+                                "projectId": "project-2",
+                                "datasetId": "dataset-2",
+                                "tableId": "table-2$partition4",
+                            },
+                        },
+                    },
+                },
+            )
+
+        task = BigQueryInsertJobOperator(
+            task_id="test-task",
+            configuration={},
+            project_id="test-project",
+            location="location",
+        )
+        mock_bigquery_hook.return_value = mock.Mock(
+            get_job=mock.Mock(side_effect=_mock_get_job),
+        )
+        task.job_id = "test-job-id"
+
+        job_id_path = "test-project:location:test-job-id"
+        context = {"task_instance": mock.Mock(xcom_pull=mock.Mock(return_value=job_id_path), map_index=-1)}
+
+        post_execute_prepare_lineage(task, context)
+
+        assert task.inlets == [
+            BigQueryTable(
+                project_id="project-1",
+                dataset_id="dataset-1",
+                table_id="table-1",
+            )
+        ]
+        assert task.outlets == [
+            BigQueryTable(
+                project_id="project-2",
+                dataset_id="dataset-2",
+                table_id="table-2",
+            )
+        ]
+
+    @patch(BIGQUERY_PATH + ".BigQueryHook", autospec=True)
     def test_post_execute_prepare_lineage_xcom_pull(self, mock_bigquery_hook):
         def _mock_get_job(project_id, location, job_id):
             assert project_id == "test-project"
@@ -470,6 +541,65 @@ class TestBigQueryExecuteQueryOperator:
                                 "projectId": "project-2",
                                 "datasetId": "dataset-2",
                                 "tableId": "table-2",
+                            },
+                        },
+                    },
+                },
+            )
+
+        task = BigQueryExecuteQueryOperator(sql="SQL", task_id="test-task", location="location")
+        mock_bigquery_hook.return_value = mock.Mock(
+            location="location",
+            project_id="project-1",
+            get_job=mock.Mock(side_effect=_mock_get_job),
+        )
+        task.job_id = "test-job-id"
+
+        job_id_path = "test-project:location:test-job-id"
+        context = {"task_instance": mock.Mock(xcom_pull=mock.Mock(return_value=job_id_path), map_index=-1)}
+
+        post_execute_prepare_lineage(task, context)
+
+        assert task.inlets == [
+            BigQueryTable(
+                project_id="project-1",
+                dataset_id="dataset-1",
+                table_id="table-1",
+            )
+        ]
+
+        assert task.outlets == [
+            BigQueryTable(
+                project_id="project-2",
+                dataset_id="dataset-2",
+                table_id="table-2",
+            )
+        ]
+
+    @patch(BIGQUERY_PATH + ".BigQueryHook", autospec=True)
+    def test_post_execute_prepare_lineage_partition(self, mock_bigquery_hook):
+        def _mock_get_job(job_id, location):
+            assert job_id == "test-job-id"
+            assert location == "location"
+            return mock.Mock(
+                _properties={
+                    "statistics": {
+                        "query": {
+                            "referencedTables": [
+                                {
+                                    "projectId": "project-1",
+                                    "datasetId": "dataset-1",
+                                    "tableId": "table-1$partition1",
+                                }
+                            ]
+                        },
+                    },
+                    "configuration": {
+                        "query": {
+                            "destinationTable": {
+                                "projectId": "project-2",
+                                "datasetId": "dataset-2",
+                                "tableId": "table-2$partition2",
                             },
                         },
                     },

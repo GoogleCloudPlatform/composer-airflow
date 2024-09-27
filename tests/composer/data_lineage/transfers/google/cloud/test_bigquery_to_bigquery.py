@@ -80,6 +80,37 @@ class TestBigQueryToBigQuery:
         ]
         assert task.outlets == expected_outlets
 
+    @patch.object(BigQueryHook, "project_id", new_callable=PropertyMock)
+    def test_post_execute_prepare_lineage_multiple_sources_partitioned(self, mock_project_id):
+        sources = [
+            "src_project1.src_dataset1.src_table1$partition1",
+            "src_project2:src_dataset2.src_table2$partition2",
+            "src_dataset3.src_table3$partition3",
+        ]
+        target = "target_project.target_dataset.target_table$partition"
+
+        mock_project_id.return_value = "source_project"
+
+        task = BigQueryToBigQueryOperator(
+            source_project_dataset_tables=sources,
+            destination_project_dataset_table=target,
+            task_id="test-task",
+        )
+
+        post_execute_prepare_lineage(task, {})
+
+        expected_inlets = [
+            BigQueryTable(project_id="src_project1", dataset_id="src_dataset1", table_id="src_table1"),
+            BigQueryTable(project_id="src_project2", dataset_id="src_dataset2", table_id="src_table2"),
+            BigQueryTable(project_id="source_project", dataset_id="src_dataset3", table_id="src_table3"),
+        ]
+        assert task.inlets == expected_inlets
+
+        expected_outlets = [
+            BigQueryTable(project_id="target_project", dataset_id="target_dataset", table_id="target_table")
+        ]
+        assert task.outlets == expected_outlets
+
     @patch(
         "airflow.providers.google.cloud.hooks.bigquery.BigQueryHook",
         autospec=True,
