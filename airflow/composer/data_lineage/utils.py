@@ -146,3 +146,8 @@ def xcom_pull(task_instance: TaskInstance, key: str | None = None) -> Any:
     if task_instance.map_index == -1:
         return task_instance.xcom_pull(**kwargs)
     return task_instance.xcom_pull(**kwargs)[task_instance.map_index]
+
+
+def exclude_bigquery_partition(table_id: str) -> str:
+    """Exclude partition from the BigQuery table id."""
+    return table_id.split("$")[0]
