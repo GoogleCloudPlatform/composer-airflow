@@ -17,7 +17,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from airflow.composer.data_lineage.utils import xcom_pull
+from airflow.composer.data_lineage.utils import exclude_bigquery_partition, xcom_pull
 
 if TYPE_CHECKING:
     from airflow.composer.data_lineage.entities import BigQueryTable
@@ -107,7 +107,7 @@ class BigQueryInsertJobOperatorLineageMixin:
             BigQueryTable(
                 project_id=input_table["projectId"],
                 dataset_id=input_table["datasetId"],
-                table_id=input_table["tableId"],
+                table_id=exclude_bigquery_partition(input_table["tableId"]),
             )
             for input_table in input_tables
             if input_table.get("datasetId")
@@ -118,7 +118,7 @@ class BigQueryInsertJobOperatorLineageMixin:
             outlet = BigQueryTable(
                 project_id=output_table["projectId"],
                 dataset_id=output_table["datasetId"],
-                table_id=output_table["tableId"],
+                table_id=exclude_bigquery_partition(output_table["tableId"]),
             )
             self.outlets.append(outlet)
 
@@ -174,7 +174,7 @@ class BigQueryExecuteQueryOperatorLineageMixin:
             BigQueryTable(
                 project_id=input_table["projectId"],
                 dataset_id=input_table["datasetId"],
-                table_id=input_table["tableId"],
+                table_id=exclude_bigquery_partition(input_table["tableId"]),
             )
             for input_table in input_tables
             if input_table.get("datasetId")
@@ -185,7 +185,7 @@ class BigQueryExecuteQueryOperatorLineageMixin:
             outlet = BigQueryTable(
                 project_id=output_table["projectId"],
                 dataset_id=output_table["datasetId"],
-                table_id=output_table["tableId"],
+                table_id=exclude_bigquery_partition(output_table["tableId"]),
             )
             self.outlets.append(outlet)
 
