@@ -44,9 +44,23 @@ class TestGCSToBigQuery:
                 [BigQueryTable(project_id=PROJECT_ID, dataset_id=DATASET_ID, table_id=TABLE_ID)],
             ),
             (
+                "copy_one_file_short_destination",
+                ["path/to/file.csv"],
+                f"{DATASET_ID}.{TABLE_ID}$partition",
+                [GCSEntity(bucket=BUCKET, path="path/to/file.csv")],
+                [BigQueryTable(project_id=PROJECT_ID, dataset_id=DATASET_ID, table_id=TABLE_ID)],
+            ),
+            (
                 "copy_one_file_full_destination_1",
                 ["path/to/file.csv"],
                 f"{PROJECT_ID}.{DATASET_ID}.{TABLE_ID}",
+                [GCSEntity(bucket=BUCKET, path="path/to/file.csv")],
+                [BigQueryTable(project_id=PROJECT_ID, dataset_id=DATASET_ID, table_id=TABLE_ID)],
+            ),
+            (
+                "copy_one_file_full_destination_1",
+                ["path/to/file.csv"],
+                f"{PROJECT_ID}.{DATASET_ID}.{TABLE_ID}$partition",
                 [GCSEntity(bucket=BUCKET, path="path/to/file.csv")],
                 [BigQueryTable(project_id=PROJECT_ID, dataset_id=DATASET_ID, table_id=TABLE_ID)],
             ),
@@ -58,9 +72,26 @@ class TestGCSToBigQuery:
                 [BigQueryTable(project_id=PROJECT_ID, dataset_id=DATASET_ID, table_id=TABLE_ID)],
             ),
             (
+                "copy_one_file_full_destination_2",
+                ["path/to/file.csv"],
+                f"{PROJECT_ID}:{DATASET_ID}.{TABLE_ID}$partition",
+                [GCSEntity(bucket=BUCKET, path="path/to/file.csv")],
+                [BigQueryTable(project_id=PROJECT_ID, dataset_id=DATASET_ID, table_id=TABLE_ID)],
+            ),
+            (
                 "copy_multiple_files_short_destination",
                 ["path/to/file_1.csv", "path/to/file_2.csv"],
                 f"{DATASET_ID}.{TABLE_ID}",
+                [
+                    GCSEntity(bucket=BUCKET, path="path/to/file_1.csv"),
+                    GCSEntity(bucket=BUCKET, path="path/to/file_2.csv"),
+                ],
+                [BigQueryTable(project_id=PROJECT_ID, dataset_id=DATASET_ID, table_id=TABLE_ID)],
+            ),
+            (
+                "copy_multiple_files_short_destination",
+                ["path/to/file_1.csv", "path/to/file_2.csv"],
+                f"{DATASET_ID}.{TABLE_ID}$partition",
                 [
                     GCSEntity(bucket=BUCKET, path="path/to/file_1.csv"),
                     GCSEntity(bucket=BUCKET, path="path/to/file_2.csv"),
@@ -78,9 +109,29 @@ class TestGCSToBigQuery:
                 [BigQueryTable(project_id=PROJECT_ID, dataset_id=DATASET_ID, table_id=TABLE_ID)],
             ),
             (
+                "copy_multiple_files_full_destination_1",
+                ["path/to/file_1.csv", "path/to/file_2.csv"],
+                f"{PROJECT_ID}.{DATASET_ID}.{TABLE_ID}$partition",
+                [
+                    GCSEntity(bucket=BUCKET, path="path/to/file_1.csv"),
+                    GCSEntity(bucket=BUCKET, path="path/to/file_2.csv"),
+                ],
+                [BigQueryTable(project_id=PROJECT_ID, dataset_id=DATASET_ID, table_id=TABLE_ID)],
+            ),
+            (
                 "copy_multiple_files_full_destination_2",
                 ["path/to/file_1.csv", "path/to/file_2.csv"],
                 f"{PROJECT_ID}:{DATASET_ID}.{TABLE_ID}",
+                [
+                    GCSEntity(bucket=BUCKET, path="path/to/file_1.csv"),
+                    GCSEntity(bucket=BUCKET, path="path/to/file_2.csv"),
+                ],
+                [BigQueryTable(project_id=PROJECT_ID, dataset_id=DATASET_ID, table_id=TABLE_ID)],
+            ),
+            (
+                "copy_multiple_files_full_destination_2",
+                ["path/to/file_1.csv", "path/to/file_2.csv"],
+                f"{PROJECT_ID}:{DATASET_ID}.{TABLE_ID}$partition",
                 [
                     GCSEntity(bucket=BUCKET, path="path/to/file_1.csv"),
                     GCSEntity(bucket=BUCKET, path="path/to/file_2.csv"),

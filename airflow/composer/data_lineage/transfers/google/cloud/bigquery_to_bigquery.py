@@ -17,6 +17,8 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
+from airflow.composer.data_lineage.utils import exclude_bigquery_partition
+
 if TYPE_CHECKING:
     from airflow.providers.google.cloud.transfers.bigquery_to_bigquery import BigQueryToBigQueryOperator
 
@@ -46,28 +48,29 @@ class BigQueryToBigQueryOperatorLineageMixin:
         if isinstance(sources, str):
             sources = [sources]
 
-        keys = ("project_id", "dataset_id", "table_id")
         inlets = []
         for table_name in sources:
             try:
-                source_items = hook.split_tablename(
+                project_id, dataset_id, table_id = hook.split_tablename(
                     table_input=table_name, default_project_id=hook.project_id  # type: ignore
                 )
             except Exception:
                 log.exception('Error on parsing table name: "%s"', table_name)
                 return
-            inlets.append(BigQueryTable(**dict(zip(keys, source_items))))
+            table_id = exclude_bigquery_partition(table_id=table_id)
+            inlets.append(BigQueryTable(project_id=project_id, dataset_id=dataset_id, table_id=table_id))
 
         outlets = []
         try:
-            destination_items = hook.split_tablename(
+            project_id, dataset_id, table_id = hook.split_tablename(
                 table_input=self.destination_project_dataset_table,
                 default_project_id=hook.project_id,  # type: ignore
             )
         except Exception:
             log.exception('Error on parsing table name: "%s"', self.destination_project_dataset_table)
             return
-        outlets.append(BigQueryTable(**dict(zip(keys, destination_items))))
+        table_id = exclude_bigquery_partition(table_id=table_id)
+        outlets.append(BigQueryTable(project_id=project_id, dataset_id=dataset_id, table_id=table_id))
 
         self.inlets.extend(inlets)
         self.outlets.extend(outlets)

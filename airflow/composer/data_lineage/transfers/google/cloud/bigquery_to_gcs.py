@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from airflow.composer.data_lineage.utils import exclude_bigquery_partition
 from airflow.exceptions import AirflowException
 
 if TYPE_CHECKING:
@@ -45,7 +46,7 @@ class BigQueryToGCSOperatorLineageMixin:
             return
 
         try:
-            source_items = hook.split_tablename(
+            project_id, dataset_id, table_id = hook.split_tablename(
                 table_input=self.source_project_dataset_table,
                 default_project_id=hook.project_id,  # type: ignore
             )
@@ -53,7 +54,8 @@ class BigQueryToGCSOperatorLineageMixin:
             log.exception("Error on parsing table name: '%s'", self.source_project_dataset_table)
             return
 
-        inlets = [BigQueryTable(**dict(zip(("project_id", "dataset_id", "table_id"), source_items)))]
+        table_id = exclude_bigquery_partition(table_id=table_id)
+        inlets = [BigQueryTable(project_id=project_id, dataset_id=dataset_id, table_id=table_id)]
 
         outlets = []
         for destination_uri in self.destination_cloud_storage_uris:

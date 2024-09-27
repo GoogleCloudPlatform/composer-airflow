@@ -106,6 +106,33 @@ class TestBigQueryToGCS:
         ]
         assert task.outlets == expected_outlets
 
+    @patch.object(BigQueryHook, "project_id", new_callable=PropertyMock)
+    def test_post_execute_prepare_lineage_multiple_targets_partition(self, mock_project_id, operator):
+        task = operator(
+            task_id=TASK_ID,
+            source_project_dataset_table=f"{SOURCE_PROJECT_ID}.{SOURCE_DATASET_ID}.{SOURCE_TABLE_ID}$part",
+            destination_cloud_storage_uris=[
+                f"gs://{TARGET_BUCKET_NAME}/test.csv",
+                f"gs://{TARGET_BUCKET_NAME}/tmp/test-*.csv",
+            ],
+            location=LOCATION,
+        )
+
+        post_execute_prepare_lineage(task, {})
+
+        expected_inlets = [
+            BigQueryTable(
+                project_id=SOURCE_PROJECT_ID, dataset_id=SOURCE_DATASET_ID, table_id=SOURCE_TABLE_ID
+            ),
+        ]
+        assert task.inlets == expected_inlets
+
+        expected_outlets = [
+            GCSEntity(bucket=TARGET_BUCKET_NAME, path="test.csv"),
+            GCSEntity(bucket=TARGET_BUCKET_NAME, path="tmp/test-*.csv"),
+        ]
+        assert task.outlets == expected_outlets
+
     @patch(
         "airflow.providers.google.cloud.hooks.bigquery.BigQueryHook",
         autospec=True,

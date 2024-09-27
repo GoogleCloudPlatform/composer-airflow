@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from airflow.composer.data_lineage.utils import exclude_bigquery_partition
 from airflow.exceptions import AirflowException
 
 if TYPE_CHECKING:
@@ -51,6 +52,7 @@ class GCSToBigQueryOperatorLineageMixin:
         except Exception:
             log.exception("Error on parsing table name: '%s'", destination)
             return
+        table_id = exclude_bigquery_partition(table_id=table_id)
 
         self.inlets.extend(
             [GCSEntity(bucket=self.bucket, path=_source_obj) for _source_obj in self.source_objects]

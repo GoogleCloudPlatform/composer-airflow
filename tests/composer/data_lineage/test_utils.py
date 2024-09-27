@@ -23,6 +23,7 @@ from sqllineage.core.models import Table
 from airflow.composer.data_lineage.entities import BigQueryTable
 from airflow.composer.data_lineage.utils import (
     _build_BigQueryTable,
+    exclude_bigquery_partition,
     exclude_outlet,
     generate_uuid_from_string,
     get_process_id,
@@ -179,3 +180,14 @@ class TestUtils:
         result = exclude_outlet(inlets=inlets, outlet=outlet)
 
         assert result == inlets[:3] + inlets[4:]
+
+    @pytest.mark.parametrize(
+        "table_id, expected",
+        [
+            ("test_table", "test_table"),
+            ("test_table$partition", "test_table"),
+        ],
+    )
+    def test_exclude_bigquery_partition(self, table_id, expected):
+        actual = exclude_bigquery_partition(table_id=table_id)
+        assert actual == expected
