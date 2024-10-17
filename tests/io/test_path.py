@@ -406,12 +406,11 @@ class TestFs:
         attach("s3", fs=FakeRemoteFileSystem())
 
         p = "s3"
-        b = "bucket"
         f = "/tmp/foo"
-        i = Dataset(uri=f"{p}://{b}{f}", extra={"foo": "bar"})
+        i = Dataset(uri=f"{p}://{f}", extra={"foo": "bar"})
         o = ObjectStoragePath(i)
         assert o.protocol == p
-        assert o.path == b + f
+        assert o.path == f
 
     def test_hash(self):
         file_uri_1 = f"file:///tmp/{str(uuid.uuid4())}"

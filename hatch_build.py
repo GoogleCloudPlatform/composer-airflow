@@ -548,7 +548,6 @@ COMPOSER_DEPENDENCIES = [
     "pyOpenSSL",
     "pipdeptree",
     "pygments>2.15.0",
-    "pytest",
     "sqllineage",
     "sqlparse",
     "tensorflow",
