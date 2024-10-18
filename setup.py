@@ -419,6 +419,9 @@ composer_additional = [
     "tensorflow",
     # Versions < 2.2.3 contain security vulnerabilities.
     "werkzeug>=2.2.3",
+    # looker-sdk 24.18.0 breaks looker hook
+    # TODO(Internal bug): remove when it's fixed or the constraint is added in community
+    "looker-sdk<=24.16.2",
 ]
 composer = (
     PROVIDER_DEPENDENCIES["mysql"][DEPS]
