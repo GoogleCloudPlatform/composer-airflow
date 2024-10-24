@@ -557,6 +557,8 @@ COMPOSER_DEPENDENCIES = [
     # looker-sdk 24.18.0 breaks looker hook
     # TODO(Internal bug): remove when it's fixed or the constraint is added in community
     "looker-sdk<=24.16.2",
+    # TODO: remove when https://github.com/apache/airflow/issues/43228 is fixed
+    "wtforms>=3.1.0,<3.2.0",
 ]
 
 COMPOSER_EXTRAS_DEPENDENCIES = [
