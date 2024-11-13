@@ -197,11 +197,13 @@ class StreamTaskHandler(logging.StreamHandler):
     them in cloud monitoring.
     """
 
+    supports_task_context_logging = True
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.workflow_context_processor = WorkflowContextProcessor()
 
-    def set_context(self, ti):
+    def set_context(self, ti: TaskInstance, *, identifier: str | None = None) -> None | SetContextPropagate:
         """
         Provide task_instance context to airflow task handler.
         :param ti: task instance object.
@@ -376,7 +378,7 @@ class FileTaskHandler(logging.Handler):
 
     @cached_property
     def supports_task_context_logging(self) -> bool:
-        return "identifier" in inspect.signature(self.set_context).parameters
+        return False
 
     @staticmethod
     def add_triggerer_suffix(full_path, job_id=None):

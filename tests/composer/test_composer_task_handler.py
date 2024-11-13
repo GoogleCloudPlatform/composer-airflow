@@ -107,8 +107,6 @@ class TestComposerLoggingHandlerTask:
             request=ListLogEntriesRequest(
                 resource_names=["projects/project_id"],
                 filter=(
-                    'logName=("projects/project_id/logs/airflow-worker" OR '
-                    '"projects/project_id/logs/airflow-k8s-worker")\n'
                     'resource.type="cloud_composer_environment"\n'
                     'resource.labels.project_id="project_id"\n'
                     'resource.labels.environment_name="composer-env"\n'
@@ -136,8 +134,6 @@ class TestComposerLoggingHandlerTask:
             request=ListLogEntriesRequest(
                 resource_names=["projects/project_id"],
                 filter=(
-                    'logName=("projects/project_id/logs/airflow-worker" OR '
-                    '"projects/project_id/logs/airflow-k8s-worker")\n'
                     'resource.type="cloud_composer_environment"\n'
                     'resource.labels.project_id="project_id"\n'
                     'resource.labels.environment_name="composer-env"\n'
@@ -216,8 +212,6 @@ class TestComposerLoggingHandlerTask:
         logs, metadata = self.composerTaskHandler.read(self.ti, 1, {"download_logs": "true"})
 
         log_filter = (
-            'logName=("projects/project_id/logs/airflow-worker" OR '
-            '"projects/project_id/logs/airflow-k8s-worker")\n'
             'resource.type="cloud_composer_environment"\n'
             'resource.labels.project_id="project_id"\n'
             'resource.labels.environment_name="composer-env"\n'
@@ -260,8 +254,6 @@ class TestComposerLoggingHandlerTask:
         page2_logs, metadata2 = self.composerTaskHandler.read(self.ti, 1, metadata1[0])
 
         log_filter = (
-            'logName=("projects/project_id/logs/airflow-worker" OR '
-            '"projects/project_id/logs/airflow-k8s-worker")\n'
             'resource.type="cloud_composer_environment"\n'
             'resource.labels.project_id="project_id"\n'
             'resource.labels.environment_name="composer-env"\n'
