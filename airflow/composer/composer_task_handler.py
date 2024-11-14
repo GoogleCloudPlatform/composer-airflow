@@ -131,7 +131,13 @@ class ComposerTaskHandler(StreamTaskHandler, LoggingMixin):
         if not next_page_token:
             messages = "*** Reading remote logs from Cloud Logging.\n"
 
-        new_messages, end_of_log, next_page_token = self._read_logs(log_filter, next_page_token, all_pages)
+        new_messages, end_of_log, next_page_token = self._read_logs(
+            log_filter=log_filter,
+            next_page_token=next_page_token,
+            all_pages=all_pages,
+            log_task_id=task_instance.task_id,
+            log_dag_id=task_instance.dag_id,
+        )
 
         new_metadata = {"end_of_log": end_of_log}
         if next_page_token:
@@ -190,7 +196,7 @@ class ComposerTaskHandler(StreamTaskHandler, LoggingMixin):
         return "\n".join(log_filters)
 
     def _read_logs(
-        self, log_filter: str, next_page_token: str | None, all_pages: bool
+        self, log_filter: str, next_page_token: str | None, all_pages: bool, log_task_id: str, log_dag_id: str
     ) -> tuple[str, bool, str | None]:
         """Sends requests to the Cloud Logging service and downloads logs.
 
@@ -200,6 +206,8 @@ class ComposerTaskHandler(StreamTaskHandler, LoggingMixin):
             will start. If None is passed, it will start from the first page.
         :param all_pages: If True is passed, all subpages will be downloaded.
             Otherwise, only the page matching the next_page_token will be downloaded.
+        :param log_task_id: Name of the task to output in case if no log entries found.
+        :param log_dag_id: Name of the DAG to output in case if no log entries found.
         :return: A tuple that contains the following items:
             * string with logs
             * Boolean value describing whether there are more logs,
@@ -234,8 +242,8 @@ class ComposerTaskHandler(StreamTaskHandler, LoggingMixin):
         if not logs_list and not next_page_token:
             empty_log = (
                 f"*** Logs not found for Cloud Logging filter:\n{log_filter}\n"
-                "*** The task might not have been executed, logs were deleted "
-                "as part of logs retention (default of 30 days),  or worker "
+                f"*** The task {log_task_id} from DAG {log_dag_id} might not have been executed, "
+                "logs were deleted as part of logs retention (default of 30 days), or worker "
                 "executing it might have finished abnormally (e.g. was evicted).\n"
                 "*** Please, refer to "
                 "https://cloud.google.com/composer/docs/how-to/using/troubleshooting-dags#common_issues "

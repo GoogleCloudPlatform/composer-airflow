@@ -236,8 +236,9 @@ class TestComposerLoggingHandlerTask:
                     "default-hostname",
                     "*** Reading remote logs from Cloud Logging.\n"
                     f"*** Logs not found for Cloud Logging filter:\n{log_filter}\n"
-                    "*** The task might not have been executed, logs were deleted "
-                    "as part of logs retention (default of 30 days),  or worker "
+                    "*** The task task_for_testing_composer_log_handler from DAG "
+                    "dag_for_testing_composer_task_handler might not have been executed, "
+                    "logs were deleted as part of logs retention (default of 30 days), or worker "
                     "executing it might have finished abnormally (e.g. was evicted).\n"
                     "*** Please, refer to "
                     "https://cloud.google.com/composer/docs/how-to/using/troubleshooting-dags#common_issues "
@@ -287,8 +288,9 @@ class TestComposerLoggingHandlerTask:
                 (
                     "default-hostname",
                     f"*** Logs not found for Cloud Logging filter:\n{log_filter}\n"
-                    "*** The task might not have been executed, logs were deleted "
-                    "as part of logs retention (default of 30 days),  or worker "
+                    "*** The task task_for_testing_composer_log_handler from DAG "
+                    "dag_for_testing_composer_task_handler might not have been executed, "
+                    "logs were deleted as part of logs retention (default of 30 days), or worker "
                     "executing it might have finished abnormally (e.g. was evicted).\n"
                     "*** Please, refer to "
                     "https://cloud.google.com/composer/docs/how-to/using/troubleshooting-dags#common_issues "
