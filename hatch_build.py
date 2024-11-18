@@ -559,9 +559,6 @@ COMPOSER_DEPENDENCIES = [
     "virtualenv>=20.24.0",
     # Versions < 2.2.3 contain security vulnerabilities.
     "werkzeug>=2.2.3",
-    # looker-sdk 24.18.0 breaks looker hook
-    # TODO(Internal bug): remove when it's fixed or the constraint is added in community
-    "looker-sdk<=24.16.2",
     # TODO: remove when https://github.com/apache/airflow/issues/43228 is fixed
     "wtforms>=3.1.0,<3.2.0",
 ]
