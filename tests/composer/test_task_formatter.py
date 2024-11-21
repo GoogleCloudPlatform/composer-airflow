@@ -123,8 +123,9 @@ class TestTaskFormatter:
             '"map-index": "-1", '
             '"try-number": "1"}'
         )
+        sample_prefix = "[2024-11-21 15:41:52,400] {test_task_formatter.py:111} INFO - "
         for line in lines:
-            assert len(line) <= 4096 + len(expected_annotation)
+            assert len(line) <= 4096 + len(expected_annotation) + len(sample_prefix)
             assert re2.match(
                 ".*@-@{"
                 '"workflow": "dag_for_testing_composer_task_formatter", '
@@ -157,3 +158,13 @@ class TestTaskFormatter:
             '"extra-label": "value"}\n',
             self.stream.getvalue(),
         )
+
+    def test_prefixes_split_lines_with_log_format(self):
+        self.ti.init_run_context()
+        self.ti.log.info(get_long_message())
+
+        value = self.stream.getvalue()
+        lines = value.split("\n")[:-1]
+
+        for line in lines:
+            assert re2.match("\[.*\] \{.*\} INFO - ", line)

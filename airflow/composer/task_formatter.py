@@ -16,6 +16,7 @@
 
 from __future__ import annotations
 
+import copy
 import json
 import logging
 
@@ -55,11 +56,15 @@ class TaskFormatter(logging.Formatter):
     """Formatter that appends additional task metadata for Cloud Logging."""
 
     def format(self, record: logging.LogRecord):
-        formatted_message = super().format(record)
-        lines_to_escape = [
-            formatted_message[i : i + _LOG_LINE_SPLIT_LENGTH]
-            for i in range(0, len(formatted_message), _LOG_LINE_SPLIT_LENGTH)
+        raw_message = record.msg
+        lines_to_format = [
+            raw_message[i : i + _LOG_LINE_SPLIT_LENGTH]
+            for i in range(0, len(raw_message), _LOG_LINE_SPLIT_LENGTH)
         ]
+        formatted_lines = map(
+            lambda line: self._format_record(record, line),
+            lines_to_format,
+        )
         # New lines are mostly translated into a new log entry in Cloud Logging.
         # But for some patterns that do not apply as GKE logging processor can
         # combine some of the lines, for ex. Python error traces.
@@ -68,9 +73,19 @@ class TaskFormatter(logging.Formatter):
         # consistent even if they are multi-line and/or have exception traces.
         escaped_lines = map(
             lambda line: line.replace("\\", "\\\\").replace("\n", "\\n").replace("\r", "\\r"),
-            lines_to_escape,
+            formatted_lines,
         )
+
         if hasattr(record, _WORKFLOW_INFO_RECORD_KEY):
             workflow_annotation = getattr(record, _WORKFLOW_INFO_RECORD_KEY)
-            escaped_lines = map(lambda line: line + workflow_annotation, escaped_lines)
+            escaped_lines = map(
+                lambda line: line + workflow_annotation,
+                escaped_lines,
+            )
+
         return "\n".join(escaped_lines)
+
+    def _format_record(self, base: logging.LogRecord, msg: str) -> str:
+        record = copy.copy(base)
+        record.msg = msg
+        return super().format(record)
