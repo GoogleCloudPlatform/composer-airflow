@@ -14,15 +14,32 @@
 # limitations under the License.
 from __future__ import annotations
 
+import base64
+import json
 import logging
 import math
 import os
+from contextlib import closing
+from typing import TYPE_CHECKING
 
 import yaml
 from kubernetes.client import models as k8s
+from kubernetes.stream import stream as kubernetes_stream
 from kubernetes.utils import parse_quantity
+from websockets.frames import Frame
+from websockets.streams import StreamReader
 
+from airflow.exceptions import AirflowException
 from airflow.providers.cncf.kubernetes.pod_generator import PodGenerator
+from airflow.providers.cncf.kubernetes.utils.xcom_sidecar import PodDefaults
+
+if TYPE_CHECKING:
+    from kubernetes.client.models.v1_pod import V1Pod
+    from airflow.providers.cncf.kubernetes.utils.pod_manager import PodManager
+
+
+PEER_VM_PLACEHOLDER_CONTAINER = "peervm-placeholder"
+PEER_VM_ENDPOINT_ANNOTATION = "node.gke.io/peer-vm-endpoint"
 
 USER_WORKLOADS_NAMESPACE = "composer-user-workloads"
 USE_WORKLOAD_IDENTITY_SERVICE_LABEL = "node.gke.io/use-workload-identity-service"
@@ -172,3 +189,126 @@ def _get_composer_serverless_machine_memory(resources: k8s.V1ResourceRequirement
         cpu,
     )
     return valid_memory_gb_values[-1][1]
+
+
+def exec_on_placeholder_pod(self: PodManager, pod: V1Pod, command: list[str]):
+    """Runs exec command on Peer VM placeholder pod.
+
+    Args:
+        self: instance of PodManager.
+        pod: k8s placeholder pod.
+        command: command to run as a list of arguments.
+    Returns:
+        Response of exec command.
+    """
+    with closing(
+        kubernetes_stream(
+            self._client.connect_get_namespaced_pod_exec,
+            pod.metadata.name,
+            pod.metadata.namespace,
+            container=PEER_VM_PLACEHOLDER_CONTAINER,
+            command=command,
+            stdin=True,
+            stdout=True,
+            stderr=True,
+            tty=False,
+            _preload_content=False,
+        )
+    ) as resp:
+        result = ""
+        while resp.is_open():
+            resp.update(timeout=1)
+
+            while resp.peek_stdout():
+                result += resp.read_stdout()
+
+            error_res = ""
+            while resp.peek_stderr():
+                error_res += resp.read_stderr()
+            if error_res:
+                raise AirflowException(f"There was an error in calling kubernetes API: {error_res}")
+
+            if result:
+                break
+
+        self.log.debug("Exec command response: %s", result)
+        return result
+
+
+def get_peer_vm_pod_container_statuses(self: PodManager, pod: V1Pod):
+    """Returns statuses of the containers of Peer VM pod.
+
+    Args:
+        self: instance of PodManager.
+        pod: k8s placeholder pod.
+    Returns:
+        List of dictionaries with container statuses, e.g.
+        [{"container":"airflow-xcom-sidecar","state":"RUNNING"},{"container":"base","state":"TERMINATED"}].
+    """
+    resp = exec_on_placeholder_pod(self, pod=pod, command=["placeholder-pod", "container-statuses"])
+    return json.loads(resp)
+
+
+def is_kubernetes_pod_operator_base_container_terminated(self: PodManager, pod: V1Pod):
+    """Returns whether base container of KubernetesPodOperator pod is terminated.
+
+    KubernetesPodOperator pod can have 1 or 2 containers:
+    - in case do_xcom_push=False - one base container
+    - in case do_xcom_push=True - 2 containers: base container and xcom sidecar container
+
+    Args:
+        self: instance of PodManager.
+        pod: k8s placeholder pod.
+    """
+    container_statuses = get_peer_vm_pod_container_statuses(self, pod=pod)
+
+    # Note: "base" is just a default name for base container of KubernetesPodOperator, user can override
+    # its name in operator parameters.
+    base_container_status = [
+        status
+        for status in container_statuses
+        if status["container"] != PodDefaults.SIDECAR_CONTAINER_NAME
+    ]
+    if len(base_container_status) != 1:
+        raise ValueError(
+            "Unexpected list of containers in KubernetesPodOperator pod, container statuses: "
+            f"{container_statuses}")
+
+    return base_container_status[0]["state"] == "TERMINATED"
+
+
+def parse_payload_from_peer_vm_exec_response(response):
+    """Parses payload from response of exec command ran on Peer VM pod.
+
+    Args:
+        response: base64 encoded websocket frames stream.
+    Returns:
+        Payload.
+    """
+    def _get_frame(read_exact):
+        frame = yield from Frame.parse(read_exact=read_exact, mask=False)
+        yield frame
+
+    reader = StreamReader()
+    reader.feed_data(base64.b64decode(response))
+
+    frames = []
+    while True:
+        try:
+            frame = next(_get_frame(reader.read_exact))
+        except Exception as e:
+            raise AirflowException(f"Unable to parse response from exec command: {e}")
+        if frame is None:
+            break
+
+        frames.append(frame)
+
+    # Collect payload from frames:
+    # - skip header and footer frames
+    # - decode content from bytes to string
+    payload = "".join([
+        frame.data[1:].decode("utf-8")
+        for frame in frames[1:-1]
+    ])
+
+    return payload
