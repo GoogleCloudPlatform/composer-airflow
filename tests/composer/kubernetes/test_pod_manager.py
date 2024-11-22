@@ -18,21 +18,31 @@ import datetime
 from unittest import mock
 
 import pytest
+from kubernetes.client import models as k8s
 
 from airflow.composer.kubernetes.pod_manager import (
+    _composer_container_is_running,
+    _composer_extract_xcom_json,
+    _composer_extract_xcom_kill,
     _composer_fetch_container_logs,
     _composer_get_container_names,
     _stream_peer_vm_logs,
     patch_fetch_container_logs,
 )
+from airflow.exceptions import AirflowException
 from airflow.providers.cncf.kubernetes.utils.pod_manager import PodManager
 
 
 class TestPodManager:
     @mock.patch("airflow.composer.kubernetes.pod_manager._composer_fetch_container_logs", autospec=True)
     @mock.patch("airflow.composer.kubernetes.pod_manager._composer_get_container_names", autospec=True)
+    @mock.patch("airflow.composer.kubernetes.pod_manager._composer_container_is_running", autospec=True)
+    @mock.patch("airflow.composer.kubernetes.pod_manager._composer_extract_xcom_json", autospec=True)
+    @mock.patch("airflow.composer.kubernetes.pod_manager._composer_extract_xcom_kill", autospec=True)
     def test_patch_fetch_container_logs(
-        self, composer_get_container_names_mock, composer_fetch_container_logs_mock
+        self, composer_extract_xcom_kill_mock, composer_extract_xcom_json_mock,
+        composer_container_is_running_mock, composer_get_container_names_mock,
+        composer_fetch_container_logs_mock,
     ):
         # test setUp
         PodManager.fetch_container_logs._composer_patched = False
@@ -44,6 +54,9 @@ class TestPodManager:
         composer_fetch_container_logs_mock.assert_called_once()
         assert getattr(PodManager.fetch_container_logs, "_composer_patched") is True
         composer_get_container_names_mock.assert_called_once()
+        composer_container_is_running_mock.assert_called_once()
+        composer_extract_xcom_json_mock.assert_called_once()
+        composer_extract_xcom_kill_mock.assert_called_once()
 
     def test_composer_fetch_container_logs_not_peer_vm(self):
         pod_mock = mock.Mock()
@@ -133,20 +146,22 @@ class TestPodManager:
 
     @mock.patch("airflow.composer.kubernetes.pod_manager.time.sleep", autospec=True)
     @mock.patch("airflow.composer.kubernetes.pod_manager.requests", autospec=True)
-    def test_stream_peer_vm_logs(self, requests_mock, time_sleep_mock):
+    @mock.patch("airflow.composer.kubernetes.pod_manager.is_kubernetes_pod_operator_base_container_terminated", autospec=True)
+    def test_stream_peer_vm_logs(self, is_base_container_terminated_mock, requests_mock, time_sleep_mock):
+        self_mock = mock.Mock()
         pod_mock = mock.Mock()
 
-        def container_is_running_side_effect(pod, container_name=None):
+        def is_base_container_terminated_mock_side_effect(self, pod):
+            assert self == self_mock
             assert pod == pod_mock
-            assert container_name == "peervm-placeholder"
-            container_is_running_side_effect.call_counter += 1
-            if container_is_running_side_effect.call_counter <= 4:
-                return True
-            else:
+            is_base_container_terminated_mock_side_effect.call_counter += 1
+            if is_base_container_terminated_mock_side_effect.call_counter <= 4:
                 return False
+            else:
+                return True
 
-        container_is_running_side_effect.call_counter = 0
-        self_mock = mock.Mock(container_is_running=mock.Mock(side_effect=container_is_running_side_effect))
+        is_base_container_terminated_mock_side_effect.call_counter = 0
+        is_base_container_terminated_mock.side_effect = is_base_container_terminated_mock_side_effect
 
         def requests_get_side_effect(url, params=None):
             requests_get_side_effect.call_counter += 1
@@ -219,6 +234,7 @@ class TestPodManager:
 
         time_sleep_mock.assert_has_calls(
             [
+                mock.call(10),
                 mock.call(1),
                 mock.call(1),
                 mock.call(1),
@@ -235,21 +251,23 @@ class TestPodManager:
 
     @mock.patch("airflow.composer.kubernetes.pod_manager.time.sleep", autospec=True)
     @mock.patch("airflow.composer.kubernetes.pod_manager.requests", autospec=True)
-    def test_stream_peer_vm_logs_many_iterations(self, requests_mock, time_sleep_mock):
+    @mock.patch("airflow.composer.kubernetes.pod_manager.is_kubernetes_pod_operator_base_container_terminated", autospec=True)
+    def test_stream_peer_vm_logs_many_iterations(self, is_base_container_terminated_mock, requests_mock, time_sleep_mock):
         num_iterations = 10000
+        self_mock = mock.Mock()
         pod_mock = mock.Mock()
 
-        def container_is_running_side_effect(pod, container_name=None):
+        def is_base_container_terminated_mock_side_effect(self, pod):
+            assert self == self_mock
             assert pod == pod_mock
-            assert container_name == "peervm-placeholder"
-            container_is_running_side_effect.call_counter += 1
-            if container_is_running_side_effect.call_counter <= num_iterations:
-                return True
-            else:
+            is_base_container_terminated_mock_side_effect.call_counter += 1
+            if is_base_container_terminated_mock_side_effect.call_counter <= num_iterations:
                 return False
+            else:
+                return True
 
-        container_is_running_side_effect.call_counter = 0
-        self_mock = mock.Mock(container_is_running=mock.Mock(side_effect=container_is_running_side_effect))
+        is_base_container_terminated_mock_side_effect.call_counter = 0
+        is_base_container_terminated_mock.side_effect = is_base_container_terminated_mock_side_effect
 
         def requests_get_side_effect(url, params=None):
             return mock.Mock(
@@ -267,7 +285,7 @@ class TestPodManager:
             after_timestamp="2023-05-02T10:11:12.0Z",
         )
 
-        time_sleep_mock.assert_has_calls([mock.call(1)] * (num_iterations + 1))
+        time_sleep_mock.assert_has_calls([mock.call(10)] + [mock.call(1)] * (num_iterations + 1))
 
     @pytest.mark.parametrize(
         "original_container_names, expected_container_names",
@@ -282,3 +300,90 @@ class TestPodManager:
         )
 
         assert actual_container_names == expected_container_names
+
+    @pytest.mark.parametrize(
+        "container_name, container_statuses, expected_result",
+        [
+            ("airflow-xcom-sidecar", [
+                {"container": "airflow-xcom-sidecar", "state": "RUNNING"},
+                {"container": "base", "state": "TERMINATED"}], True),
+            ("base", [
+                {"container": "airflow-xcom-sidecar", "state": "RUNNING"},
+                {"container": "base", "state": "TERMINATED"}], False),
+        ],
+    )
+    @mock.patch("airflow.composer.kubernetes.pod_manager.get_peer_vm_pod_container_statuses", autospec=True)
+    def test_composer_container_is_running(
+        self, get_peer_vm_pod_container_statuses_mock, container_name, container_statuses, expected_result,
+    ):
+        get_peer_vm_pod_container_statuses_mock.return_value = container_statuses
+        self_mock = mock.Mock()
+        pod_mock = mock.Mock()
+
+        actual_result = _composer_container_is_running(mock.Mock())(self_mock, pod_mock, container_name)
+
+        get_peer_vm_pod_container_statuses_mock.assert_called_with(self_mock, pod=pod_mock)
+        assert actual_result == expected_result
+
+    @mock.patch("airflow.composer.kubernetes.pod_manager.get_peer_vm_pod_container_statuses", autospec=True)
+    def test_composer_container_is_running_not_found_container(self, get_peer_vm_pod_container_statuses_mock):
+        get_peer_vm_pod_container_statuses_mock.return_value = [
+            {"container": "airflow-xcom-sidecar", "state": "RUNNING"},
+            {"container": "base", "state": "TERMINATED"}]
+        self_mock = mock.Mock()
+        pod_mock = k8s.V1Pod(metadata=k8s.V1ObjectMeta(name="test-pod"))
+
+        with pytest.raises(ValueError) as exc:
+            _composer_container_is_running(mock.Mock())(self_mock, pod_mock, "not-exist")
+
+        get_peer_vm_pod_container_statuses_mock.assert_called_with(self_mock, pod=pod_mock)
+        assert str(exc.value) == "Not found container named as 'not-exist' for pod 'test-pod'"
+
+    @mock.patch("airflow.composer.kubernetes.pod_manager.exec_on_placeholder_pod", autospec=True)
+    def test_composer_extract_xcom_json(self, exec_on_placeholder_pod_mock):
+        self_mock = mock.Mock()
+        pod_mock = mock.Mock()
+        exec_on_placeholder_pod_mock.return_value = b"ggEBggUBMjIyCogCA+g="
+
+        result = _composer_extract_xcom_json(mock.Mock())(self_mock, pod_mock)
+
+        exec_on_placeholder_pod_mock.assert_called_once_with(
+            self_mock, pod=pod_mock, command=[
+                "placeholder-pod", "exec", "airflow-xcom-sidecar", (
+                    '["/bin/sh", "-c", '
+                    '"if [ -s /airflow/xcom/return.json ]; then cat /airflow/xcom/return.json; '
+                    'else echo __airflow_xcom_result_empty__; fi"]'
+                )])
+        assert result == "222\n"
+
+    @mock.patch("airflow.composer.kubernetes.pod_manager.exec_on_placeholder_pod", autospec=True)
+    def test_composer_extract_xcom_json_empty_xcom_result(self, exec_on_placeholder_pod_mock):
+        self_mock = mock.Mock()
+        pod_mock = mock.Mock()
+        exec_on_placeholder_pod_mock.return_value = b"ggEBgh8BX19haXJmbG93X3hjb21fcmVzdWx0X2VtcHR5X18KiAID6A=="
+
+        result = _composer_extract_xcom_json(mock.Mock())(self_mock, pod_mock)
+
+        assert result == "__airflow_xcom_result_empty__\n"
+
+    @mock.patch("airflow.composer.kubernetes.pod_manager.exec_on_placeholder_pod", autospec=True)
+    def test_composer_extract_xcom_json_failure(self, exec_on_placeholder_pod_mock):
+        self_mock = mock.Mock()
+        pod_mock = k8s.V1Pod(metadata=k8s.V1ObjectMeta(name="test-pod"))
+        exec_on_placeholder_pod_mock.return_value = None
+
+        with pytest.raises(AirflowException) as exc:
+            _composer_extract_xcom_json(mock.Mock())(self_mock, pod_mock)
+
+        assert str(exc.value) == "Failed to extract xcom from pod: test-pod"
+
+    @mock.patch("airflow.composer.kubernetes.pod_manager.exec_on_placeholder_pod", autospec=True)
+    def test_composer_extract_xcom_kill(self, exec_on_placeholder_pod_mock):
+        self_mock = mock.Mock()
+        pod_mock = mock.Mock()
+
+        _composer_extract_xcom_kill(mock.Mock())(self_mock, pod_mock)
+
+        exec_on_placeholder_pod_mock.assert_called_once_with(
+            self_mock, pod=pod_mock, command=[
+                "placeholder-pod", "exec", "airflow-xcom-sidecar", '["/bin/sh", "-c", "kill -2 1"]'])
