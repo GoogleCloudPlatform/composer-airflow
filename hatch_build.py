@@ -513,7 +513,8 @@ COMPOSER_DEPENDENCIES = [
     # fab provider>=1.3.0 requires changes in Airflow core https://github.com/apache/airflow/pull/40703
     # TODO: remove this constraint in Airflow 2.10.0+.
     "apache-airflow-providers-fab<1.3.0",
-    "apache-airflow-providers-google",
+    # TODO: remove once we decide to release 11.0.0+ version in Composer.
+    "apache-airflow-providers-google<11.0.0",
     "apache-airflow-providers-hashicorp",
     "apache-airflow-providers-http",
     "apache-airflow-providers-mysql",
@@ -557,6 +558,7 @@ COMPOSER_DEPENDENCIES = [
     "sqlparse",
     "tensorflow",
     "virtualenv>=20.24.0",
+    "websockets",
     # Versions < 2.2.3 contain security vulnerabilities.
     "werkzeug>=2.2.3",
     # TODO: remove when https://github.com/apache/airflow/issues/43228 is fixed
