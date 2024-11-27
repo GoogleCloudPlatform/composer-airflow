@@ -20,11 +20,9 @@ import signal
 from datetime import datetime, timedelta
 
 from sqlalchemy import func as sqlfunc, select, text, tuple_
-from sqlalchemy.ext.associationproxy import ColumnAssociationProxyInstance
 
 from airflow import __version__, settings
 from airflow.composer.db_command.tables_to_trim import get_table_primary_key, tables_to_trim
-from airflow.stats import Stats
 from airflow.utils.timezone import make_aware
 
 logger = logging.getLogger(__name__)
@@ -52,19 +50,13 @@ class Config:
 
 def sigint_handler(signum, frame):
     """Handling signal, in case of interruption we should indicate it in logs/metrics."""
-    Stats.incr("db_trim.execution_state.interrupted")
     logger.info("Process was interrupted. It didn't finish its work yet!")
-    with settings.Session() as session:
-        emit_retention_gap_metric(session, config)
     exit(0)
 
 
 def sigalrm_handler(signum, frame):
     """Handling signal, in case of interruption we should indicate it in logs/metrics."""
-    Stats.incr("db_trim.execution_state.incomplete")
     logger.info("Process was timedouted. It didn't finish its work yet!")
-    with settings.Session() as session:
-        emit_retention_gap_metric(session, config)
     exit(0)
 
 
@@ -84,25 +76,19 @@ def execute_trim(retention_days):
     config = Config(retention_days)
 
     try:
-        with Stats.timer("db_trim.execution_time"):
-            with settings.Session() as session:
-                trim_session_table(session=session, config=config, limit_per_transaction=1000)
-                for table in config.tables:
-                    trim_table(
-                        session=session,
-                        config=config,
-                        table=table,
-                        limit_per_transaction=1000,
-                    )
-            Stats.incr("db_trim.execution_state.success")
-            logger.info("Database trimming finished!")
+        with settings.Session() as session:
+            trim_session_table(session=session, config=config, limit_per_transaction=1000)
+            for table in config.tables:
+                trim_table(
+                    session=session,
+                    config=config,
+                    table=table,
+                    limit_per_transaction=1000,
+                )
+        logger.info("Database trimming finished!")
     except Exception as e:
-        Stats.incr("db_trim.execution_state.failure")
         logger.info("Database trimming failed!")
         logger.error(e)
-    finally:
-        with settings.Session() as session:
-            emit_retention_gap_metric(session, config)
 
 
 def _log_table_info(table_name, table_size, rows_to_remove, limit):
@@ -220,28 +206,3 @@ def prepare_filter_criterion(session, table, primary_key, expiration_datetime, s
         return [*additional_filter]
     else:
         return [table["age_column"] < expiration_datetime, *additional_filter]
-
-
-def emit_retention_gap_metric(session, config):
-    """Checking the oldest data in some of the tables.
-
-    It should be sufficient to check only those files, which have their 'age_column' provided directly.
-    Those tables with proxy column should get deleted even before those with their own fields.
-    """
-    oldest_date = config.execution_time
-
-    for table in config.tables:
-        primary_key = get_table_primary_key(table)
-        filter_criterion = prepare_filter_criterion(
-            session, table, primary_key, config.expiration_datetime, skip_age=True
-        )
-        if not isinstance(table["age_column"], ColumnAssociationProxyInstance):
-            olest_data_stmt = (
-                select(table["age_column"]).filter(*filter_criterion).order_by(table["age_column"]).limit(1)
-            )
-            date = session.execute(olest_data_stmt).first()
-            if date is not None:
-                oldest_date = min(oldest_date, date[0])
-    result = max(0, (config.expiration_datetime - oldest_date).days)
-    Stats.gauge("db_trim.retention_gap", result)
-    return result
