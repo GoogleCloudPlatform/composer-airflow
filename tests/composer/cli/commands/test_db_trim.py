@@ -26,7 +26,6 @@ from airflow.cli import cli_parser
 from airflow.composer.cli.commands import db_command
 from airflow.composer.db_command.db_trim import (
     Config,
-    emit_retention_gap_metric,
     execute_trim,
     trim_session_table,
     trim_table,
@@ -133,27 +132,6 @@ class TestDbTrim:
                 assert before_count_tables[key] + 2 == after_count_tables[key]
             else:
                 assert before_count_tables[key] == after_count_tables[key]
-
-    @pytest.mark.parametrize("extra_args", [(["--retention-days", "730", "--acknowledge-work-in-progress"])])
-    def test_e2e_emit_retention_gap_metric(self, extra_args):
-        config = Config(int(extra_args[1]))
-        with open(
-            os.path.join(self.CURRENT_DIRECTORY, "../../test_data/db_trim_inserts.sql")
-        ) as insert_sql_file:
-            execute_sql_file(insert_sql_file)
-
-        with create_session() as session:
-            result = emit_retention_gap_metric(session, config)
-
-        oldest_data = datetime.datetime.strptime("1903-10-17 14:10:00+00:00", "%Y-%m-%d %H:%M:%S%z")
-        expected_gap = config.expiration_datetime - oldest_data
-
-        with open(
-            os.path.join(self.CURRENT_DIRECTORY, "../../test_data/db_trim_deletes.sql")
-        ) as deletes_sql_file:
-            execute_sql_file(deletes_sql_file)
-
-        assert result == expected_gap.days
 
     def test_tables_to_trim_order(self):
         """Checking the order of tables per Airflow version
