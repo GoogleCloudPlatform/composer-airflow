@@ -29,6 +29,8 @@ import tenacity
 from airflow.composer.kubernetes.utils import (
     PEER_VM_PLACEHOLDER_CONTAINER,
     PEER_VM_ENDPOINT_ANNOTATION,
+    PeerVmPlaceholderPodContainerNotFoundException,
+    PeerVmPlaceholderPodShutDownException,
     get_peer_vm_pod_container_statuses,
     is_kubernetes_pod_operator_base_container_terminated,
     exec_on_placeholder_pod,
@@ -128,7 +130,16 @@ def _stream_peer_vm_logs(self, pod, container_name, peer_vm_endpoint, after_time
     time.sleep(SLEEP_BEFORE_PEER_VM_LOGS_STREAMING)
 
     while True:
-        is_last_iteration = is_kubernetes_pod_operator_base_container_terminated(self, pod=pod)
+        try:
+            is_last_iteration = is_kubernetes_pod_operator_base_container_terminated(self, pod=pod)
+        except PeerVmPlaceholderPodContainerNotFoundException:
+            self.log.debug(
+                "KubernetesPodOperator pod container is not found. Looks like it was terminated already.")
+            is_last_iteration = True
+        except PeerVmPlaceholderPodShutDownException:
+            self.log.debug("KubernetesPodOperator pod is shut down.")
+            is_last_iteration = True
+
         time.sleep(SLEEP_BETWEEN_PEER_VM_LOGS_STREAMING_ITERATIONS)
 
         url = f"http://{peer_vm_endpoint}:9080/logs"
