@@ -1283,8 +1283,8 @@ repos:
     rev: 'v1.10.1'
     hooks:
       - id: mypy
-        name: mypy-composer
-        description: 'Mypy linter for Composer Airflow.'
+        name: Run mypy (Composer Airflow)
+        description: Mypy linter for Composer Airflow.
         args: [
           '--install-types',
           '--non-interactive',
@@ -1296,3 +1296,11 @@ repos:
         exclude: ^.*/.*_vendor/|^airflow/migrations|^airflow/providers|^dev|^scripts|^docs|^provider_packages|^tests/providers|^tests/system/providers|^tests/dags/test_imports.py|^clients/python/test_.*\.py
         require_serial: true
         additional_dependencies: ['attrs']
+  - repo: https://github.com/psf/black
+    rev: 24.8.0
+    hooks:
+      - id: black
+        name: Run black (Composer Airflow)
+        description: Black linter for Composer Airflow.
+        args: [ --config=./pyproject.toml ]
+        exclude: ^airflow/_vendor/|^airflow/contrib
