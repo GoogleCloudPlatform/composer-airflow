@@ -7,8 +7,11 @@ import json
 import pytest
 import yaml
 from kubernetes.client import models as k8s
+from kubernetes.client.exceptions import ApiException
 
 from airflow.composer.kubernetes.utils import (
+    PeerVmPlaceholderPodContainerNotFoundException,
+    PeerVmPlaceholderPodShutDownException,
     _get_composer_serverless_machine_type,
     _get_composer_serverless_pod_metadata,
     exec_on_placeholder_pod,
@@ -343,7 +346,8 @@ class TestUtils:
             is_open=mock.Mock(return_value=True),
             peek_stdout=mock.Mock(side_effect=[True, False]),
             read_stdout=mock.Mock(return_value="content"),
-            peek_stderr=mock.Mock(return_value=False))
+            peek_stderr=mock.Mock(return_value=False),
+            returncode=0)
 
         result = exec_on_placeholder_pod(self_mock, pod=pod_mock, command=["arg1", "arg2"])
 
@@ -387,6 +391,88 @@ class TestUtils:
             _preload_content=False,
         )
         assert str(exc.value) == "There was an error in calling kubernetes API: API error"
+
+    @mock.patch("airflow.composer.kubernetes.utils.kubernetes_stream", autospec=True)
+    def test_exec_on_placeholder_pod_pod_shut_down(self, kubernetes_stream_mock):
+        self_mock = mock.Mock()
+        pod_mock = mock.Mock()
+        kubernetes_stream_mock.return_value = mock.Mock(
+            is_open=mock.Mock(return_value=False),
+            peek_stdout=mock.Mock(return_value=False),
+            peek_stderr=mock.Mock(return_value=False),
+            returncode=137)
+
+        with pytest.raises(PeerVmPlaceholderPodShutDownException) as exc:
+            exec_on_placeholder_pod(self_mock, pod=pod_mock, command=["arg1", "arg2"])
+
+        assert str(exc.value) == "Got 137 exit code on exec"
+
+    @mock.patch("airflow.composer.kubernetes.utils.kubernetes_stream", autospec=True)
+    def test_exec_on_placeholder_pod_unexpected_return_code(self, kubernetes_stream_mock):
+        self_mock = mock.Mock()
+        pod_mock = mock.Mock()
+        kubernetes_stream_mock.return_value = mock.Mock(
+            is_open=mock.Mock(return_value=False),
+            peek_stdout=mock.Mock(return_value=False),
+            peek_stderr=mock.Mock(return_value=False),
+            returncode=58)
+
+        with pytest.raises(AirflowException) as exc:
+            exec_on_placeholder_pod(self_mock, pod=pod_mock, command=["arg1", "arg2"])
+
+        assert str(exc.value) == "There was an error in calling kubernetes API, return code: 58"
+
+    @mock.patch("airflow.composer.kubernetes.utils.kubernetes_stream", autospec=True)
+    def test_exec_on_placeholder_pod_return_code_value_error(self, kubernetes_stream_mock):
+        self_mock = mock.Mock()
+        pod_mock = mock.Mock()
+
+        class _KubernetesStreamMock(mock.Mock):
+            def is_open(self):
+                return False
+
+            def peek_stdout(self):
+                return False
+
+            def peek_stderr(self):
+                return False
+
+            @property
+            def returncode(self):
+                raise ValueError("error")
+
+        kubernetes_stream_mock.return_value = _KubernetesStreamMock()
+
+        with pytest.raises(PeerVmPlaceholderPodShutDownException) as exc:
+            exec_on_placeholder_pod(self_mock, pod=pod_mock, command=["arg1", "arg2"])
+
+        assert str(exc.value) == "Error on parsing exit code"
+
+    @mock.patch("airflow.composer.kubernetes.utils.kubernetes_stream", autospec=True)
+    def test_exec_on_placeholder_pod_container_not_found(self, kubernetes_stream_mock):
+        self_mock = mock.Mock()
+        pod_mock = mock.Mock()
+        kubernetes_stream_mock.side_effect = ApiException(
+            reason="Handshake status 500 Error -+-+- b'container not found (\"peervm-placeholder\")")
+
+        with pytest.raises(PeerVmPlaceholderPodContainerNotFoundException) as exc:
+            exec_on_placeholder_pod(self_mock, pod=pod_mock, command=["arg1", "arg2"])
+
+        assert str(exc.value) == (
+            "Handshake status 500 Error -+-+- b'container not found (\"peervm-placeholder\")"
+        )
+
+    @mock.patch("airflow.composer.kubernetes.utils.kubernetes_stream", autospec=True)
+    def test_exec_on_placeholder_pod_agent_failed(self, kubernetes_stream_mock):
+        self_mock = mock.Mock()
+        pod_mock = mock.Mock()
+        kubernetes_stream_mock.side_effect = ApiException(
+            reason="Kubelet agent failed")
+
+        with pytest.raises(ApiException) as exc:
+            exec_on_placeholder_pod(self_mock, pod=pod_mock, command=["arg1", "arg2"])
+
+        assert exc.value.reason == "Kubelet agent failed"
 
     @mock.patch("airflow.composer.kubernetes.utils.exec_on_placeholder_pod", autospec=True)
     def test_get_peer_vm_pod_container_statuses(self, exec_on_placeholder_pod_mock):

@@ -24,6 +24,7 @@ from typing import TYPE_CHECKING
 
 import yaml
 from kubernetes.client import models as k8s
+from kubernetes.client.exceptions import ApiException
 from kubernetes.stream import stream as kubernetes_stream
 from kubernetes.utils import parse_quantity
 from websockets.frames import Frame
@@ -48,6 +49,15 @@ MAX_RESOURCES_DISK_SIZE_GB = 100
 EPS = 1e-9
 
 log = logging.getLogger(__file__)
+
+
+class PeerVmPlaceholderPodShutDownException(Exception):
+    """Exception raised when Peer VM placeholder pod exec returns 137 exit code."""
+    pass
+
+class PeerVmPlaceholderPodContainerNotFoundException(Exception):
+    """Exception raised when Peer VM placeholder pod container is not found."""
+    pass
 
 
 def pod_mutation_hook_composer_serverless(pod: k8s.V1Pod):
@@ -200,39 +210,60 @@ def exec_on_placeholder_pod(self: PodManager, pod: V1Pod, command: list[str]):
         command: command to run as a list of arguments.
     Returns:
         Response of exec command.
+    Raises:
+        PeerVmPlaceholderPodContainerNotFoundException: if Peer VM placeholder pod container is not found.
+        PeerVmPlaceholderPodShutDownException: if Peer VM placeholder pod is shut down.
     """
-    with closing(
-        kubernetes_stream(
-            self._client.connect_get_namespaced_pod_exec,
-            pod.metadata.name,
-            pod.metadata.namespace,
-            container=PEER_VM_PLACEHOLDER_CONTAINER,
-            command=command,
-            stdin=True,
-            stdout=True,
-            stderr=True,
-            tty=False,
-            _preload_content=False,
-        )
-    ) as resp:
-        result = ""
-        while resp.is_open():
-            resp.update(timeout=1)
+    try:
+        with closing(
+            kubernetes_stream(
+                self._client.connect_get_namespaced_pod_exec,
+                pod.metadata.name,
+                pod.metadata.namespace,
+                container=PEER_VM_PLACEHOLDER_CONTAINER,
+                command=command,
+                stdin=True,
+                stdout=True,
+                stderr=True,
+                tty=False,
+                _preload_content=False,
+            )
+        ) as resp:
+            result = ""
+            while resp.is_open():
+                resp.update(timeout=1)
 
-            while resp.peek_stdout():
-                result += resp.read_stdout()
+                while resp.peek_stdout():
+                    result += resp.read_stdout()
 
-            error_res = ""
-            while resp.peek_stderr():
-                error_res += resp.read_stderr()
-            if error_res:
-                raise AirflowException(f"There was an error in calling kubernetes API: {error_res}")
+                error_res = ""
+                while resp.peek_stderr():
+                    error_res += resp.read_stderr()
+                if error_res:
+                    raise AirflowException(f"There was an error in calling kubernetes API: {error_res}")
 
-            if result:
-                break
+                if result:
+                    break
 
-        self.log.debug("Exec command response: %s", result)
-        return result
+            try:
+                return_code = resp.returncode
+            except ValueError:
+                self.log.debug("Unable to retrieve exit code, this happens when pod is shut down")
+                raise PeerVmPlaceholderPodShutDownException("Error on parsing exit code")
+            self.log.debug("Exec command response: %s, return code: %s", result, return_code)
+
+            if return_code:
+                if return_code == 137:
+                    raise PeerVmPlaceholderPodShutDownException("Got 137 exit code on exec")
+                else:
+                    raise AirflowException(
+                        f"There was an error in calling kubernetes API, return code: {return_code}")
+
+            return result
+    except ApiException as exc:
+        if "container not found" in exc.reason:
+            raise PeerVmPlaceholderPodContainerNotFoundException(exc.reason)
+        raise
 
 
 def get_peer_vm_pod_container_statuses(self: PodManager, pod: V1Pod):

@@ -29,6 +29,10 @@ from airflow.composer.kubernetes.pod_manager import (
     _stream_peer_vm_logs,
     patch_fetch_container_logs,
 )
+from airflow.composer.kubernetes.utils import (
+    PeerVmPlaceholderPodContainerNotFoundException,
+    PeerVmPlaceholderPodShutDownException,
+)
 from airflow.exceptions import AirflowException
 from airflow.providers.cncf.kubernetes.utils.pod_manager import PodManager
 
@@ -286,6 +290,57 @@ class TestPodManager:
         )
 
         time_sleep_mock.assert_has_calls([mock.call(10)] + [mock.call(1)] * (num_iterations + 1))
+
+    @pytest.mark.parametrize(
+        "exception, error",
+        [
+            (PeerVmPlaceholderPodContainerNotFoundException, "container not found"),
+            (PeerVmPlaceholderPodShutDownException, "pod shut down")
+        ],
+    )
+    @mock.patch("airflow.composer.kubernetes.pod_manager.time.sleep", autospec=True)
+    @mock.patch("airflow.composer.kubernetes.pod_manager.requests", autospec=True)
+    @mock.patch(
+        "airflow.composer.kubernetes.pod_manager.is_kubernetes_pod_operator_base_container_terminated",
+        autospec=True)
+    def test_stream_peer_vm_logs_placeholder_pod_exception_for_last_iteration(
+        self,
+        is_base_container_terminated_mock,
+        requests_mock,
+        time_sleep_mock,
+        exception,
+        error,
+    ):
+        self_mock = mock.Mock()
+        pod_mock = mock.Mock()
+        is_base_container_terminated_mock.side_effect = exception(error)
+
+        def requests_get_side_effect(url, params=None):
+            return mock.Mock(
+                status_code=200,
+                json=mock.Mock(return_value={"logs": [
+                    "2023-05-02T10:11:12.0Z stdout F X",
+                    "2023-05-02T10:11:12.1Z stdout F Y",
+                    "2023-05-02T10:11:12.2Z stdout F Z",
+                ]}),
+            )
+
+        requests_mock.get = mock.Mock(side_effect=requests_get_side_effect)
+
+        _stream_peer_vm_logs(
+            self_mock,
+            pod=pod_mock,
+            container_name="base",
+            peer_vm_endpoint="10.5.0.1",
+            after_timestamp="2023-05-02T10:11:12.0Z",
+        )
+
+        assert time_sleep_mock.call_args_list == [mock.call(10), mock.call(1)]
+        assert self_mock.log.info.call_args_list == [
+            mock.call("X"),
+            mock.call("Y"),
+            mock.call("Z"),
+        ]
 
     @pytest.mark.parametrize(
         "original_container_names, expected_container_names",
