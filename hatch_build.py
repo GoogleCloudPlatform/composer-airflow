@@ -519,6 +519,7 @@ COMPOSER_DEPENDENCIES = [
     "apache-airflow-providers-http",
     "apache-airflow-providers-mysql",
     "apache-airflow-providers-postgres<6.0.0",
+    "apache-airflow-providers-openlineage",
     "apache-airflow-providers-sendgrid",
     "apache-airflow-providers-sqlite",
     "apache-airflow-providers-ssh",
