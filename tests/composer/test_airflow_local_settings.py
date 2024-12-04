@@ -283,7 +283,7 @@ class TestAirflowLocalSettings:
         Configuration.set_default(Configuration(host="http://internal-cluster"))
         pod = k8s.V1Pod(
             metadata=k8s.V1ObjectMeta(name=pod_name, namespace=namespace),
-            spec=k8s.V1PodSpec(containers=[k8s.V1Container(name="base", env=env_vars, args=args)]),
+            spec=k8s.V1PodSpec(containers=[k8s.V1Container(name="container-name", env=env_vars, args=args)]),
         )
 
         with mock.patch.dict("os.environ", {"COMPOSER_VERSION": composer_version}):

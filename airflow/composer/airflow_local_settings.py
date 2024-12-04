@@ -55,32 +55,33 @@ def pod_mutation_hook(pod: k8s.V1Pod):
         log.info("Modifying pod spec")
         pod_mutation_hook_composer_serverless(pod)
 
-    for container in pod.spec.containers:
-        if (
-            container.name == "base"
-            and container.env
-            and any(env_var.name == "AIRFLOW_IS_K8S_EXECUTOR_POD" for env_var in container.env)
-        ):
-            if not pod.metadata.name.startswith("airflow-k8s-worker"):
-                # The pod name should be at maximum 63 characters length.
-                # https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#dns-label-names
-                max_len = 63
-                new_name = "airflow-k8s-worker-" + pod.metadata.name
-                # The pod names generated are already unique, but if we have to truncate them,
-                # they will lose their unique suffix so we add it again
-                if len(new_name) > max_len:
-                    new_name = add_unique_suffix(name=new_name, rand_len=8, max_len=max_len)
-                pod.metadata.name = new_name
+    # Adjust pod spec for KubernetesExecutor pods.
+    if (
+        pod.spec.containers and
+        pod.spec.containers[0].env and
+        any(env_var.name == "AIRFLOW_IS_K8S_EXECUTOR_POD" for env_var in pod.spec.containers[0].env)
+    ):
+        if not pod.metadata.name.startswith("airflow-k8s-worker"):
+            # The pod name should be at maximum 63 characters length.
+            # https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#dns-label-names
+            max_len = 63
+            new_name = "airflow-k8s-worker-" + pod.metadata.name
+            # The pod names generated are already unique, but if we have to truncate them,
+            # they will lose their unique suffix, so we add it again
+            if len(new_name) > max_len:
+                new_name = add_unique_suffix(name=new_name, rand_len=8, max_len=max_len)
+            pod.metadata.name = new_name
 
-            args = container.args
-            container.env.append(
-                k8s.V1EnvVar(
-                    name="AIRFLOW_K8S_EXECUTOR_POD_TASK_RUN_COMMAND",
-                    value=get_task_run_command_from_args(args),
-                )
+        container = pod.spec.containers[0]
+        args = container.args
+        container.env.append(
+            k8s.V1EnvVar(
+                name="AIRFLOW_K8S_EXECUTOR_POD_TASK_RUN_COMMAND",
+                value=get_task_run_command_from_args(args),
             )
-            # Pass ["worker"] as args in base container to bypass GKE policy exemptor.
-            container.args = ["worker"]
+        )
+        # Pass ["worker"] as args in base container to bypass GKE policy exemptor.
+        container.args = ["worker"]
 
 
 @celeryd_init.connect
