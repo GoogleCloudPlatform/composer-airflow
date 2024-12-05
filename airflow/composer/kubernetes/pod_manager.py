@@ -183,6 +183,11 @@ def _composer_get_container_names(f):
 def _composer_container_is_running(f):
     @functools.wraps(f)
     def wrapper(self, pod: V1Pod, container_name: str) -> bool:
+        remote_pod = self.read_pod(pod)
+        if remote_pod.spec.containers[0].name != PEER_VM_PLACEHOLDER_CONTAINER:
+            # KPO pod is running as regular k8s pod, execute native implementation.
+            return f(self, pod, container_name)
+
         container_statuses = get_peer_vm_pod_container_statuses(self, pod=pod)
         for container_status in container_statuses:
             if container_status["container"] == container_name:
@@ -201,6 +206,11 @@ def _composer_extract_xcom_json(f):
         reraise=True,
     )
     def wrapper(self, pod: V1Pod) -> str:
+        remote_pod = self.read_pod(pod)
+        if remote_pod.spec.containers[0].name != PEER_VM_PLACEHOLDER_CONTAINER:
+            # KPO pod is running as regular k8s pod, execute native implementation.
+            return f(self, pod)
+
         command_to_extract_xcom = (
             f"if [ -s {PodDefaults.XCOM_MOUNT_PATH}/return.json ]; "
             f"then cat {PodDefaults.XCOM_MOUNT_PATH}/return.json; "
@@ -234,6 +244,11 @@ def _composer_extract_xcom_kill(f):
         reraise=True,
     )
     def wrapper(self, pod: V1Pod):
+        remote_pod = self.read_pod(pod)
+        if remote_pod.spec.containers[0].name != PEER_VM_PLACEHOLDER_CONTAINER:
+            # KPO pod is running as regular k8s pod, execute native implementation.
+            return f(self, pod)
+
         exec_on_placeholder_pod(self, pod=pod, command=[
             "placeholder-pod", "exec", PodDefaults.SIDECAR_CONTAINER_NAME,
             json.dumps(["/bin/sh", "-c", "kill -2 1"]),
