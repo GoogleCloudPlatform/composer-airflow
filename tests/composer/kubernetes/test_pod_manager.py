@@ -372,11 +372,14 @@ class TestPodManager:
         self, get_peer_vm_pod_container_statuses_mock, container_name, container_statuses, expected_result,
     ):
         get_peer_vm_pod_container_statuses_mock.return_value = container_statuses
-        self_mock = mock.Mock()
+        self_mock = mock.Mock(
+            read_pod=mock.Mock(return_value=k8s.V1Pod(
+                spec=k8s.V1PodSpec(containers=[k8s.V1Container(name="peervm-placeholder")]))))
         pod_mock = mock.Mock()
 
         actual_result = _composer_container_is_running(mock.Mock())(self_mock, pod_mock, container_name)
 
+        self_mock.read_pod.assert_called_with(pod_mock)
         get_peer_vm_pod_container_statuses_mock.assert_called_with(self_mock, pod=pod_mock)
         assert actual_result == expected_result
 
@@ -385,23 +388,29 @@ class TestPodManager:
         get_peer_vm_pod_container_statuses_mock.return_value = [
             {"container": "airflow-xcom-sidecar", "state": "RUNNING"},
             {"container": "base", "state": "TERMINATED"}]
-        self_mock = mock.Mock()
+        self_mock = mock.Mock(
+            read_pod=mock.Mock(return_value=k8s.V1Pod(
+                spec=k8s.V1PodSpec(containers=[k8s.V1Container(name="peervm-placeholder")]))))
         pod_mock = k8s.V1Pod(metadata=k8s.V1ObjectMeta(name="test-pod"))
 
         with pytest.raises(ValueError) as exc:
             _composer_container_is_running(mock.Mock())(self_mock, pod_mock, "not-exist")
 
+        self_mock.read_pod.assert_called_with(pod_mock)
         get_peer_vm_pod_container_statuses_mock.assert_called_with(self_mock, pod=pod_mock)
         assert str(exc.value) == "Not found container named as 'not-exist' for pod 'test-pod'"
 
     @mock.patch("airflow.composer.kubernetes.pod_manager.exec_on_placeholder_pod", autospec=True)
     def test_composer_extract_xcom_json(self, exec_on_placeholder_pod_mock):
-        self_mock = mock.Mock()
+        self_mock = mock.Mock(
+            read_pod=mock.Mock(return_value=k8s.V1Pod(
+                spec=k8s.V1PodSpec(containers=[k8s.V1Container(name="peervm-placeholder")]))))
         pod_mock = mock.Mock()
         exec_on_placeholder_pod_mock.return_value = b"ggEBggUBMjIyCogCA+g="
 
         result = _composer_extract_xcom_json(mock.Mock())(self_mock, pod_mock)
 
+        self_mock.read_pod.assert_called_with(pod_mock)
         exec_on_placeholder_pod_mock.assert_called_once_with(
             self_mock, pod=pod_mock, command=[
                 "placeholder-pod", "exec", "airflow-xcom-sidecar", (
@@ -413,7 +422,9 @@ class TestPodManager:
 
     @mock.patch("airflow.composer.kubernetes.pod_manager.exec_on_placeholder_pod", autospec=True)
     def test_composer_extract_xcom_json_empty_xcom_result(self, exec_on_placeholder_pod_mock):
-        self_mock = mock.Mock()
+        self_mock = mock.Mock(
+            read_pod=mock.Mock(return_value=k8s.V1Pod(
+                spec=k8s.V1PodSpec(containers=[k8s.V1Container(name="peervm-placeholder")]))))
         pod_mock = mock.Mock()
         exec_on_placeholder_pod_mock.return_value = b"ggEBgh8BX19haXJmbG93X3hjb21fcmVzdWx0X2VtcHR5X18KiAID6A=="
 
@@ -423,7 +434,9 @@ class TestPodManager:
 
     @mock.patch("airflow.composer.kubernetes.pod_manager.exec_on_placeholder_pod", autospec=True)
     def test_composer_extract_xcom_json_failure(self, exec_on_placeholder_pod_mock):
-        self_mock = mock.Mock()
+        self_mock = mock.Mock(
+            read_pod=mock.Mock(return_value=k8s.V1Pod(
+                spec=k8s.V1PodSpec(containers=[k8s.V1Container(name="peervm-placeholder")]))))
         pod_mock = k8s.V1Pod(metadata=k8s.V1ObjectMeta(name="test-pod"))
         exec_on_placeholder_pod_mock.return_value = None
 
@@ -434,11 +447,14 @@ class TestPodManager:
 
     @mock.patch("airflow.composer.kubernetes.pod_manager.exec_on_placeholder_pod", autospec=True)
     def test_composer_extract_xcom_kill(self, exec_on_placeholder_pod_mock):
-        self_mock = mock.Mock()
+        self_mock = mock.Mock(
+            read_pod=mock.Mock(return_value=k8s.V1Pod(
+                spec=k8s.V1PodSpec(containers=[k8s.V1Container(name="peervm-placeholder")]))))
         pod_mock = mock.Mock()
 
         _composer_extract_xcom_kill(mock.Mock())(self_mock, pod_mock)
 
+        self_mock.read_pod.assert_called_with(pod_mock)
         exec_on_placeholder_pod_mock.assert_called_once_with(
             self_mock, pod=pod_mock, command=[
                 "placeholder-pod", "exec", "airflow-xcom-sidecar", '["/bin/sh", "-c", "kill -2 1"]'])
