@@ -78,6 +78,14 @@ warnings.filterwarnings(
     "ignore",
     r".*TypeDecorator .* will not produce a cache key because the ``cache_ok`` flag is not set to True.*",
 )
+# This warning is produced by flask rate limiter. It warns that we must choose
+# a storage backend to store rate limiting information instead of the default
+# in-memory one. This is a no issue for Composer as the Webserver is
+# behind Google network, which already protects against such attacks.
+warnings.filterwarnings(
+    "ignore",
+    r".*Using the in-memory storage for tracking rate limits as no storage was explicitly specified.*",
+)
 
 
 _SQLITE3_VERSION_PATTERN = re2.compile(r"(?P<version>^\d+(?:\.\d+)*)\D?.*$")

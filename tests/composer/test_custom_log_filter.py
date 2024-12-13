@@ -195,6 +195,27 @@ class TestComposerFilter:
 
         assert message not in output
 
+    def test_ignoring_flask_rate_limiter_warning(self):
+        message = (
+            "previous text/ Using the in-memory storage for tracking rate limits "
+            "as no storage was explicitly specified. some different text..."
+        )
+        output = subprocess.check_output(
+            [
+                "python",
+                "-c",
+                (
+                    "import airflow, warnings, sqlalchemy.exc; "
+                    # We should use here double quotes around message (as it is used above) to have proper
+                    # python string formatting.
+                    f'warnings.warn("{message}", sqlalchemy.exc.SAWarning, 3)'
+                ),
+            ],
+            stderr=subprocess.STDOUT,
+        ).decode()
+
+        assert message not in output
+
     @pytest.mark.parametrize(
         "unformatted_permission_warning",
         [
