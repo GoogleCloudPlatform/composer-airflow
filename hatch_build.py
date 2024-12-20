@@ -520,8 +520,9 @@ COMPOSER_DEPENDENCIES = [
     "apache-airflow-providers-mysql",
     "apache-airflow-providers-postgres",
     "apache-airflow-providers-sendgrid",
-    "apache-airflow-providers-ssh",
     "apache-airflow-providers-sqlite",
+    "apache-airflow-providers-ssh",
+    "apache-airflow-providers-standard",
     "aiodebug",
     # aiohttp and pygments in lower versions contain security vulnerabilities.
     "aiohttp>=3.8.5",
