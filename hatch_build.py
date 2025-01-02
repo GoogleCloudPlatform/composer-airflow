@@ -513,12 +513,12 @@ COMPOSER_DEPENDENCIES = [
     # TODO: remove this constraint in Airflow 2.10.2+ when changes from
     #  https://github.com/apache/airflow/pull/42280 will be released.
     "apache-airflow-providers-fab==1.3.0",
-    # TODO: remove once we decide to release 11.0.0+ version in Composer.
+    # TODO: remove constraint (both google and postgres) once we decide to release 11.0.0+ version in Composer.
     "apache-airflow-providers-google<11.0.0",
     "apache-airflow-providers-hashicorp",
     "apache-airflow-providers-http",
     "apache-airflow-providers-mysql",
-    "apache-airflow-providers-postgres",
+    "apache-airflow-providers-postgres<6.0.0",
     "apache-airflow-providers-sendgrid",
     "apache-airflow-providers-sqlite",
     "apache-airflow-providers-ssh",
