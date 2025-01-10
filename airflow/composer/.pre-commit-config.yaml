@@ -344,7 +344,7 @@ repos:
         require_serial: true
         additional_dependencies: ["ruff==0.4.3"]
         exclude: ^.*/.*_vendor/|^tests/dags/test_imports.py
-        stages: [manual]
+        stages: [manual] # TODO(2.10.4): Reactivate ruff during rebase process so all Composer patches are formatted.
       - id: ruff-format
         name: Run 'ruff format' for extremely fast Python formatting
         description: "Run 'ruff format' for extremely fast Python formatting"
@@ -355,7 +355,7 @@ repos:
         require_serial: true
         additional_dependencies: ["ruff==0.4.3"]
         exclude: ^.*/.*_vendor/|^tests/dags/test_imports.py|^airflow/contrib/
-        stages: [manual]
+        stages: [manual] # TODO(2.10.4): Reactivate ruff during rebase process so all Composer patches are formatted.
       - id: replace-bad-characters
         name: Replace bad characters
         entry: ./scripts/ci/pre_commit/replace_bad_characters.py
@@ -1295,11 +1295,3 @@ repos:
         exclude: ^.*/.*_vendor/|^airflow/migrations|^airflow/providers|^dev|^scripts|^docs|^provider_packages|^tests/providers|^tests/system/providers|^tests/dags/test_imports.py|^clients/python/test_.*\.py
         require_serial: true
         additional_dependencies: ['attrs']
-  - repo: https://github.com/psf/black
-    rev: 24.8.0
-    hooks:
-      - id: black
-        name: Run black (Composer Airflow)
-        description: Black linter for Composer Airflow.
-        args: [ --config=./pyproject.toml ]
-        exclude: ^airflow/_vendor/|^airflow/contrib
