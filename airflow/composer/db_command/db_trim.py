@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 import logging
+import time
 import signal
 from datetime import datetime, timedelta
 
@@ -27,12 +28,26 @@ from airflow.utils.timezone import make_aware
 
 logger = logging.getLogger(__name__)
 
-execute_sql = lambda session, _sql: session.execute(text(_sql))
-execute_sql_with_result = lambda session, _sql: execute_sql(session, _sql).mappings().all()
+
+def execute_sql(session, _sql, params=None):
+    return session.execute(text(_sql), params)
+
+
+def execute_sql_with_result(session, _sql, params=None):
+    return execute_sql(session, _sql, params).mappings().all()
+
+
 get_sql_field = lambda _row, field: _row[field]
 get_count = lambda _result: get_sql_field(_result[0], "count")
 
 config = None
+
+# The number or seconds to sleep between removing batches of expired rows. Lowering the number makes
+# the removal faster, but also increases the database CPU usage.
+SLEEP_BETWEEN_BATCHES_SECONDS = 0.5
+
+# The number of times to retry removing a batch of expired rows when an exception is thrown.
+MAX_RETRY_ATTEMPTS = 3
 
 
 class Config:
@@ -64,130 +79,202 @@ def execute_trim(retention_days):
     """
     Trim looks over data stored in Airflow database and removes data
     older than specific horizon.
-    In order to collect metrics properly we are try/catching most of the function. This is in line
-    with Python style-guide to create isolation-point and make sure this metric is reported properly.
     """
     signal.signal(signal.SIGINT, sigint_handler)
     signal.signal(signal.SIGALRM, sigalrm_handler)
     logger.info(
-        f"Trim database command started (AF version: {__version__}, retention horizon: {retention_days})"
+        f"Airflow metadata cleanup started - Airflow version: {__version__}, retention horizon: {retention_days} days."
     )
 
     config = Config(retention_days)
 
     try:
         with settings.Session() as session:
-            trim_session_table(session=session, config=config, limit_per_transaction=1000)
+            trim_session_table(session=session, config=config, batch_size=1000)
             for table in config.tables:
                 trim_table(
                     session=session,
                     config=config,
                     table=table,
-                    limit_per_transaction=1000,
+                    batch_size=1000,
                 )
-        logger.info("Database trimming finished!")
+        logger.info("Airflow metadata cleanup completed.")
     except Exception as e:
-        logger.info("Database trimming failed!")
-        logger.error(e)
+        logger.error("Airflow metadata cleanup failed. Reason: %s", e)
+        exit(1)
 
 
-def _log_table_info(table_name, table_size, rows_to_remove, limit):
-    """Function used to log information about table."""
-    remove_in_transaction_cnt = min(limit, rows_to_remove)
-    logger.info(
-        f"Table {table_name}: "
-        f"total rows: {table_size}, "
-        f"trimmable: {rows_to_remove}, "
-        f"transaction remove: {remove_in_transaction_cnt}"
+def trim_session_table(session, config, batch_size=1000):
+    """Deletes expired rows from the 'session' table in a series of transactions."""
+
+    def trim_batch(_session):
+        """Deletes a batch of expired rows."""
+        sql = f"""
+          DELETE FROM session WHERE id IN (
+            SELECT id FROM session WHERE expiry < {config.execution_time_str}::date LIMIT {batch_size}
+          );
+        """
+        result = execute_sql(_session, sql)
+        num_removed = result.rowcount
+        return num_removed
+
+    estimated_num_expired_rows = estimate_result_count(
+        session=session,
+        _sql=f"SELECT id FROM session WHERE expiry < {config.execution_time_str}::date;",
+    )
+    run_trimming_loop(
+        session=session,
+        table_name="session",
+        estimated_num_expired_rows=estimated_num_expired_rows,
+        trim_batch_func=trim_batch,
     )
 
 
-def trim_session_table(session, config, limit_per_transaction=1000):
-    """Function to delete all sessions in series of transaction."""
-    while True:
-        expired_sessions_number = trim_session_table_transaction(session, config, limit_per_transaction)
-        if expired_sessions_number == 0:
-            break
-    logger.info("Every expired session was deleted properly")
+def trim_table(session, table, config, batch_size=1000):
+    """Deleted expired rows from a given table in a series of transactions."""
 
-
-def trim_session_table_transaction(session, config, limit=1000):
-    """Function to delete part of session table in one transaction."""
-    sql_session_stmts = prepare_statements(config, limit)
-
-    try:
-        expired_sessions_number = get_count(
-            execute_sql_with_result(session, sql_session_stmts["select cnt old"])
+    def trim_batch(_session):
+        """Deletes a batch of expired rows."""
+        primary_key = get_table_primary_key(table)
+        filter_criterion = prepare_filter_criterion(_session, table, primary_key, config.expiration_datetime)
+        table_with_filter_and_limit = _session.query(*primary_key).filter(*filter_criterion).limit(batch_size)
+        num_removed = (
+            _session.query(table["airflow_db_model"])
+            .filter(tuple_(*primary_key).in_(table_with_filter_and_limit))
+            .delete(synchronize_session=False)
         )
-        sessions_number = get_count(execute_sql_with_result(session, sql_session_stmts["select cnt"]))
+        return num_removed
 
-        _log_table_info("session", sessions_number, expired_sessions_number, limit)
-
-        execute_sql(session, sql_session_stmts["delete old limit"])
-
-        expired_sessions_number = get_count(
-            execute_sql_with_result(session, sql_session_stmts["select cnt old"])
-        )
-
-        session.commit()
-    except Exception as e:
-        logger.error(e)
-        expired_sessions_number = 0
-
-    return expired_sessions_number
+    estimated_num_expired_rows = estimate_result_count(
+        session=session,
+        _sql=select_expired_rows_sql(session, table, config),
+    )
+    run_trimming_loop(
+        session=session,
+        table_name=table["airflow_db_model"].__tablename__,
+        estimated_num_expired_rows=estimated_num_expired_rows,
+        trim_batch_func=trim_batch,
+    )
 
 
-def prepare_statements(config, limit):
-    """Prepare sql statements for session table."""
-    statements_dic = {}
+def run_trimming_loop(session, table_name, estimated_num_expired_rows, trim_batch_func):
+    """Orchestrates deleting expired rows from the given table in a series of transactions.
 
-    statements_dic["select cnt"] = "SELECT count(*) FROM session;"
-    statements_dic[
-        "select cnt old"
-    ] = f"SELECT count(*) FROM session WHERE expiry < {config.execution_time_str}::date;"
-    statements_dic[
-        "select old limit"
-    ] = f"SELECT id FROM session WHERE expiry < {config.execution_time_str}::date LIMIT {limit};"
-    statements_dic[
-        "delete old limit"
-    ] = f"DELETE FROM session WHERE id IN ({statements_dic['select old limit'][:-1]});"
+    This function executes the given row-trimming function in a loop until no expired rows are left.
+    It manages retries and progress logging.
 
-    return statements_dic
-
-
-def trim_table(session, table, config, limit_per_transaction=1000):
-    """Function to trim given table in series of transaction."""
+    Args:
+      table_name: The name of the table being trimmed.
+      estimated_num_expired_rows: Estimated total number of expired rows.
+      trim_batch_func: A function removing a batch of expired rows. The function should accept the
+        session parameter, use this parameter to delete a batch of expired rows and return the
+        number of deleted rows (zero, if all expired rows are already deleted). The function should
+        assume it executes within a transaction and should not manage (commit/rollback) the
+        transaction.
+    """
+    logger.info(
+        "Airflow metadata cleanup started for table '%s'. Estimated number of expired rows to remove is %s.",
+        table_name,
+        format(estimated_num_expired_rows, ","),
+    )
+    total_num_removed_rows = 0
+    attempt_num = 1
     while True:
-        num_rows_to_remove = trim_table_transaction(session, table, config, limit_per_transaction)
-        if num_rows_to_remove == 0:
-            break
-    logger.info(f"Every expired {table['airflow_db_model'].__tablename__} was deleted properly")
+        try:
+            num_removed_rows = trim_batch_func(session)
+            if num_removed_rows == 0:
+                break
+            session.commit()
+            # The commit was successful, so reset the retry attempt counter.
+            attempt_num = 1
+            total_num_removed_rows += num_removed_rows
+            logger.info(
+                "Airflow metadata cleanup in progress for table '%s'. Removed %s expired rows.",
+                table_name,
+                format(total_num_removed_rows, ","),
+            )
+            time.sleep(SLEEP_BETWEEN_BATCHES_SECONDS)
+        except Exception as e:
+            session.rollback()
+            logger.warning(
+                "Airflow metadata cleanup error for table '%s' (attempt %d/%d). Error: %s.",
+                table_name,
+                attempt_num,
+                MAX_RETRY_ATTEMPTS,
+                e,
+            )
+            attempt_num += 1
+            if attempt_num > MAX_RETRY_ATTEMPTS:
+                raise e
+    logger.info(
+        "Airflow metadata cleanup completed for table '%s'. Removed a total of %s rows.",
+        table_name,
+        format(total_num_removed_rows, ","),
+    )
 
 
-def trim_table_transaction(session, table, config, limit=1000):
-    """Function to delete part of a given table in one transaction."""
-    primary_key = get_table_primary_key(table)
-    filter_criterion = prepare_filter_criterion(session, table, primary_key, config.expiration_datetime)
-    try:
-        rows_cnt = session.query(table["airflow_db_model"]).count()
-        rows_to_remove_cnt = session.query(table["airflow_db_model"]).filter(*filter_criterion).count()
+def select_expired_rows_sql(session, table, config):
+    """Returns an SQL query string that selects all expired rows from the given table."""
+    filter_criterion = prepare_filter_criterion(
+        session,
+        table,
+        get_table_primary_key(table),
+        config.expiration_datetime,
+    )
+    query = session.query(table["airflow_db_model"]).filter(*filter_criterion)
+    return str(query.statement.compile(compile_kwargs={"literal_binds": True}))
 
-        _log_table_info(table["airflow_db_model"].__tablename__, rows_cnt, rows_to_remove_cnt, limit)
 
-        table_with_filter_and_limit = session.query(*primary_key).filter(*filter_criterion).limit(limit)
+def estimate_result_count(session, _sql):
+    """Returns an estimated number of rows that a given SQL query would return."""
 
-        session.query(table["airflow_db_model"]).filter(
-            tuple_(*primary_key).in_(table_with_filter_and_limit)
-        ).delete(synchronize_session=False)
+    # Create a temporary database function that estimates the count of rows returned by the given
+    # query. Based on https://wiki.postgresql.org/wiki/Count_estimate.
+    #
+    # The pg_temp schema is per-connection and is dropped when the connection is closed, so the
+    # temporary function doesn't need to be cleaned up.
 
-        rows_to_remove_cnt = session.query(table["airflow_db_model"]).filter(*filter_criterion).count()
-
-        session.commit()
-    except Exception as e:
-        logger.error(e)
-        rows_to_remove_cnt = 0
-
-    return rows_to_remove_cnt
+    # PostgreSQL Database Management System
+    # (formerly known as Postgres, then as Postgres95)
+    #
+    # Portions Copyright © 1996-2025, The PostgreSQL Global Development Group
+    #
+    # Portions Copyright © 1994, The Regents of the University of California
+    #
+    # Permission to use, copy, modify, and distribute this software and its documentation for any
+    # purpose, without fee, and without a written agreement is hereby granted, provided that the
+    # above copyright notice and this paragraph and the following two paragraphs appear in all
+    # copies.
+    #
+    # IN NO EVENT SHALL THE UNIVERSITY OF CALIFORNIA BE LIABLE TO ANY PARTY FOR DIRECT, INDIRECT,
+    # SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES, INCLUDING LOST PROFITS, ARISING OUT OF THE USE
+    # OF THIS SOFTWARE AND ITS DOCUMENTATION, EVEN IF THE UNIVERSITY OF CALIFORNIA HAS BEEN ADVISED
+    # OF THE POSSIBILITY OF SUCH DAMAGE.
+    #
+    # THE UNIVERSITY OF CALIFORNIA SPECIFICALLY DISCLAIMS ANY WARRANTIES, INCLUDING, BUT NOT LIMITED
+    # TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE. THE
+    # SOFTWARE PROVIDED HEREUNDER IS ON AN "AS IS" BASIS, AND THE UNIVERSITY OF CALIFORNIA HAS NO
+    # OBLIGATIONS TO PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
+    execute_sql(
+        session,
+        """
+        CREATE OR REPLACE FUNCTION pg_temp.count_estimate(
+            query text
+        ) RETURNS integer LANGUAGE plpgsql AS $$
+        DECLARE
+            plan jsonb;
+        BEGIN
+            EXECUTE FORMAT('EXPLAIN (FORMAT JSON) %s', query) INTO plan;
+            RETURN plan->0->'Plan'->'Plan Rows';
+        END;
+        $$;
+    """,
+    )
+    # Pass the input query string to the estimation function.
+    estimate_row_count_sql = "SELECT pg_temp.count_estimate(:query_sql) AS count;"
+    estimate_row_count_params = {"query_sql": _sql}
+    result = execute_sql_with_result(session, estimate_row_count_sql, estimate_row_count_params)
+    return get_count(result)
 
 
 def prepare_filter_criterion(session, table, primary_key, expiration_datetime, skip_age=False):
@@ -196,7 +283,7 @@ def prepare_filter_criterion(session, table, primary_key, expiration_datetime, s
 
     # Works only for dag_run, because Airflow required last dag_run to be present, otherwise it will
     # schedule this DAG again.
-    if table["airflow_db_model"].__tablename__ == "dag_run" and table.get("keep_last", False) is True:
+    if table["airflow_db_model"].__tablename__ == "dag_run" and table.get("keep_last", False):
         additional_filter.append(
             tuple_(*primary_key).not_in(
                 session.query(sqlfunc.max(tuple_(*primary_key))).group_by(table["airflow_db_model"].dag_id)

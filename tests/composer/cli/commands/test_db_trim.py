@@ -29,6 +29,8 @@ from airflow.composer.db_command.db_trim import (
     execute_trim,
     trim_session_table,
     trim_table,
+    run_trimming_loop,
+    MAX_RETRY_ATTEMPTS,
 )
 from airflow.composer.db_command.tables_to_trim import tables_to_trim
 from airflow.utils.session import create_session
@@ -78,14 +80,6 @@ def execute_sql_file(sql_file):
         for line in sql_file:
             if len(line) > 1:
                 session.execute(text(line))
-
-
-def generate_transaction_results_mock_values(limit):
-    side_effect = [i for i in range(100, -1, -limit)]
-    if side_effect[-1] > 0:
-        side_effect.append(0)
-    print(side_effect)
-    return side_effect, len(side_effect)
 
 
 test_tables = prepare_tables()
@@ -190,26 +184,54 @@ class TestDbTrim:
         assert mock_table_trim.call_count == len(test_tables)
         assert mock_session_trim.call_count == 1
 
-    @pytest.mark.parametrize("limit", [(2), (5), (13), (20), (50), (99), (101)])
-    @mock.patch("airflow.composer.db_command.db_trim.trim_session_table_transaction")
-    def test_execute_trim_calls_trimming_session_once(self, mock_session_trim_transaction, limit):
-        mock_session_trim_transaction.side_effect, num_calls = generate_transaction_results_mock_values(limit)
+    def test_run_trimming_loop_calls_trimming_until_no_expired_rows_are_left(self):
+        session = mock.Mock(["commit", "rollback"])
+        trim_batch = mock.Mock()
+        trim_batch.side_effect = [1000, 1000, 50, 0]
 
-        with create_session() as session:
-            config = Config(retention_days=1000)
-            trim_session_table(session=session, config=config, limit_per_transaction=limit)
+        run_trimming_loop(
+            session=session,
+            table_name="fake_table",
+            estimated_num_expired_rows=3000,
+            trim_batch_func=trim_batch,
+        )
 
-        assert mock_session_trim_transaction.call_count == num_calls
+        assert trim_batch.call_count == 4
 
-    @pytest.mark.parametrize("limit", [(2), (5), (13), (20), (50), (99), (101)])
-    @mock.patch("airflow.composer.db_command.db_trim.trim_table_transaction")
-    def test_execute_trim_calls_trimming_transactions(self, mock_trim_transaction, limit):
-        mock_trim_transaction.side_effect, num_calls = generate_transaction_results_mock_values(limit)
-        table = {"airflow_db_model": mock.Mock(__tablename__="MOCK")}
-        retention_days = 1000
+    def test_run_trimming_loop_retries_after_an_exception(self):
+        session = mock.Mock(["commit", "rollback"])
+        session.commit.side_effect = [Exception("fake deadlock"), None]
+        trim_batch = mock.Mock()
+        trim_batch.side_effect = [1000, 1000, 0]
 
-        with create_session() as session:
-            config = Config(retention_days=retention_days)
-            trim_table(session=session, table=table, config=config, limit_per_transaction=limit)
+        run_trimming_loop(
+            session=session,
+            table_name="fake_table",
+            estimated_num_expired_rows=2000,
+            trim_batch_func=trim_batch,
+        )
 
-        assert mock_trim_transaction.call_count == num_calls
+        assert trim_batch.call_count == 3
+        # We should call .rollback() once, when handling an exception.
+        assert session.rollback.call_count == 1
+        # We should call .commit() every time except for at the end, when no expired rows are left.
+        assert session.commit.call_count == 2
+
+    def test_run_trimming_loop_stops_retrying_after_reaching_max_attempts(self):
+        session = mock.Mock(["commit", "rollback"])
+        session.commit.side_effect = [Exception("fake deadlock")] * MAX_RETRY_ATTEMPTS
+        trim_batch = mock.Mock()
+        trim_batch.side_effect = [1000] * MAX_RETRY_ATTEMPTS
+
+        with pytest.raises(Exception) as final_exception:
+            run_trimming_loop(
+                session=session,
+                table_name="fake_table",
+                estimated_num_expired_rows=2000,
+                trim_batch_func=trim_batch,
+            )
+
+        assert "fake deadlock" in str(final_exception.value)
+        assert trim_batch.call_count == MAX_RETRY_ATTEMPTS
+        assert session.rollback.call_count == MAX_RETRY_ATTEMPTS
+        assert session.commit.call_count == MAX_RETRY_ATTEMPTS
