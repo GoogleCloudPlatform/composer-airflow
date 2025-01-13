@@ -56,10 +56,10 @@ class TaskFormatter(logging.Formatter):
     """Formatter that appends additional task metadata for Cloud Logging."""
 
     def format(self, record: logging.LogRecord):
-        raw_message = record.msg
+        formatted_message = record.getMessage()
         lines_to_format = [
-            raw_message[i : i + _LOG_LINE_SPLIT_LENGTH]
-            for i in range(0, len(raw_message), _LOG_LINE_SPLIT_LENGTH)
+            formatted_message[i : i + _LOG_LINE_SPLIT_LENGTH]
+            for i in range(0, len(formatted_message), _LOG_LINE_SPLIT_LENGTH)
         ]
         formatted_lines = map(
             lambda line: self._format_record(record, line),
@@ -86,6 +86,15 @@ class TaskFormatter(logging.Formatter):
         return "\n".join(escaped_lines)
 
     def _format_record(self, base: logging.LogRecord, msg: str) -> str:
-        record = copy.copy(base)
-        record.msg = msg
+        record = logging.LogRecord(
+            name=base.name,
+            level=base.levelno,
+            pathname=base.pathname,
+            lineno=base.lineno,
+            msg=msg,
+            args=None,
+            exc_info=base.exc_info,
+            func=base.funcName,
+            sinfo=base.stack_info,
+        )
         return super().format(record)
