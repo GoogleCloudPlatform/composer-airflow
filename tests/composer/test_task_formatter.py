@@ -18,6 +18,7 @@ import copy
 import io
 import logging
 
+import pytest
 import re2
 
 from airflow.config_templates import airflow_local_settings
@@ -148,6 +149,7 @@ class TestTaskFormatter:
     def test_extra_workflow_info(self):
         self.ti.init_run_context()
         self.ti.log.info("sample-message", extra={"extra_workflow_info": {"extra-label": "value"}})
+
         assert re2.match(
             ".*INFO - sample-message@-@{"
             '"workflow": "dag_for_testing_composer_task_formatter", '
@@ -168,3 +170,50 @@ class TestTaskFormatter:
 
         for line in lines:
             assert re2.match("\[.*\] \{.*\} INFO - ", line)
+
+    @pytest.mark.parametrize(
+        "log_msg, log_args, expected_output",
+        [
+            ("HELLO %s", "1", "HELLO 1"),
+            ("HELLO %d", 1, "HELLO 1"),
+            ("HELLO %(a)s", {"a": "1"}, "HELLO 1"),
+            ("HELLO %(a)d", {"a": 1}, "HELLO 1"),
+        ],
+    )
+    def test_string_interpolation_logged_successfully(self, log_msg, log_args, expected_output):
+        self.ti.init_run_context()
+        self.ti.log.info(log_msg, log_args)
+
+        expected_log_str = str(log_msg % log_args)
+        assert re2.match(
+            f".*INFO - {expected_log_str}@-@{{"
+            '"workflow": "dag_for_testing_composer_task_formatter", '
+            '"task-id": "task_for_testing_composer_task_formatter", '
+            r'"execution-date": "2020-01-01T00:00:00\+00:00", '
+            '"map-index": "-1", '
+            '"try-number": "1"}\n',
+            self.stream.getvalue(),
+        )
+
+    @pytest.mark.parametrize(
+        "log_msg, expected_output",
+        [
+            ({"x": 1}, "{'x': 1}"),
+            ({2: 3.14}, "{2: 3.14}"),
+            (1, "1"),
+        ],
+    )
+    def test_non_string_data_types_logged_successfully(self, log_msg, expected_output):
+        self.ti.init_run_context()
+        self.ti.log.info(log_msg)
+
+        expected_log_str = str(log_msg)
+        assert re2.match(
+            f".*INFO - {expected_log_str}@-@{{"
+            '"workflow": "dag_for_testing_composer_task_formatter", '
+            '"task-id": "task_for_testing_composer_task_formatter", '
+            r'"execution-date": "2020-01-01T00:00:00\+00:00", '
+            '"map-index": "-1", '
+            '"try-number": "1"}\n',
+            self.stream.getvalue(),
+        )
