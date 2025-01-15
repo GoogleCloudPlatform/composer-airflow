@@ -28,6 +28,12 @@ MAXIMAL_RETENTION_DAYS = 730
 
 @cli_utils.action_cli(check_db=False)
 def trim(args):
+    if not args.acknowledge_composer_internal and not args.acknowledge_work_in_progress:
+        raise AssertionError(
+            "`airflow db trim` is an internal Cloud Composer command. Specify the "
+            "--acknowledge-composer-internal flag to suppress this error."
+        )
+
     args.retention_days = int(args.retention_days)
     if MAXIMAL_RETENTION_DAYS >= args.retention_days >= MINIMAL_RETENTION_DAYS:
         execute_trim(args.retention_days)
