@@ -527,9 +527,13 @@ ARG_DB_TRIM_RETENTION_DAYS = Arg(
 )
 ARG_DB_TRIM_ACK_WIP = Arg(
     ("--acknowledge-work-in-progress",),
-    help="For the time being this feature is work in progress, use at your own risk.",
+    help=argparse.SUPPRESS,
     action="store_true",
-    required=True,
+)
+ARG_DB_TRIM_COMPOSER_INTERNAL = Arg(
+    ("--acknowledge-composer-internal",),
+    help="Acknowledge that this is an internal Cloud Composer command",
+    action="store_true",
 )
 
 # pool
@@ -1658,9 +1662,9 @@ DB_COMMANDS = (
     ),
     ActionCommand(
         name="trim",
-        help="Trim is executed to cleanup database in small transactions",
+        help="(Cloud Composer internal) Clean up database in small transactions",
         func=lazy_load_command("airflow.composer.cli.commands.db_command.trim"),
-        args=(ARG_DB_TRIM_RETENTION_DAYS, ARG_DB_TRIM_ACK_WIP),
+        args=(ARG_DB_TRIM_RETENTION_DAYS, ARG_DB_TRIM_ACK_WIP, ARG_DB_TRIM_COMPOSER_INTERNAL),
     ),
 )
 CONNECTIONS_COMMANDS = (

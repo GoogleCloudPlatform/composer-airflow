@@ -93,7 +93,7 @@ class TestDbTrim:
         cls.parser = cli_parser.get_parser()
 
     @pytest.mark.parametrize(
-        "tables,extra_args", [(test_tables, ["--retention-days", "730", "--acknowledge-work-in-progress"])]
+        "tables,extra_args", [(test_tables, ["--retention-days", "730", "--acknowledge-composer-internal"])]
     )
     def test_e2e_db_trim(self, tables, extra_args):
         trim_execute_time = make_aware(datetime.datetime(year=2000, month=1, day=1))
@@ -151,7 +151,7 @@ class TestDbTrim:
                 "trim",
                 "--retention-days",
                 f"{retention_days}",
-                "--acknowledge-work-in-progress",
+                "--acknowledge-composer-internal",
             ]
         )
         db_command.trim(args)
@@ -168,7 +168,7 @@ class TestDbTrim:
                 "trim",
                 "--retention-days",
                 f"{retention_days}",
-                "--acknowledge-work-in-progress",
+                "--acknowledge-composer-internal",
             ]
         )
         with pytest.raises(ValueError) as value_exception:
