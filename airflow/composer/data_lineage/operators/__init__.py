@@ -31,13 +31,11 @@ import os
 from typing import TYPE_CHECKING
 
 from airflow.composer.data_lineage.operators.google.cloud.bigquery import (
-    BigQueryExecuteQueryOperatorLineageMixin,
     BigQueryInsertJobOperatorLineageMixin,
 )
 from airflow.composer.data_lineage.operators.google.cloud.dataproc import (
     DataprocSubmitJobOperatorLineageMixin,
 )
-from airflow.composer.data_lineage.operators.postgres.postgres import PostgresOperatorLineageMixin
 from airflow.composer.data_lineage.transfers.google.cloud.bigquery_to_bigquery import (
     BigQueryToBigQueryOperatorLineageMixin,
 )
@@ -57,9 +55,6 @@ if TYPE_CHECKING:
     from airflow.models.baseoperator import BaseOperator
 
 _OPERATOR_TO_MIXIN = {
-    (
-        "airflow.providers.google.cloud.operators.bigquery.BigQueryExecuteQueryOperator"
-    ): BigQueryExecuteQueryOperatorLineageMixin,
     (
         "airflow.providers.google.cloud.operators.bigquery.BigQueryInsertJobOperator"
     ): BigQueryInsertJobOperatorLineageMixin,
@@ -86,7 +81,6 @@ if os.environ.get("ENABLE_LINEAGE_FOR_ALL_SUPPORTED_OPERATORS") == "True":
             (
                 "airflow.providers.google.cloud.transfers.mysql_to_gcs.MySQLToGCSOperator"
             ): MySQLToGCSOperatorLineageMixin,
-            ("airflow.providers.postgres.operators.postgres.PostgresOperator"): PostgresOperatorLineageMixin,
             (
                 "airflow.providers.google.cloud.transfers.postgres_to_gcs.PostgresToGCSOperator"
             ): PostgresToGCSOperatorLineageMixin,
