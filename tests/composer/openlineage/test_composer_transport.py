@@ -188,10 +188,13 @@ class TestComposerTransport:
 
         with mock.patch(
             "airflow.composer.openlineage.composer_transport.SyncLineageClient", autospec=True
-        ) as mock_sync_lineage_client:
+        ) as mock_sync_lineage_client, mock.patch(
+            "airflow.composer.openlineage.composer_transport.get_redacted_event", autospec=True
+        ) as mock_get_redacted_event:
             transport = ComposerTransport(ComposerTransportConfig())
             transport.emit(event)
 
+            mock_get_redacted_event.assert_called_once()
             mock_sync_lineage_client().process_open_lineage_run_event.assert_called_once_with(
                 request=mock.ANY,
                 metadata=expected_metadata,
