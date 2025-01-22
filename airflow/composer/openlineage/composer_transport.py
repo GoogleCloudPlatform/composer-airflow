@@ -31,7 +31,7 @@ from airflow.composer.openlineage.facets import (
     GcpLineageJobFacet,
     GcpOrigin,
 )
-from airflow.composer.openlineage.utils import sanitize_display_name
+from airflow.composer.openlineage.utils import sanitize_display_name, get_redacted_event
 from airflow.composer.task_formatter import _EXTRA_WORKFLOW_INFO_RECORD_KEY
 from airflow.version import version as airflow_version
 
@@ -67,13 +67,14 @@ class ComposerTransport(Transport):
 
     def emit(self, event: Event) -> None:
         try:
-            log.info("Sending event to DataLineage OpenLineage API.")
+            log.info("Sending the event to the Data Lineage OpenLineage API.")
             self._patch_event(event)
-            self._log_redacted_event(event)
+            event_dict = json.loads(Serde.to_json(event))
+            log.info(get_redacted_event(event_dict))
 
             # We use the openlineage SerDe module to send the event as a dictionary
             request = ProcessOpenLineageRunEventRequest(
-                {"parent": LOCATION_PATH, "open_lineage": json.loads(Serde.to_json(event))}
+                {"parent": LOCATION_PATH, "open_lineage": event_dict}
             )
             job_type = event.job.facets["jobType"].jobType or "UNKNOWN"
             response = self.client.process_open_lineage_run_event(
@@ -83,10 +84,12 @@ class ComposerTransport(Transport):
                 ],
                 retry=Retry(deadline=5),
             )
-
-            log.info(response)
+            response_message = f"response: process={response.process}, run={response.run}"
+            if response.lineage_events:
+                response_message = "\n".join([response_message, f"lineage_events={response.lineage_events}"])
+            log.info(response_message)
         except Exception:
-            log.exception("Failed to send event to DataLineage API.")
+            log.exception("Failed to send the event to DataLineage API.")
 
     def _patch_event(self, event):
         """Add Composer and GCP specific facets to the event."""
@@ -135,11 +138,3 @@ class ComposerTransport(Transport):
         event.job.facets["gcp_composer_job"] = composer_job_facet
         event.run.facets["gcp_composer_run"] = composer_run_facet
         event.job.facets["gcp_lineage"] = gcp_lineage_facet
-
-    def _log_redacted_event(self, event: Event) -> None:
-        """Log shorter version of the Event because logging the full event is too verbose.
-
-        Also we make sure to log only fields that do not pose any privacy or security concerns.
-        """
-        # TODO(Internal bug)
-        log.info(event)
