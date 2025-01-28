@@ -167,6 +167,26 @@ DAG_COMPLETE_EVENT = RunEvent(
     producer=_PRODUCER,
 )
 
+DAG_MISSING_TYPE_EVENT = RunEvent(
+    eventType=RunState.COMPLETE,
+    eventTime="2024-12-22T23:10:02.401328+00:00",
+    job=Job(
+        namespace="composer-env-name",
+        name="test_dag_id",
+        facets={
+            "jobType": job_type_job.JobTypeJobFacet(
+                processingType="BATCH", integration="AIRFLOW"
+            ),
+        },
+    ),
+    run=Run(
+        runId=str(uuid.uuid4()),
+    ),
+    inputs=[],
+    outputs=[],
+    producer=_PRODUCER,
+)
+
 
 class TestComposerTransport:
     @mock.patch.dict("os.environ", {"COMPOSER_ENVIRONMENT": "composer-env-name"})
@@ -177,8 +197,9 @@ class TestComposerTransport:
         [
             (TASK_START_EVENT, [("x-goog-ext-512598505-bin", b"\n\x08COMPOSER\x12\x04TASK")]),
             (TASK_COMPLETE_EVENT, [("x-goog-ext-512598505-bin", b"\n\x08COMPOSER\x12\x04TASK")]),
-            (DAG_START_EVENT, [("x-goog-ext-512598505-bin", b"\n\x08COMPOSER\x12\x04DAG")]),
-            (DAG_COMPLETE_EVENT, [("x-goog-ext-512598505-bin", b"\n\x08COMPOSER\x12\x04DAG")]),
+            (DAG_START_EVENT, [("x-goog-ext-512598505-bin", b"\n\x08COMPOSER\x12\x03DAG")]),
+            (DAG_COMPLETE_EVENT, [("x-goog-ext-512598505-bin", b"\n\x08COMPOSER\x12\x03DAG")]),
+            (DAG_MISSING_TYPE_EVENT, [("x-goog-ext-512598505-bin", b"\n\x08COMPOSER\x12\x07UNKNOWN")]),
         ],
     )
     def test_emit(self, event, expected_metadata):
