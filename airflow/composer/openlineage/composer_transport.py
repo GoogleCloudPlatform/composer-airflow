@@ -40,8 +40,11 @@ if TYPE_CHECKING:
 
 # Side channel header according to Cloud Data Lineage documentation.
 SIDECHANNEL_HEADER = "x-goog-ext-512598505-bin"
-SIDECHANNEL_VALUE_PLACEHOLDER = b"\n\x08COMPOSER\x12\x04%b"
-
+SIDECHANNEL_VALUES = {
+    "DAG": b"\n\x08COMPOSER\x12\x03DAG",
+    "TASK": b"\n\x08COMPOSER\x12\x04TASK",
+}
+UNKNOWN_TYPE_SIDECHANNEL_VALUE = b"\n\x08COMPOSER\x12\x07UNKNOWN"
 
 COMPOSER_ENVIRONMENT_NAME = os.environ.get("COMPOSER_ENVIRONMENT")
 LOCATION_PATH = f"projects/{os.environ.get('GCP_PROJECT')}/locations/{os.environ.get('COMPOSER_LOCATION')}"
@@ -76,11 +79,12 @@ class ComposerTransport(Transport):
             request = ProcessOpenLineageRunEventRequest(
                 {"parent": LOCATION_PATH, "open_lineage": event_dict}
             )
-            job_type = event.job.facets["jobType"].jobType or "UNKNOWN"
+            job_type = event.job.facets["jobType"].jobType
+            sidechannel_value = SIDECHANNEL_VALUES.get(job_type, UNKNOWN_TYPE_SIDECHANNEL_VALUE)
             response = self.client.process_open_lineage_run_event(
                 request,
                 metadata=[
-                    (SIDECHANNEL_HEADER, SIDECHANNEL_VALUE_PLACEHOLDER % job_type.encode()),
+                    (SIDECHANNEL_HEADER, sidechannel_value),
                 ],
                 retry=Retry(deadline=5),
             )
