@@ -548,8 +548,6 @@ COMPOSER_DEPENDENCIES = [
     "google-cloud-firestore",
     "google-cloud-pubsublite<1.0.0",
     "keyrings.google-artifactregistry-auth",
-    # TODO: Internal bug remove when apache-beam depends on protobuf >=5.0
-    "opentelemetry-proto<1.28.0",
     "pip==23.2.1",
     "pyOpenSSL",
     "pipdeptree",
