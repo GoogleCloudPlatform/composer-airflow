@@ -539,7 +539,7 @@ COMPOSER_DEPENDENCIES = [
     "flower>=2.0.0",
     "gcsfs",
     "google-apitools",
-    "google-cloud-aiplatform",
+    "google-cloud-aiplatform[evaluation]",
     "google-cloud-asset",
     "google-cloud-datacatalog-lineage-producer-client",
     "google-cloud-datastore",
