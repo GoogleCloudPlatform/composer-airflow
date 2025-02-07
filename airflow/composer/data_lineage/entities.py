@@ -17,14 +17,27 @@ from __future__ import annotations
 
 import attr
 
+from airflow.providers.common.compat.openlineage.facet import Dataset
 
-@attr.s(auto_attribs=True, kw_only=True)
-class BigQueryTable:
+
+@attr.s(auto_attribs=True, kw_only=True, init=False)
+class BigQueryTable(Dataset):
     """Airflow lineage entity representing BigQuery table."""
 
-    project_id: str = attr.ib()
-    dataset_id: str = attr.ib()
-    table_id: str = attr.ib()
+    project_id: str
+    dataset_id: str
+    table_id: str
+    namespace: str = attr.ib(init=False)
+    name: str = attr.ib(init=False)
+
+    def __init__(self, project_id: str, dataset_id: str, table_id: str):
+        self.project_id = project_id
+        self.dataset_id = dataset_id
+        self.table_id = table_id
+
+        self.namespace = "bigquery"
+        self.name = f"{self.project_id}.{self.dataset_id}.{self.table_id}"
+        super().__init__(namespace=self.namespace, name=self.name)
 
 
 @attr.s(auto_attribs=True, kw_only=True)
@@ -34,41 +47,81 @@ class DataLineageEntity:
     fully_qualified_name: str = attr.ib()
 
 
-@attr.s(auto_attribs=True, kw_only=True)
-class GCSEntity:
+@attr.s(auto_attribs=True, kw_only=True, init=False)
+class GCSEntity(Dataset):
     """Airflow lineage entity representing generic Cloud Storage entity."""
 
-    bucket: str = attr.ib()
-    path: str = attr.ib()
+    bucket: str
+    path: str
+
+    def __init__(self, bucket: str, path: str):
+        self.bucket = bucket
+        self.path = path
+
+        self.namespace = f"gs://{bucket}"
+        self.name = path
+        super().__init__(namespace=self.namespace, name=self.name)
 
 
-@attr.s(auto_attribs=True, kw_only=True)
-class MySQLTable:
+@attr.s(auto_attribs=True, kw_only=True, init=False)
+class MySQLTable(Dataset):
     """Airflow lineage entity representing MySQL table."""
 
-    host: str = attr.ib()
-    port: str = attr.ib()
-    schema: str = attr.ib()
-    table: str = attr.ib()
+    host: str
+    port: str
+    schema: str
+    table: str
+
+    def __init__(self, host: str, port: str, schema: str, table: str):
+        self.host = host
+        self.port = port
+        self.schema = schema
+        self.table = table
+
+        self.namespace = f"mysql://{host}:{port}"
+        self.name = f"{schema}.{table}"
+        super().__init__(namespace=self.namespace, name=self.name)
 
 
-@attr.s(auto_attribs=True, kw_only=True)
-class PostgresTable:
+@attr.s(auto_attribs=True, kw_only=True, init=False)
+class PostgresTable(Dataset):
     """Airflow lineage entity representing Postgres table."""
 
-    host: str = attr.ib()
-    port: str = attr.ib()
-    database: str = attr.ib()
-    schema: str = attr.ib()
-    table: str = attr.ib()
+    host: str
+    port: str
+    database: str
+    schema: str
+    table: str
+
+    def __init__(self, host: str, port: str, database: str, schema: str, table: str):
+        self.host = host
+        self.port = port
+        self.database = database
+        self.schema = schema
+        self.table = table
+
+        self.namespace = f"postgres://{host}:{port}"
+        self.name = f"{database}.{schema}.{table}"
+        super().__init__(namespace=self.namespace, name=self.name)
 
 
-@attr.s(auto_attribs=True, kw_only=True)
-class DataprocMetastoreTable:
+@attr.s(auto_attribs=True, kw_only=True, init=False)
+class DataprocMetastoreTable(Dataset):
     """Airflow lineage entity representing Dataproc Metastore table."""
 
-    project_id: str = attr.ib()
-    location: str = attr.ib()
-    instance_id: str = attr.ib()
-    database: str = attr.ib()
-    table: str = attr.ib()
+    project_id: str
+    location: str
+    instance_id: str
+    database: str
+    table: str
+
+    def __init__(self, project_id: str, location: str, instance_id: str, database: str, table: str):
+        self.project_id = project_id
+        self.location = location
+        self.instance_id = instance_id
+        self.database = database
+        self.table = table
+
+        self.namespace = "dataproc_metastore"
+        self.name = f"{project_id}.{location}.{instance_id}.{database}.{table}"
+        super().__init__(namespace=self.namespace, name=self.name)
