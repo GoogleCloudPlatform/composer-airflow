@@ -46,19 +46,19 @@ def _create_composer_config(community_config: dict):
 
 
 def create_composer_config_file() -> str:
+    """Creates Composer .pre-commit-config.yaml file in .git/hooks/ folder."""
     print("Generating Composer .pre-commit-config.yaml file")
 
     current_dir = os.path.dirname(os.path.abspath(__file__))
     community_config_file = os.path.abspath(os.path.join(current_dir, "../../.pre-commit-config.yaml"))
+    composer_config_file = os.path.abspath(
+        os.path.join(current_dir, "../../.git/hooks/.composer-pre-commit-config.yaml"))
     print(f"Using community config file: {community_config_file}")
 
-    with open(community_config_file) as community_config_file_stream:
-        community_config = yaml.load(community_config_file_stream, yaml.SafeLoader)
+    with open(community_config_file) as f:
+        community_config = yaml.load(f, yaml.SafeLoader)
 
-    with tempfile.NamedTemporaryFile(mode="w", delete=False) as composer_config_file_stream:
-        composer_config_file = composer_config_file_stream.name
+    with open(composer_config_file, "w") as f:
         print(f"Storing Composer .pre-commit-config.yaml file into {composer_config_file}")
         composer_config = _create_composer_config(community_config)
-        yaml.dump(composer_config, composer_config_file_stream)
-
-    return composer_config_file
+        yaml.dump(composer_config, f)
