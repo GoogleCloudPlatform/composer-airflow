@@ -13,6 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import os
+from pathlib import Path
+import shutil
+import tempfile
 from unittest.mock import patch
 
 import yaml
@@ -62,28 +65,34 @@ class TestPreCommitConfig:
         }
 
     def test_create_composer_config_file(self):
+        tmp_dir = tempfile.mkdtemp()
         current_dir = os.path.dirname(os.path.abspath(__file__))
-        pre_commit_config_py_file = os.path.join(
-            current_dir, "test_data/airflow/composer/pre_commit_config.py")
+        shutil.copy(os.path.join(current_dir, "test_data/.pre-commit-config.yaml"), tmp_dir)
+        Path(os.path.join(tmp_dir, ".git/hooks/")).mkdir(parents=True, exist_ok=True)
 
-        with patch.object(pre_commit_config, "__file__", pre_commit_config_py_file):
-            composer_config_file = create_composer_config_file()
+        with patch.object(
+            pre_commit_config,
+            "__file__",
+                os.path.join(tmp_dir, "airflow/composer/pre_commit_config.py")):
+            create_composer_config_file()
 
-        with open(composer_config_file) as f:
+        with open(os.path.join(tmp_dir, ".git/hooks/.composer-pre-commit-config.yaml")) as f:
             actual_content = yaml.load(f.read(), yaml.SafeLoader)
-        assert actual_content == {
-            "default_stages": ["commit", "push"],
-            "minimum_pre_commit_version": "3.2.0",
-            "repos": [{
-                "repo": "local",
-                "hooks": [{
-                    "id": "identity",
-                    "name": "Print input to the static check hooks for troubleshooting",
-                }, {
-                    "id": "mypy-airflow",
-                    "name": "Run mypy for airflow",
-                    "additional_dependencies": ["rich>=12.4.4"],
-                    "stages": ["manual"],
+            assert actual_content == {
+                "default_stages": ["commit", "push"],
+                "minimum_pre_commit_version": "3.2.0",
+                "repos": [{
+                    "repo": "local",
+                    "hooks": [{
+                        "id": "identity",
+                        "name": "Print input to the static check hooks for troubleshooting",
+                    }, {
+                        "id": "mypy-airflow",
+                        "name": "Run mypy for airflow",
+                        "additional_dependencies": ["rich>=12.4.4"],
+                        "stages": ["manual"],
+                    }]
                 }]
-            }]
-        }
+            }
+
+        shutil.rmtree(tmp_dir)
