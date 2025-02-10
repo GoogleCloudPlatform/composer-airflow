@@ -1,0 +1,10 @@
+default_stages: [commit, push]
+minimum_pre_commit_version: '3.2.0'
+repos:
+- repo: local
+  hooks:
+  - id: identity
+    name: Print input to the static check hooks for troubleshooting
+  - id: mypy-airflow
+    name: Run mypy for airflow
+    additional_dependencies: [ 'rich>=12.4.4' ]
