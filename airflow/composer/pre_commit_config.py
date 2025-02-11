@@ -19,7 +19,6 @@ the root of the repo) with some hooks disabled.
 """
 import copy
 import os
-import tempfile
 
 import yaml
 
@@ -62,3 +61,7 @@ def create_composer_config_file() -> str:
         print(f"Storing Composer .pre-commit-config.yaml file into {composer_config_file}")
         composer_config = _create_composer_config(community_config)
         yaml.dump(composer_config, f)
+
+
+if __name__ == "__main__":
+    create_composer_config_file()
