@@ -40,11 +40,25 @@ class BigQueryTable(Dataset):
         super().__init__(namespace=self.namespace, name=self.name)
 
 
-@attr.s(auto_attribs=True, kw_only=True)
-class DataLineageEntity:
+@attr.s(auto_attribs=True, kw_only=True, init=False)
+class DataLineageEntity(Dataset):
     """Airflow lineage entity representing generic Data Lineage entity."""
 
     fully_qualified_name: str = attr.ib()
+    namespace: str = attr.ib(init=False)
+    name: str = attr.ib(init=False)
+
+    def __init__(self, fully_qualified_name: str):
+        self.fully_qualified_name = fully_qualified_name
+
+        try:
+            self.namespace, self.name = fully_qualified_name.split(":")
+            self.namespace = f"custom:{self.namespace}"
+        except ValueError:
+            self.namespace = "custom"
+            self.name = fully_qualified_name
+
+        super().__init__(namespace=self.namespace, name=self.name)
 
 
 @attr.s(auto_attribs=True, kw_only=True, init=False)
@@ -122,6 +136,6 @@ class DataprocMetastoreTable(Dataset):
         self.database = database
         self.table = table
 
-        self.namespace = "dataproc_metastore"
+        self.namespace = "custom:dataproc_metastore"
         self.name = f"{project_id}.{location}.{instance_id}.{database}.{table}"
         super().__init__(namespace=self.namespace, name=self.name)
