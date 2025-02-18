@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 import attr
+from typing import ClassVar
 
 from airflow.providers.common.compat.openlineage.facet import Dataset
 
@@ -29,6 +30,8 @@ class BigQueryTable(Dataset):
     table_id: str
     namespace: str = attr.ib(init=False)
     name: str = attr.ib(init=False)
+
+    template_fields: ClassVar = ("project_id", "dataset_id", "table_id", "namespace", "name")
 
     def __init__(self, project_id: str, dataset_id: str, table_id: str):
         self.project_id = project_id
@@ -47,6 +50,8 @@ class DataLineageEntity(Dataset):
     fully_qualified_name: str = attr.ib()
     namespace: str = attr.ib(init=False)
     name: str = attr.ib(init=False)
+
+    template_fields: ClassVar = ("fully_qualified_name", "namespace", "name")
 
     def __init__(self, fully_qualified_name: str):
         self.fully_qualified_name = fully_qualified_name
@@ -67,6 +72,10 @@ class GCSEntity(Dataset):
 
     bucket: str
     path: str
+    namespace: str = attr.ib(init=False)
+    name: str = attr.ib(init=False)
+
+    template_fields: ClassVar = ("bucket", "path", "namespace", "name")
 
     def __init__(self, bucket: str, path: str):
         self.bucket = bucket
@@ -85,6 +94,10 @@ class MySQLTable(Dataset):
     port: str
     schema: str
     table: str
+    namespace: str = attr.ib(init=False)
+    name: str = attr.ib(init=False)
+
+    template_fields: ClassVar = ("host", "port", "schema", "table", "namespace", "name")
 
     def __init__(self, host: str, port: str, schema: str, table: str):
         self.host = host
@@ -106,6 +119,10 @@ class PostgresTable(Dataset):
     database: str
     schema: str
     table: str
+    namespace: str = attr.ib(init=False)
+    name: str = attr.ib(init=False)
+
+    template_fields: ClassVar = ("host", "port", "database", "schema", "table", "namespace", "name")
 
     def __init__(self, host: str, port: str, database: str, schema: str, table: str):
         self.host = host
@@ -128,6 +145,10 @@ class DataprocMetastoreTable(Dataset):
     instance_id: str
     database: str
     table: str
+    namespace: str = attr.ib(init=False)
+    name: str = attr.ib(init=False)
+
+    template_fields: ClassVar = ("project_id", "location", "instance_id", "database", "table", "namespace", "name")
 
     def __init__(self, project_id: str, location: str, instance_id: str, database: str, table: str):
         self.project_id = project_id
