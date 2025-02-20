@@ -23,17 +23,18 @@ from airflow.providers.common.compat.openlineage.facet import Dataset
 
 @attr.s(auto_attribs=True, kw_only=True, init=False)
 class BigQueryTable(Dataset):
-    """Airflow lineage entity representing BigQuery table."""
+    """Airflow lineage entity representing BigQuery table.
+
+    We add **kwargs to be able to deserialize, needed when using AUTO in inlets/outlets.
+    """
 
     project_id: str
     dataset_id: str
     table_id: str
-    namespace: str = attr.ib(init=False)
-    name: str = attr.ib(init=False)
 
     template_fields: ClassVar = ("project_id", "dataset_id", "table_id", "namespace", "name")
 
-    def __init__(self, project_id: str, dataset_id: str, table_id: str):
+    def __init__(self, project_id: str, dataset_id: str, table_id: str, **kwargs):
         self.project_id = project_id
         self.dataset_id = dataset_id
         self.table_id = table_id
@@ -45,15 +46,16 @@ class BigQueryTable(Dataset):
 
 @attr.s(auto_attribs=True, kw_only=True, init=False)
 class DataLineageEntity(Dataset):
-    """Airflow lineage entity representing generic Data Lineage entity."""
+    """Airflow lineage entity representing generic Data Lineage entity.
+
+    We add **kwargs to be able to deserialize, needed when using AUTO in inlets/outlets.
+    """
 
     fully_qualified_name: str = attr.ib()
-    namespace: str = attr.ib(init=False)
-    name: str = attr.ib(init=False)
 
     template_fields: ClassVar = ("fully_qualified_name", "namespace", "name")
 
-    def __init__(self, fully_qualified_name: str):
+    def __init__(self, fully_qualified_name: str, **kwargs):
         self.fully_qualified_name = fully_qualified_name
 
         try:
@@ -68,16 +70,17 @@ class DataLineageEntity(Dataset):
 
 @attr.s(auto_attribs=True, kw_only=True, init=False)
 class GCSEntity(Dataset):
-    """Airflow lineage entity representing generic Cloud Storage entity."""
+    """Airflow lineage entity representing generic Cloud Storage entity.
+
+    We add **kwargs to be able to deserialize, needed when using AUTO in inlets/outlets.
+    """
 
     bucket: str
     path: str
-    namespace: str = attr.ib(init=False)
-    name: str = attr.ib(init=False)
 
     template_fields: ClassVar = ("bucket", "path", "namespace", "name")
 
-    def __init__(self, bucket: str, path: str):
+    def __init__(self, bucket: str, path: str, **kwargs):
         self.bucket = bucket
         self.path = path
 
@@ -88,18 +91,19 @@ class GCSEntity(Dataset):
 
 @attr.s(auto_attribs=True, kw_only=True, init=False)
 class MySQLTable(Dataset):
-    """Airflow lineage entity representing MySQL table."""
+    """Airflow lineage entity representing MySQL table.
+
+    We add **kwargs to be able to deserialize, needed when using AUTO in inlets/outlets.
+    """
 
     host: str
     port: str
     schema: str
     table: str
-    namespace: str = attr.ib(init=False)
-    name: str = attr.ib(init=False)
 
     template_fields: ClassVar = ("host", "port", "schema", "table", "namespace", "name")
 
-    def __init__(self, host: str, port: str, schema: str, table: str):
+    def __init__(self, host: str, port: str, schema: str, table: str, **kwargs):
         self.host = host
         self.port = port
         self.schema = schema
@@ -112,19 +116,20 @@ class MySQLTable(Dataset):
 
 @attr.s(auto_attribs=True, kw_only=True, init=False)
 class PostgresTable(Dataset):
-    """Airflow lineage entity representing Postgres table."""
+    """Airflow lineage entity representing Postgres table.
+
+    We add **kwargs to be able to deserialize, needed when using AUTO in inlets/outlets.
+    """
 
     host: str
     port: str
     database: str
     schema: str
     table: str
-    namespace: str = attr.ib(init=False)
-    name: str = attr.ib(init=False)
 
     template_fields: ClassVar = ("host", "port", "database", "schema", "table", "namespace", "name")
 
-    def __init__(self, host: str, port: str, database: str, schema: str, table: str):
+    def __init__(self, host: str, port: str, database: str, schema: str, table: str, **kwargs):
         self.host = host
         self.port = port
         self.database = database
@@ -138,19 +143,28 @@ class PostgresTable(Dataset):
 
 @attr.s(auto_attribs=True, kw_only=True, init=False)
 class DataprocMetastoreTable(Dataset):
-    """Airflow lineage entity representing Dataproc Metastore table."""
+    """Airflow lineage entity representing Dataproc Metastore table.
+
+    We add **kwargs to be able to deserialize, needed when using AUTO in inlets/outlets.
+    """
 
     project_id: str
     location: str
     instance_id: str
     database: str
     table: str
-    namespace: str = attr.ib(init=False)
-    name: str = attr.ib(init=False)
 
-    template_fields: ClassVar = ("project_id", "location", "instance_id", "database", "table", "namespace", "name")
+    template_fields: ClassVar = (
+        "project_id",
+        "location",
+        "instance_id",
+        "database",
+        "table",
+        "namespace",
+        "name",
+    )
 
-    def __init__(self, project_id: str, location: str, instance_id: str, database: str, table: str):
+    def __init__(self, project_id: str, location: str, instance_id: str, database: str, table: str, **kwargs):
         self.project_id = project_id
         self.location = location
         self.instance_id = instance_id
