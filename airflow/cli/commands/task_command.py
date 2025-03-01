@@ -455,7 +455,12 @@ def task_run(args, dag: DAG | None = None) -> TaskReturnCode | None:
         print(f"Loading pickle id: {args.pickle}")
         _dag = get_dag_by_pickle(args.pickle)
     elif not dag:
-        _dag = get_dag(args.subdir, args.dag_id, args.read_from_db)
+        _dag = get_dag(
+            args.subdir,
+            args.dag_id,
+            args.read_from_db,
+            wait_dag_not_found_timeout=conf.getint("core", "wait_dag_not_found_timeout", fallback=0),
+        )
     else:
         _dag = dag
     task = _dag.get_task(task_id=args.task_id)
