@@ -33,7 +33,10 @@ HOOKS_TO_DISABLE = [
     "update-version",
 ]
 
-HOOK_TO_EXCLUSION_MAP = {"detect-private-key": "^tests/composer/test_data/jwtRS256.key$"}
+HOOK_TO_EXCLUSION_MAP = {
+    "detect-private-key": "^tests/composer/test_data/jwtRS256.key$",
+    "check-fab-migrations": "^airflow/migrations/versions/5cdf.*\\.py$",
+}
 
 
 def _create_composer_config(community_config: dict):
