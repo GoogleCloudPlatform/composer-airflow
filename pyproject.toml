@@ -513,7 +513,7 @@ filterwarnings = [
 forbidden_warnings = [
     "airflow.exceptions.RemovedInAirflow3Warning",
     "airflow.utils.context.AirflowContextDeprecationWarning",
-    "airflow.exceptions.AirflowProviderDeprecationWarning",
+    # TODO: Internal bug - Re-add airflow.exceptions.AirflowProviderDeprecationWarning in Airflow 3.
 ]
 python_files = [
     "test_*.py",
