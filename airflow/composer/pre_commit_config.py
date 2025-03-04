@@ -33,15 +33,23 @@ HOOKS_TO_DISABLE = [
     "update-version",
 ]
 
+HOOK_TO_EXCLUSION_MAP = {"detect-private-key": "^tests/composer/test_data/jwtRS256.key$"}
+
 
 def _create_composer_config(community_config: dict):
     composer_config = copy.deepcopy(community_config)
 
     for repo in composer_config["repos"]:
         for hook in repo["hooks"]:
-            if hook["id"] in HOOKS_TO_DISABLE:
+            hook_id = hook["id"]
+            if hook_id in HOOKS_TO_DISABLE:
                 # Disable hook by making it run only on demand (not automatically).
                 hook["stages"] = ["manual"]
+            if hook_id in HOOK_TO_EXCLUSION_MAP:
+                if hook.get("exclude"):
+                    hook["exclude"] += "|" + HOOK_TO_EXCLUSION_MAP[hook_id]
+                else:
+                    hook["exclude"] = HOOK_TO_EXCLUSION_MAP[hook_id]
 
     return composer_config
 

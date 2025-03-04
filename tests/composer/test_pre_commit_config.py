@@ -48,6 +48,10 @@ class TestPreCommitConfig:
                         {
                             "id": "hook-4",
                         },
+                        {
+                            "id": "detect-private-key",
+                            "exclude": "^docs/apache-airflow-providers-ssh/connections/ssh.rst$",
+                        },
                     ]
                 },
             ]
@@ -76,6 +80,39 @@ class TestPreCommitConfig:
                         {
                             "id": "hook-4",
                         },
+                        {
+                            "id": "detect-private-key",
+                            "exclude": "^docs/apache-airflow-providers-ssh/connections/ssh.rst$|^tests/composer/test_data/jwtRS256.key$",
+                        },
+                    ]
+                },
+            ]
+        }
+
+    def test_create_composer_config_file_with_empty_exclusion(self):
+        community_config = {
+            "repos": [
+                {
+                    "hooks": [
+                        {
+                            "id": "detect-private-key",
+                            "exclude": "",
+                        }
+                    ]
+                },
+            ]
+        }
+
+        composer_config = _create_composer_config(community_config)
+
+        assert composer_config == {
+            "repos": [
+                {
+                    "hooks": [
+                        {
+                            "id": "detect-private-key",
+                            "exclude": "^tests/composer/test_data/jwtRS256.key$",
+                        }
                     ]
                 },
             ]
