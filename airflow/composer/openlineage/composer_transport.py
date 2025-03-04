@@ -95,7 +95,7 @@ class ComposerTransport(Transport):
         except Exception:
             log.exception("Failed to send the event to DataLineage API.")
 
-    def _patch_event(self, event):
+    def _patch_event(self, event: Event) -> None:
         """Add Composer and GCP specific facets to the event."""
         job_type = event.job.facets["jobType"].jobType
         if job_type == "DAG":
@@ -142,3 +142,16 @@ class ComposerTransport(Transport):
         event.job.facets["gcp_composer_job"] = composer_job_facet
         event.run.facets["gcp_composer_run"] = composer_run_facet
         event.job.facets["gcp_lineage"] = gcp_lineage_facet
+
+        self._patch_bigquery_external_query_if_needed(event)
+
+    def _patch_bigquery_external_query_if_needed(self, event: Event) -> None:
+        if event.run.facets.get("externalQuery") and event.run.facets["externalQuery"].source == "bigquery":
+            if event.run.facets.get("bigQueryJob") is None:
+                log.debug("run.facets.bigQueryJob facet not found when patching the BigQuery externalQuery facet")
+                return
+            try:
+                bigqueryJobId = json.loads(event.run.facets["bigQueryJob"].properties)["id"]
+                event.run.facets["externalQuery"].externalQueryId = bigqueryJobId
+            except json.JSONDecodeError:
+                log.warning("Failed to parse BigQuery JobId")

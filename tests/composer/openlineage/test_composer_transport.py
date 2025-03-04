@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import os
 import pytest
 import uuid
@@ -26,10 +27,46 @@ from openlineage.client.facet_v2 import job_type_job, parent_run
 
 from airflow.composer.openlineage.composer_transport import ComposerTransport, ComposerTransportConfig
 from airflow.composer.openlineage.facets import ComposerJobFacet, ComposerRunFacet, GcpOrigin
+from airflow.providers.common.compat.openlineage.facet import ExternalQueryRunFacet
+from airflow.providers.google.cloud.openlineage.utils import BigQueryJobRunFacet
 from airflow.providers.openlineage.plugins.adapter import _PRODUCER
 from airflow.providers.openlineage.plugins.facets import AirflowRunFacet, AirflowDagRunFacet  # type: ignore
 from airflow.version import version as airflow_version
 
+
+TASK_RUN_PARENT_FACET = parent_run.ParentRunFacet(
+    run=parent_run.Run(runId=str(uuid.uuid4())),
+    job=parent_run.Job(namespace="composer-env-name", name="test_dag_id"),
+)
+
+TASK_RUN_AIRFLOW_FACET = AirflowRunFacet(
+    dag={
+        "dag_id": "test_dag_id",
+    },
+    dagRun={
+        "dag_id": "test_dag_id",
+        "run_id": "manual__2024-12-22T22:37:18.357507+00:00",
+        "start_date": "2024-12-22T22:37:18.976384+00:00",
+    },
+    taskInstance={
+        "queued_dttm": "2024-12-22T22:37:51.529730+00:00",
+    },
+    task={
+        "operator_class": "PythonOperator",
+        "task_id": "test_task_id",
+    },
+    taskUuid=str(uuid.uuid4()),
+)
+
+TASK_JOB_FACET = Job(
+    namespace="composer-env-name",
+    name="test_dag_id.test_task_id",
+    facets={
+        "jobType": job_type_job.JobTypeJobFacet(
+            processingType="BATCH", integration="AIRFLOW", jobType="TASK"
+        ),
+    },
+)
 
 TASK_START_EVENT = RunEvent(
     eventType=RunState.START,
@@ -37,39 +74,11 @@ TASK_START_EVENT = RunEvent(
     run=Run(
         runId=str(uuid.uuid4()),
         facets={
-            "parent": parent_run.ParentRunFacet(
-                run=parent_run.Run(runId=str(uuid.uuid4())),
-                job=parent_run.Job(namespace="composer-env-name", name="test_dag_id"),
-            ),
-            "airflow": AirflowRunFacet(
-                dag={
-                    "dag_id": "test_dag_id",
-                },
-                dagRun={
-                    "dag_id": "test_dag_id",
-                    "run_id": "manual__2024-12-22T22:37:18.357507+00:00",
-                    "start_date": "2024-12-22T22:37:18.976384+00:00",
-                },
-                taskInstance={
-                    "queued_dttm": "2024-12-22T22:37:51.529730+00:00",
-                },
-                task={
-                    "operator_class": "PythonOperator",
-                    "task_id": "test_task_id",
-                },
-                taskUuid=str(uuid.uuid4()),
-            ),
+            "parent": TASK_RUN_PARENT_FACET,
+            "airflow": TASK_RUN_AIRFLOW_FACET,
         },
     ),
-    job=Job(
-        namespace="composer-env-name",
-        name="test_dag_id.test_task_id",
-        facets={
-            "jobType": job_type_job.JobTypeJobFacet(
-                processingType="BATCH", integration="AIRFLOW", jobType="TASK"
-            ),
-        },
-    ),
+    job=TASK_JOB_FACET,
     producer=_PRODUCER,
     inputs=[],
     outputs=[],
@@ -81,39 +90,11 @@ TASK_COMPLETE_EVENT = RunEvent(
     run=Run(
         runId=str(uuid.uuid4()),
         facets={
-            "parent": parent_run.ParentRunFacet(
-                run=parent_run.Run(runId=str(uuid.uuid4())),
-                job=parent_run.Job(namespace="composer-env-name", name="test_dag_id"),
-            ),
-            "airflow": AirflowRunFacet(
-                dag={
-                    "dag_id": "test_dag_id",
-                },
-                dagRun={
-                    "dag_id": "test_dag_id",
-                    "run_id": "manual__2024-12-22T22:37:18.357507+00:00",
-                    "start_date": "2024-12-22T22:37:18.976384+00:00",
-                },
-                taskInstance={
-                    "queued_dttm": "2024-12-22T22:37:51.529730+00:00",
-                },
-                task={
-                    "operator_class": "PythonOperator",
-                    "task_id": "test_task_id",
-                },
-                taskUuid=str(uuid.uuid4()),
-            ),
+            "parent": TASK_RUN_PARENT_FACET,
+            "airflow": TASK_RUN_AIRFLOW_FACET,
         },
     ),
-    job=Job(
-        namespace="composer-env-name",
-        name="test_dag_id.test_task_id",
-        facets={
-            "jobType": job_type_job.JobTypeJobFacet(
-                processingType="BATCH", integration="AIRFLOW", jobType="TASK"
-            ),
-        },
-    ),
+    job=TASK_JOB_FACET,
     producer=_PRODUCER,
     inputs=[
         Dataset(namespace="bigquery", name="a.b.c"),
@@ -174,9 +155,7 @@ DAG_MISSING_TYPE_EVENT = RunEvent(
         namespace="composer-env-name",
         name="test_dag_id",
         facets={
-            "jobType": job_type_job.JobTypeJobFacet(
-                processingType="BATCH", integration="AIRFLOW"
-            ),
+            "jobType": job_type_job.JobTypeJobFacet(processingType="BATCH", integration="AIRFLOW"),
         },
     ),
     run=Run(
@@ -186,6 +165,95 @@ DAG_MISSING_TYPE_EVENT = RunEvent(
     outputs=[],
     producer=_PRODUCER,
 )
+
+RUN_EVENT_EXTERNAL_QUERY_1 = RunEvent(
+    eventType=RunState.COMPLETE,
+    eventTime="2024-12-22T22:37:56.585453+00:00",
+    run=Run(
+        runId=str(uuid.uuid4()),
+        facets={
+            "parent": TASK_RUN_PARENT_FACET,
+            "airflow": TASK_RUN_AIRFLOW_FACET,
+            "externalQuery": ExternalQueryRunFacet(externalQueryId="BQJobId", source="bigquery"),
+            "bigQueryJob": BigQueryJobRunFacet(
+                cached=False, properties=json.dumps({"id": "project:location.BQJobId"})
+            ),
+        },
+    ),
+    job=TASK_JOB_FACET,
+    producer=_PRODUCER,
+    inputs=[],
+    outputs=[],
+)
+
+EXPECTED_EXTERNAL_QUERY_1 = ExternalQueryRunFacet(
+    externalQueryId="project:location.BQJobId", source="bigquery"
+)
+
+# source != "bigquery"
+RUN_EVENT_EXTERNAL_QUERY_2 = RunEvent(
+    eventType=RunState.COMPLETE,
+    eventTime="2024-12-22T22:37:56.585453+00:00",
+    run=Run(
+        runId=str(uuid.uuid4()),
+        facets={
+            "parent": TASK_RUN_PARENT_FACET,
+            "airflow": TASK_RUN_AIRFLOW_FACET,
+            "externalQuery": ExternalQueryRunFacet(externalQueryId="other-id", source="other-source"),
+            "bigQueryJob": BigQueryJobRunFacet(
+                cached=False, properties=json.dumps({"id": "project:location.BQJobId"})
+            ),
+        },
+    ),
+    job=TASK_JOB_FACET,
+    producer=_PRODUCER,
+    inputs=[],
+    outputs=[],
+)
+
+EXPECTED_EXTERNAL_QUERY_2 = ExternalQueryRunFacet(externalQueryId="other-id", source="other-source")
+
+# No externalQuery facet
+RUN_EVENT_EXTERNAL_QUERY_3 = RunEvent(
+    eventType=RunState.COMPLETE,
+    eventTime="2024-12-22T22:37:56.585453+00:00",
+    run=Run(
+        runId=str(uuid.uuid4()),
+        facets={
+            "parent": TASK_RUN_PARENT_FACET,
+            "airflow": TASK_RUN_AIRFLOW_FACET,
+            "bigQueryJob": BigQueryJobRunFacet(
+                cached=False, properties=json.dumps({"id": "project:location.BQJobId"})
+            ),
+        },
+    ),
+    job=TASK_JOB_FACET,
+    producer=_PRODUCER,
+    inputs=[],
+    outputs=[],
+)
+
+EXPECTED_EXTERNAL_QUERY_3 = None
+
+# No bigQueryJob facet
+RUN_EVENT_EXTERNAL_QUERY_4 = RunEvent(
+    eventType=RunState.COMPLETE,
+    eventTime="2024-12-22T22:37:56.585453+00:00",
+    run=Run(
+        runId=str(uuid.uuid4()),
+        facets={
+            "parent": TASK_RUN_PARENT_FACET,
+            "airflow": TASK_RUN_AIRFLOW_FACET,
+            "externalQuery": ExternalQueryRunFacet(externalQueryId="BQJobId", source="bigquery"),
+        },
+    ),
+    job=TASK_JOB_FACET,
+    producer=_PRODUCER,
+    inputs=[],
+    outputs=[],
+)
+
+EXPECTED_EXTERNAL_QUERY_4 = ExternalQueryRunFacet(externalQueryId="BQJobId", source="bigquery")
 
 
 class TestComposerTransport:
@@ -204,6 +272,7 @@ class TestComposerTransport:
     )
     def test_emit(self, event, expected_metadata):
         import airflow.composer.openlineage.composer_transport
+
         # Reload the transport module to reevaluate environment variables use in module level constants.
         reload(airflow.composer.openlineage.composer_transport)
 
@@ -222,7 +291,9 @@ class TestComposerTransport:
                 retry=mock.ANY,
             )
             assert (
-                mock_sync_lineage_client().process_open_lineage_run_event.call_args_list[0][1]["retry"]._deadline
+                mock_sync_lineage_client()
+                .process_open_lineage_run_event.call_args_list[0][1]["retry"]
+                ._deadline
                 == 5
             )
 
@@ -286,6 +357,7 @@ class TestComposerTransport:
     )
     def test_patch_event(self, event, expected_composer_job_facet, expected_composer_run_facet):
         import airflow.composer.openlineage.composer_transport
+
         # Reload the transport module to reevaluate environment variables use in module level constants.
         reload(airflow.composer.openlineage.composer_transport)
 
@@ -303,3 +375,21 @@ class TestComposerTransport:
                     "projects/test_gcp_project/locations/us-central1/environments/composer-env-name"
                 ),
             )
+
+    @pytest.mark.parametrize(
+        "event, expected_external_query",
+        [
+            (RUN_EVENT_EXTERNAL_QUERY_1, EXPECTED_EXTERNAL_QUERY_1),
+            (RUN_EVENT_EXTERNAL_QUERY_2, EXPECTED_EXTERNAL_QUERY_2),
+            (RUN_EVENT_EXTERNAL_QUERY_3, EXPECTED_EXTERNAL_QUERY_3),
+            (RUN_EVENT_EXTERNAL_QUERY_4, EXPECTED_EXTERNAL_QUERY_4),
+        ],
+    )
+    def test_patch_bigquery_external_query_if_needed(self, event: Event, expected_external_query):
+        with mock.patch(
+            "airflow.composer.openlineage.composer_transport.SyncLineageClient", autospec=True
+        ) as mock_sync_lineage_client:
+            transport = ComposerTransport(ComposerTransportConfig())
+            transport._patch_bigquery_external_query_if_needed(event)
+
+            assert event.run.facets.get("externalQuery") == expected_external_query
