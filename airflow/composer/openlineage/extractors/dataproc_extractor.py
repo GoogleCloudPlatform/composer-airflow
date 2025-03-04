@@ -57,6 +57,7 @@ class DataprocExtractor(BaseExtractor):
             job=job, project_id=hook.project_id, location=self.operator.region
         )
 
+        inputs, outputs = [], []
         try:
             inputs, outputs = data_lineage_extractor.data_lineage()
             if not inputs:
