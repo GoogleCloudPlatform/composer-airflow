@@ -4051,6 +4051,15 @@ class DagModel(Base):
         :param session: ORM Session
         """
         log.debug("Deactivating DAGs (for which DAG files are deleted) from %s table ", cls.__tablename__)
+
+        rbac_autoregister_per_folder_roles = airflow_conf.getboolean(
+            "webserver", "rbac_autoregister_per_folder_roles", fallback=False
+        )
+        if rbac_autoregister_per_folder_roles:
+            from airflow.www.security_appless import ApplessAirflowSecurityManager
+
+            security_manager = ApplessAirflowSecurityManager(session=session)
+
         dag_models = session.scalars(
             select(cls).where(
                 cls.fileloc.is_not(None),
@@ -4064,6 +4073,9 @@ class DagModel(Base):
         for dag_model in dag_models:
             if dag_model.fileloc not in alive_dag_filelocs:
                 dag_model.is_active = False
+                if rbac_autoregister_per_folder_roles:
+                    # Revoke permissions to deleted DAGs from all roles.
+                    security_manager.sync_perm_for_dag(dag_model.dag_id, {})
 
     @classmethod
     def dags_needing_dagruns(cls, session: Session) -> tuple[Query, dict[str, tuple[datetime, datetime]]]:
