@@ -536,6 +536,34 @@ ARG_DB_RETRY_DELAY = Arg(
     type=positive_int(allow_zero=False),
     help="Wait time between retries in seconds",
 )
+ARG_DB_TRIM_RETENTION_DAYS = Arg(
+    ("--retention-days",),
+    help="Data older than this number of days will get trimmed",
+    type=int,
+    required=True,
+)
+ARG_DB_TRIM_ACK_WIP = Arg(
+    ("--acknowledge-work-in-progress",),
+    help=argparse.SUPPRESS,
+    action="store_true",
+)
+ARG_DB_TRIM_COMPOSER_INTERNAL = Arg(
+    ("--acknowledge-composer-internal",),
+    help="Acknowledge that this is an internal Cloud Composer command",
+    action="store_true",
+)
+ARG_DB_TRIM_BATCH_SIZE = Arg(
+    ("--retention-batch-size",),
+    help="Number of database rows that will get trimmed per batch",
+    type=int,
+    required=False,
+)
+ARG_DB_TRIM_SLEEP = Arg(
+    ("--retention-sleep",),
+    help="Sleep time between batches of data trim",
+    type=float,
+    required=False,
+)
 
 # pool
 ARG_POOL_NAME = Arg(("pool",), metavar="NAME", help="Pool name")
@@ -1717,6 +1745,18 @@ DB_COMMANDS = (
         help="Drop archived tables created through the db clean command",
         func=lazy_load_command("airflow.cli.commands.db_command.drop_archived"),
         args=(ARG_DB_TABLES, ARG_YES),
+    ),
+    ActionCommand(
+        name="trim",
+        help="(Cloud Composer internal) Clean up database in small transactions",
+        func=lazy_load_command("airflow.composer.cli.commands.db_command.trim"),
+        args=(
+            ARG_DB_TRIM_RETENTION_DAYS,
+            ARG_DB_TRIM_ACK_WIP,
+            ARG_DB_TRIM_COMPOSER_INTERNAL,
+            ARG_DB_TRIM_BATCH_SIZE,
+            ARG_DB_TRIM_SLEEP,
+        ),
     ),
 )
 CONNECTIONS_COMMANDS = (
