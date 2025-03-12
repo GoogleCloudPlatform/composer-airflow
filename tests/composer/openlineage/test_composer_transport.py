@@ -28,7 +28,7 @@ from openlineage.client.facet_v2 import job_type_job, parent_run
 from airflow.composer.openlineage.composer_transport import ComposerTransport, ComposerTransportConfig
 from airflow.composer.openlineage.facets import ComposerJobFacet, ComposerRunFacet, GcpOrigin
 from airflow.providers.common.compat.openlineage.facet import ExternalQueryRunFacet
-from airflow.providers.google.cloud.openlineage.utils import BigQueryJobRunFacet
+from airflow.providers.google.cloud.openlineage.facets import BigQueryJobRunFacet
 from airflow.providers.openlineage.plugins.adapter import _PRODUCER
 from airflow.providers.openlineage.plugins.facets import AirflowRunFacet, AirflowDagRunFacet
 from airflow.version import version as airflow_version
