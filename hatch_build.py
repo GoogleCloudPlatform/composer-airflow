@@ -502,7 +502,8 @@ DEPENDENCIES = [
 COMPOSER_DEPENDENCIES = [
     "apache-airflow-providers-apache-beam",
     # Celery provider 3.9.0 breaks for airflow < 3, will be fixed in 3.9.1
-    "apache-airflow-providers-celery!=3.9.0",
+    # TODO: Internal bug - Also Celery provider >3.10.0 breaks for Airflow <= 2.10.5
+    "apache-airflow-providers-celery <=3.10.0,!=3.9.0",
     "apache-airflow-providers-cncf-kubernetes",
     "apache-airflow-providers-dbt-cloud",
     # TODO: remove constraint (both google and postgres) once we decide to release 11.0.0+ version in Composer.
