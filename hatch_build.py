@@ -508,7 +508,8 @@ DEPENDENCIES = [
 COMPOSER_DEPENDENCIES = [
     "apache-airflow-providers-apache-beam",
     # Celery provider 3.9.0 breaks for airflow < 3, will be fixed in 3.9.1
-    "apache-airflow-providers-celery!=3.9.0",
+    # TODO: Internal bug - Also Celery provider >3.10.0 breaks for Airflow <= 2.10.5
+    "apache-airflow-providers-celery <=3.10.0,!=3.9.0",
     "apache-airflow-providers-cncf-kubernetes",
     "apache-airflow-providers-dbt-cloud",
     # fab provider>=1.3.0 requires changes in Airflow core https://github.com/apache/airflow/pull/40703
