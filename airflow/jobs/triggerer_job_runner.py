@@ -80,6 +80,7 @@ If handler natively supports triggers, may want to disable sending trigger end m
 
 logger = logging.getLogger(__name__)
 
+TRIGGERS_ASYNC_LOOP_BLOCKED_TIMEOUT = 300
 
 DISABLE_WRAPPER = conf.getboolean("logging", "disable_trigger_handler_wrapper", fallback=False)
 DISABLE_LISTENER = conf.getboolean("logging", "disable_trigger_handler_queue_listener", fallback=False)
@@ -363,6 +364,14 @@ class TriggererJobRunner(BaseJobRunner, LoggingMixin):
             if not self.trigger_runner.is_alive():
                 self.log.error("Trigger runner thread has died! Exiting.")
                 break
+            time_since_last_watchdog = time.monotonic() - self.trigger_runner.last_watchdog_run
+            if time_since_last_watchdog >= TRIGGERS_ASYNC_LOOP_BLOCKED_TIMEOUT:
+                self.log.error(
+                    "Triggerer's async thread has been blocked for %.2f seconds. "
+                    "Considering the Triggerer as unhealthy. Exiting.",
+                    time_since_last_watchdog,
+                )
+                break
             with Trace.start_span(span_name="triggerer_job_loop", component="TriggererJobRunner") as span:
                 # Clean out unused triggers
                 if span.is_recording():
@@ -474,6 +483,8 @@ class TriggerRunner(threading.Thread, LoggingMixin):
     # Should-we-stop flag
     stop: bool = False
 
+    last_watchdog_run: float
+
     def __init__(self):
         super().__init__()
         self.triggers = {}
@@ -483,6 +494,7 @@ class TriggerRunner(threading.Thread, LoggingMixin):
         self.events = deque()
         self.failed_triggers = deque()
         self.job_id = None
+        self.last_watchdog_run = time.monotonic()
 
     def run(self):
         """Sync entrypoint - just run a run in an async loop."""
@@ -596,11 +608,11 @@ class TriggerRunner(threading.Thread, LoggingMixin):
         we can at least detect the top-level problem.
         """
         while not self.stop:
-            last_run = time.monotonic()
+            self.last_watchdog_run = time.monotonic()
             await asyncio.sleep(0.1)
             # We allow a generous amount of buffer room for now, since it might
             # be a busy event loop.
-            time_elapsed = time.monotonic() - last_run
+            time_elapsed = time.monotonic() - self.last_watchdog_run
             if time_elapsed > 0.2:
                 self.log.info(
                     "Triggerer's async thread was blocked for %.2f seconds, "
