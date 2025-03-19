@@ -28,6 +28,7 @@ import aiofiles
 import pendulum
 import pytest
 
+import airflow.jobs.triggerer_job_runner
 from airflow.config_templates import airflow_local_settings
 from airflow.jobs.job import Job
 from airflow.jobs.triggerer_job_runner import TriggererJobRunner, TriggerRunner, setup_queue_listener
@@ -787,3 +788,53 @@ def test_queue_listener():
     assert qh.__class__ == LocalQueueHandler
     assert qh.queue == listener.queue
     listener.stop()
+
+
+class TestStuckTriggerRunner:
+    @pytest.mark.execution_timeout(40)
+    # Reduce the blocked timeout for testing purposes
+    @patch.object(airflow.jobs.triggerer_job_runner, "TRIGGERS_ASYNC_LOOP_BLOCKED_TIMEOUT", 5)
+    def test_non_stuck_triggers_loop(self, caplog):
+        try:
+            job = Job()
+            job_runner = TriggererJobRunner(job)
+
+            # Create a thread that stops the Triggerer job after 20 seconds
+            def _stop_triggerer_after(triggerer_job_runner, wait_time):
+                time.sleep(wait_time)
+                triggerer_job_runner.trigger_runner.stop = True
+
+            stop_triggerer_thread = Thread(target=_stop_triggerer_after, args=(job_runner, 25))
+            stop_triggerer_thread.start()
+
+            # Now, start TriggerRunner up (and set it as a daemon thread during tests)
+            job_runner.trigger_runner.daemon = True
+            job_runner.trigger_runner.start()
+            job_runner._run_trigger_loop()
+
+            assert "Considering the Triggerer as unhealthy. Exiting." not in caplog.text
+        finally:
+            job_runner.trigger_runner.stop = True
+            job_runner.trigger_runner.join(5)
+            stop_triggerer_thread.join(5)
+
+    @pytest.mark.execution_timeout(15)
+    # Reduce the blocked timeout for testing purposes
+    @patch.object(airflow.jobs.triggerer_job_runner, "TRIGGERS_ASYNC_LOOP_BLOCKED_TIMEOUT", 5)
+    # Make the TriggerRunner.run method block for 50 seconds
+    @patch("airflow.jobs.triggerer_job_runner.TriggerRunner.run", side_effect=lambda: time.sleep(50))
+    def test_stuck_triggers_loop_exits(self, mock_trigger_runner_run, caplog):
+        try:
+            job = Job()
+            job_runner = TriggererJobRunner(job)
+
+            # Now, start TriggerRunner up (and set it as a daemon thread during tests)
+            job_runner.trigger_runner.daemon = True
+            job_runner.trigger_runner.start()
+            # And start the main Triggerer loop, it should exit in 5 seconds.
+            job_runner._run_trigger_loop()
+
+            assert "Considering the Triggerer as unhealthy. Exiting." in caplog.text
+        finally:
+            job_runner.trigger_runner.stop = True
+            job_runner.trigger_runner.join(5)
