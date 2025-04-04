@@ -150,6 +150,24 @@ class TestComposerFilter:
 
         assert message not in temp_stdout.getvalue()
 
+    def test_ignoring_marshmallow4_warnings(self):
+        logger = logging.getLogger("airflow.tasks")
+        message = "ChangedInMarshmallow4Warning: `Number` field should not be instantiated. Use `Integer`"
+
+        with contextlib.redirect_stdout(io.StringIO()) as temp_stdout:
+            logger.warning(message)
+
+        assert message not in temp_stdout.getvalue()
+
+    def test_deprecated_metrics_validator_warnings(self):
+        logger = logging.getLogger("airflow.tasks")
+        message = "The basic metric validator will be deprecated in the future in favor of pattern-matching."
+
+        with contextlib.redirect_stdout(io.StringIO()) as temp_stdout:
+            logger.warning(message)
+
+        assert message not in temp_stdout.getvalue()
+
     @pytest.mark.parametrize(
         "section, key, deprecated_key, expected",
         [

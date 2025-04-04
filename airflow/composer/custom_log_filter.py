@@ -26,6 +26,21 @@ PROVIDERS_HOOK_MISSING_ATTRIBUTE_WARNING_RE = re2.compile(
 )
 
 
+def _is_changed_in_marshmallow_4_warning(record):
+    """Detect Marshmallow 4 changes warnings."""
+    record_message = record.getMessage()
+    return "`Number` field should not be instantiated" in record_message
+
+
+def is_deprecated_metrics_validator_warning(record):
+    """Detect deprecated in Airflow 3 metrics validator warnings."""
+    record_message = record.getMessage()
+    return (
+        "The basic metric validator will be deprecated in the future in favor of pattern-matching"
+        in record_message
+    )
+
+
 def _is_redis_warning(record):
     """Detect using Redis as result backend warnings."""
     record_message = record.getMessage()
@@ -102,6 +117,15 @@ class ComposerFilter(logging.Filter):
     """Custom Composer log filter."""
 
     def filter(self, record):
+        # This warning comes from Community Code.
+        if _is_changed_in_marshmallow_4_warning(record):
+            return False
+
+        # This warning is because in Composer 2 we are not setting
+        # [metrics]metrics_use_pattern_matching to True
+        if is_deprecated_metrics_validator_warning(record):
+            return False
+
         # The concern with running Redis backend is that celery task messages may get
         # lost across Redis restarts. Composer has provisioned Redis service using
         # StatefulSet and saves a snapshot every 60 seconds to a persistent disk.
