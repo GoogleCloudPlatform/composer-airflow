@@ -59,7 +59,7 @@ classifiers = [
 ]
 
 # Version is defined in src/airflow/__init__.py and it is automatically synchronized by pre-commit
-version = "3.0.0"
+version = "3.0.0+composer"
 
 dependencies = [
     "a2wsgi>=1.10.8",
@@ -242,6 +242,9 @@ YouTube = "https://www.youtube.com/channel/UCSXwxpWZQ7XZ1WL3wqevChA/"
 
 [tool.hatch.version]
 path = "src/airflow/__init__.py"
+
+[tool.hatch.build.targets.wheel.hooks.custom]
+path = "./hatch_build.py"
 
 [tool.hatch.build.targets.sdist]
 include = [
