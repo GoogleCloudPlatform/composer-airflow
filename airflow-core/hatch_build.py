@@ -118,3 +118,20 @@ class CustomBuild(BuilderInterface[BuilderConfig, PluginManager]):
         git_version_file = Path(self.root) / "src" / "airflow" / "git_version"
         self.app.display(f"Writing version {version} to {git_version_file}")
         git_version_file.write_text(version)
+
+
+import sys  # noqa: E402
+
+sys.path.append(
+    str(Path(__file__).parent.resolve() / "src" / "airflow" / "composer" / "patches" / "dependencies")
+)
+
+from composer_hatch_build import build_hook_initialize  # noqa: E402
+from hatchling.builders.hooks.plugin.interface import BuildHookInterface  # noqa: E402
+
+
+class CustomBuildHook(BuildHookInterface[BuilderConfig]):
+    """Custom build hook for Composer Airflow."""
+
+    def initialize(self, version: str, build_data: dict[str, Any]) -> None:
+        build_hook_initialize(self, build_data)
