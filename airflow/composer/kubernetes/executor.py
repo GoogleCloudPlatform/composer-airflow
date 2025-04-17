@@ -4,12 +4,14 @@ import functools
 import logging
 import os
 import tempfile
+import types
 
 import yaml
 from kubernetes.client import ApiClient, AppsV1Api, CustomObjectsApi
 
 from airflow.composer.utils import is_composer_v1
 from airflow.configuration import AIRFLOW_HOME, conf
+from airflow.utils.event_scheduler import EventScheduler
 
 POD_TEMPLATE_FILE = os.path.join(AIRFLOW_HOME, "composer_kubernetes_pod_template_file.yaml")
 POD_TEMPLATE_FILE_REFRESH_INTERVAL = conf.getint(
@@ -106,15 +108,21 @@ def get_task_run_command_from_args(args):
     return " ".join(["'{}'".format(str(arg).replace("'", r"'\''")) for arg in args])
 
 
-def patch_kubernetes_executor_start():
-    log.info("Patching kubernetes executor start")
+def patch_kubernetes_executor():
+    log.info("Patching kubernetes executor")
     from airflow.providers.cncf.kubernetes.executors.kubernetes_executor import KubernetesExecutor
 
     if getattr(KubernetesExecutor.start, "_composer_patched", False):
         return
 
+    log.info("Patching kubernetes executor start")
     KubernetesExecutor.start = _composer_kubernetes_executor_start(KubernetesExecutor.start)
     setattr(KubernetesExecutor.start, "_composer_patched", True)
+
+    # Add event_scheduler attr to make possible usage of cncf-kubernetes provider higher than 10.1.0
+    # details Internal bug and Internal bug
+    log.info("Patching kubernetes executor init")
+    KubernetesExecutor.__init__ = _composer_kubernetes_executor_init(KubernetesExecutor.__init__)
 
 
 def _composer_kubernetes_executor_start(f):
@@ -131,6 +139,31 @@ def _composer_kubernetes_executor_start(f):
             POD_TEMPLATE_FILE_REFRESH_INTERVAL,
             functools.partial(refresh_pod_template_file, self.kube_client.api_client),
         )
+        return return_value
+
+    return wrapper
+
+
+def _composer_kubernetes_executor_init(f):
+    @functools.wraps(f)
+    def wrapper(self, *args, **kwargs):
+        return_value = f(self, *args, **kwargs)
+
+        # If the community decides to return event_scheduler attr in the future,
+        # this will prevent event_scheduler and the sync method from being overridden
+        if not hasattr(self, "event_scheduler"):
+            self.event_scheduler = EventScheduler()
+            self.sync = types.MethodType(_composer_kubernetes_executor_sync(self.sync), self)
+        return return_value
+
+    return wrapper
+
+
+def _composer_kubernetes_executor_sync(f):
+    @functools.wraps(f)
+    def wrapper(self, *args, **kwargs):
+        return_value = f(self, *args, **kwargs)
+        self.event_scheduler.run(blocking=False)
         return return_value
 
     return wrapper
