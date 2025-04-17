@@ -35,9 +35,11 @@ from kubernetes.client import (
 
 from airflow.composer.kubernetes.executor import (
     POD_TEMPLATE_FILE,
+    _composer_kubernetes_executor_init,
     _composer_kubernetes_executor_start,
+    _composer_kubernetes_executor_sync,
     get_task_run_command_from_args,
-    patch_kubernetes_executor_start,
+    patch_kubernetes_executor,
     refresh_pod_template_file,
 )
 from airflow.providers.cncf.kubernetes.executors.kubernetes_executor import KubernetesExecutor
@@ -172,17 +174,52 @@ class TestExecutor:
             == "'airflow' 'tasks' 'run' 'dag'\\''id'"
         )
 
+    @mock.patch("airflow.composer.kubernetes.executor._composer_kubernetes_executor_init", autospec=True)
     @mock.patch("airflow.composer.kubernetes.executor._composer_kubernetes_executor_start", autospec=True)
-    def test_patch_fetch_container_logs(self, _composer_patch_kubernetes_executor_start_mock):
+    def test_patch_fetch_container_logs(
+        self, _composer_patch_kubernetes_executor_start_mock, _composer_patch_kubernetes_executor_init_mock,
+    ):
         # test setUp
         KubernetesExecutor.start._composer_patched = False
 
         # Call twice to check patching occurres only once.
-        patch_kubernetes_executor_start()
-        patch_kubernetes_executor_start()
+        patch_kubernetes_executor()
+        patch_kubernetes_executor()
 
         _composer_patch_kubernetes_executor_start_mock.assert_called_once()
+        _composer_patch_kubernetes_executor_init_mock.assert_called_once()
         assert getattr(KubernetesExecutor.start, "_composer_patched") is True
+
+    @mock.patch("airflow.composer.kubernetes.executor.EventScheduler", autospec=True)
+    @mock.patch("airflow.composer.kubernetes.executor._composer_kubernetes_executor_sync", autospec=True)
+    def test_patch_kubernetes_executor_init_and_sync_without_event_scheduler(
+        self, _composer_patch_kubernetes_executor_sync_mock, event_scheduler_mock
+    ):
+        _composer_kubernetes_executor_init(lambda _: None)(mock.Mock(spec=KubernetesExecutor))
+
+        event_scheduler_mock.assert_called_once()
+        _composer_patch_kubernetes_executor_sync_mock.assert_called_once()
+
+    @mock.patch("airflow.composer.kubernetes.executor.EventScheduler", autospec=True)
+    @mock.patch("airflow.composer.kubernetes.executor._composer_kubernetes_executor_sync", autospec=True)
+    def test_patch_kubernetes_executor_init_and_sync_with_event_scheduler(
+        self, _composer_patch_kubernetes_executor_sync_mock, event_scheduler_mock
+    ):
+        _composer_kubernetes_executor_init(lambda _: None)(mock.Mock(event_scheduler=mock.Mock()))
+
+        event_scheduler_mock.assert_not_called()
+        _composer_patch_kubernetes_executor_sync_mock.assert_not_called()
+
+    @mock.patch("airflow.composer.kubernetes.executor.EventScheduler", autospec=True)
+    def test_composer_kubernetes_executor_sync(
+        self, event_scheduler_mock
+    ):
+        mocked_executor = mock.Mock(event_scheduler=event_scheduler_mock)
+        mocked_executor.sync.return_value = "test_value"
+        mocked_executor.sync = _composer_kubernetes_executor_sync(mocked_executor.sync)(mocked_executor)
+
+        assert mocked_executor.sync == "test_value"
+        event_scheduler_mock.run.assert_called_with(blocking=False)
 
     @mock.patch("airflow.composer.kubernetes.executor.refresh_pod_template_file", autospec=True)
     def test_composer_get_container_names(self, refresh_pod_template_file_mock):

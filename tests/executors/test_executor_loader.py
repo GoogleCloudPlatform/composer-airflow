@@ -301,8 +301,8 @@ class TestExecutorLoader:
         with expectation:
             ExecutorLoader.validate_database_executor_compatibility(executor)
 
-    @mock.patch("airflow.composer.kubernetes.executor.patch_kubernetes_executor_start", autospec=True)
-    def test_calls_composer_kubernetes_executor_patch(self, patch_kubernetes_executor_start_mock):
+    @mock.patch("airflow.composer.kubernetes.executor.patch_kubernetes_executor", autospec=True)
+    def test_calls_composer_kubernetes_executor_patch(self, patch_kubernetes_executor_mock):
         ExecutorLoader.init_executors()
         ExecutorLoader.load_executor("LocalExecutor")
-        patch_kubernetes_executor_start_mock.assert_called()
+        patch_kubernetes_executor_mock.assert_called()
