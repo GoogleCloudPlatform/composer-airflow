@@ -505,7 +505,9 @@ COMPOSER_DEPENDENCIES = [
     # Celery provider 3.9.0 breaks for airflow < 3, will be fixed in 3.9.1
     # TODO: Internal bug - Also Celery provider >3.10.0 breaks for Airflow <= 2.10.5
     "apache-airflow-providers-celery <=3.10.0,!=3.9.0",
-    "apache-airflow-providers-cncf-kubernetes",
+    # In version 10.4.3 of the kubernetes provider community introduced AF 2.9.3 incompatible import.
+    # https://github.com/apache/airflow/pull/49186
+    "apache-airflow-providers-cncf-kubernetes<10.4.3",
     "apache-airflow-providers-dbt-cloud",
     "apache-airflow-providers-google",
     "apache-airflow-providers-hashicorp",
@@ -533,6 +535,7 @@ COMPOSER_DEPENDENCIES = [
     "google-apitools",
     "google-cloud-aiplatform[evaluation]",
     "google-cloud-asset",
+    "google-cloud-bigquery-storage",
     "google-cloud-datacatalog-lineage-producer-client",
     "google-cloud-datastore",
     "google-cloud-documentai",
