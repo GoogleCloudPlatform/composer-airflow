@@ -523,7 +523,9 @@ COMPOSER_DEPENDENCIES = [
     "apache-airflow-providers-sendgrid",
     "apache-airflow-providers-sqlite",
     "apache-airflow-providers-ssh",
-    "apache-airflow-providers-standard",
+    # Later version of apache-airflow-providers-standard introduce AF 2.9.3 incompatible import,
+    # https://github.com/apache/airflow/pull/48060.
+    "apache-airflow-providers-standard==0.1.1",
     "aiodebug",
     # aiohttp and pygments in lower versions contain security vulnerabilities.
     "aiohttp>=3.8.5",
