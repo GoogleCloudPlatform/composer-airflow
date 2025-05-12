@@ -465,6 +465,7 @@ DEPENDENCIES = [
     "opentelemetry-exporter-otlp>=1.24.0",
     "packaging>=23.0",
     "pathspec>=0.9.0",
+    "pem>=23.1.0",
     'pendulum>=2.1.2,<4.0;python_version<"3.12"',
     'pendulum>=3.0.0,<4.0;python_version>="3.12"',
     "pluggy>=1.5.0",
