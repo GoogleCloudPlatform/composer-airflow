@@ -582,7 +582,10 @@ class TestDagRun:
         session.add(dr)
         session.commit()
         assert dr.end_date is None
-        incr_mock.assert_not_called()
+        incr_mock.assert_called_with(
+            "workflow.count.test_dagrun_set_state_end_date@-@running",
+            1,
+        )
         gauge_mock.assert_not_called()
 
         dr.set_state(DagRunState.SUCCESS)
@@ -608,6 +611,10 @@ class TestDagRun:
         dr_database = session.query(DagRun).filter(DagRun.run_id == "test_dagrun_set_state_end_date").one()
 
         assert dr_database.end_date is None
+        incr_mock.assert_called_with(
+            "workflow.count.test_dagrun_set_state_end_date@-@running",
+            1,
+        )
 
         dr.set_state(DagRunState.FAILED)
         session.merge(dr)
