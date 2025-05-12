@@ -180,11 +180,12 @@ class TestBase:
 
     @mock.patch("airflow.composer.security_manager.auth.default", autospec=True)
     @mock.patch("airflow.composer.security_manager.AuthorizedSession", autospec=True)
-    @conf_vars({("webserver", "jwt_public_key_url"): "jwt-public-key-url-test"})
+    @conf_vars({("webserver", "jwt_public_keys_url"): "jwt-public-keys-url-test"})
     @conf_vars({("webserver", "inverting_proxy_backend_id"): "inverting-proxy-backend-id-test"})
     def test_login_user_auto_registered_inverting_proxy(self, authorized_session_mock, auth_default_mock):
-        with open(os.path.join(self.CURRENT_DIRECTORY, "test_data/jwtRS256.key.pub")) as f:
-            public_key = f.read()
+        # The first public key doesn't match the private key, the second matches it.
+        with open(os.path.join(self.CURRENT_DIRECTORY, "test_data/jwtRS256.keys.pub")) as f:
+            public_keys = f.read()
 
         def auth_default_mock_side_effect(scopes):
             assert scopes == ["https://www.googleapis.com/auth/cloud-platform"]
@@ -192,9 +193,9 @@ class TestBase:
 
         def request_side_effect(method, url, headers):
             assert method == "GET"
-            assert url == "jwt-public-key-url-test"
+            assert url == "jwt-public-keys-url-test"
             assert headers == {"X-Inverting-Proxy-Backend-ID": "inverting-proxy-backend-id-test"}
-            return mock.Mock(status_code=200, text=public_key)
+            return mock.Mock(status_code=200, text=public_keys)
 
         def authorized_session_mock_side_effect(credentials):
             assert credentials == "credentials"
@@ -202,9 +203,9 @@ class TestBase:
 
         def request_side_effect_400_status(method, url, headers):
             assert method == "GET"
-            assert url == "jwt-public-key-url-test"
+            assert url == "jwt-public-keys-url-test"
             assert headers == {"X-Inverting-Proxy-Backend-ID": "inverting-proxy-backend-id-test"}
-            return mock.Mock(status_code=400, text=public_key)
+            return mock.Mock(status_code=400, text=public_keys)
 
         def authorized_session_mock_side_effect_400_status(credentials):
             assert credentials == "credentials"
@@ -278,17 +279,18 @@ class TestBase:
 
     @mock.patch("airflow.composer.security_manager.auth.default", autospec=True)
     @mock.patch("airflow.composer.security_manager.AuthorizedSession", autospec=True)
-    @conf_vars({("webserver", "jwt_public_key_url"): "jwt-public-key-url-test"})
+    @conf_vars({("webserver", "jwt_public_keys_url"): "jwt-public-keys-url-test"})
     @conf_vars({("webserver", "inverting_proxy_backend_id"): "inverting-proxy-backend-id-test"})
     def test_login_user_preregistered_inverting_proxy(self, authorized_session_mock, auth_default_mock):
-        with open(os.path.join(self.CURRENT_DIRECTORY, "test_data/jwtRS256.key.pub")) as f:
-            public_key = f.read()
+        # The first public key doesn't match the private key, the second matches it.
+        with open(os.path.join(self.CURRENT_DIRECTORY, "test_data/jwtRS256.keys.pub")) as f:
+            public_keys = f.read()
 
         def request_side_effect(method, url, headers):
             assert method == "GET"
-            assert url == "jwt-public-key-url-test"
+            assert url == "jwt-public-keys-url-test"
             assert headers == {"X-Inverting-Proxy-Backend-ID": "inverting-proxy-backend-id-test"}
-            return mock.Mock(status_code=200, text=public_key)
+            return mock.Mock(status_code=200, text=public_keys)
 
         def auth_default_mock_side_effect(scopes):
             assert scopes == ["https://www.googleapis.com/auth/cloud-platform"]
