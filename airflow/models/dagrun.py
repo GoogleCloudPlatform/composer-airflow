@@ -337,9 +337,9 @@ class DagRun(Base, LoggingMixin):
                 if state in State.finished_dr_states:
                     self.end_date = timezone.utcnow()
             self._state = state
-            if state in State.finished_dr_states:
+            if state in [*State.finished_dr_states, DagRunState.RUNNING]:
                 Stats.incr(f"workflow.count.{self.dag_id}@-@{state}", 1)
-                if self.start_date:
+                if self.start_date and state in State.finished_dr_states:
                     Stats.gauge(
                         f"workflow.duration.{self.dag_id}@-@{state}",
                         (self.end_date - self.start_date).total_seconds(),
