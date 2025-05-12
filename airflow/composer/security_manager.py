@@ -20,6 +20,7 @@ import urllib.parse
 from typing import Collection
 
 import jwt
+import pem
 from flask import g, get_flashed_messages, redirect, request
 from flask_appbuilder import expose
 from flask_appbuilder.security.views import AuthView
@@ -28,6 +29,7 @@ from google import auth  # type: ignore
 from google.auth.transport import requests
 from google.auth.transport.requests import AuthorizedSession
 from google.oauth2 import id_token
+from jwt.exceptions import InvalidSignatureError
 
 from airflow.composer.plugins.composer_menu_plugin import COMPOSER_MENU_PLUGIN_PERMISSIONS
 from airflow.configuration import conf
@@ -77,18 +79,44 @@ def _decode_inverting_proxy_jwt(inverting_proxy_jwt):
         credentials, _ = auth.default(scopes=["https://www.googleapis.com/auth/cloud-platform"])
         authed_session = AuthorizedSession(credentials)
         headers = {"X-Inverting-Proxy-Backend-ID": conf.get("webserver", "inverting_proxy_backend_id")}
-        response = authed_session.request("GET", conf.get("webserver", "jwt_public_key_url"), headers=headers)
+        response = authed_session.request(
+            "GET", conf.get("webserver", "jwt_public_keys_url"), headers=headers
+        )
         if response.status_code != 200:
             log.error("Failed to fetch public key for JWT verification, status: %s", response.status_code)
             return None, None, None
-        public_key = response.text
-        decoded_jwt = jwt.decode(inverting_proxy_jwt, public_key, algorithms=["RS256"])
+        # The response may contain multiple concatenated public keys. The verification is successful
+        # if one of the keys can verify the signature.
+        public_keys = [str(key) for key in pem.parse(response.text)]
+        decoded_jwt = _try_decoding_jwt_with_keys(inverting_proxy_jwt, public_keys)
         email_or_principal = decoded_jwt["email"] if "email" in decoded_jwt else decoded_jwt["principal"]
         # display_username is available only for BYOID users.
         return decoded_jwt["sub"], email_or_principal, decoded_jwt.get("display_username")
     except Exception as e:  # pylint: disable=broad-except
         log.error("JWT verification error: %s", e)
         return None, None, None
+
+
+def _try_decoding_jwt_with_keys(encoded_jwt, public_keys):
+    """
+    Try to decode the given JWT with each of the given public keys.
+
+    Args:
+      encoded_jwt: Encoded JWT.
+      public_keys: List of public key strings in the PEM file format.
+
+    Returns:
+      Dict with decoded JWT payload.
+
+    Raises:
+      InvalidSignatureError: If none of the given keys successfully verifies the JWT signature.
+    """
+    for public_key in public_keys:
+        try:
+            return jwt.decode(encoded_jwt, public_key, algorithms=["RS256"])
+        except InvalidSignatureError:
+            continue
+    raise InvalidSignatureError("JWT signature matches none of the public keys")
 
 
 def _get_first_and_last_name(display_username, email_or_principal):
