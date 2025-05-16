@@ -153,7 +153,7 @@ def _composer_kubernetes_executor_init(f):
         # this will prevent event_scheduler and the sync method from being overridden
         if not hasattr(self, "event_scheduler"):
             self.event_scheduler = EventScheduler()
-            self.sync = types.MethodType(_composer_kubernetes_executor_sync(self.sync), self)
+            self.sync = types.MethodType(_composer_kubernetes_executor_sync(self.__class__.sync), self)
         return return_value
 
     return wrapper
