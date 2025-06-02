@@ -32,6 +32,7 @@ from google.logging.type import log_severity_pb2
 
 from airflow import version
 from airflow.models import TaskInstance
+from airflow.composer.utils import get_locational_endpoint
 from airflow.providers.google.cloud.utils.credentials_provider import get_credentials_and_project_id
 from airflow.utils.log.file_task_handler import StreamTaskHandler
 from airflow.utils.log.logging_mixin import LoggingMixin
@@ -66,6 +67,7 @@ class ComposerTaskHandler(StreamTaskHandler, LoggingMixin):
     LOG_NAME = "Google Composer Task Logger"
     ENVIRONMENT_NAME = os.environ.get("COMPOSER_ENVIRONMENT")
     ENVIRONMENT_LOCATION = os.environ.get("COMPOSER_LOCATION")
+    USE_REGIONAL_ENDPOINTS = os.environ.get("USE_REGIONAL_ENDPOINTS", "false").lower() == "true"
     END_TIME_FILTER_OFFSET = timedelta(minutes=5)
 
     def __init__(
@@ -94,9 +96,19 @@ class ComposerTaskHandler(StreamTaskHandler, LoggingMixin):
     def _logging_service_client(self) -> LoggingServiceV2Client:
         """The Cloud logging service v2 client."""
         credentials, _ = self._credentials_and_project_id
+        client_options = None
+        if self.USE_REGIONAL_ENDPOINTS:
+            logging_locational_endpoint = get_locational_endpoint("logging", self.ENVIRONMENT_LOCATION, "v2")
+            if logging_locational_endpoint:
+                client_options = {"api_endpoint": logging_locational_endpoint}
+            else:
+                self.log.warning(
+                    "Locational logging endpoint is not reachable, using global endpoint instead"
+                )
         client = LoggingServiceV2Client(
             credentials=credentials,
             client_info=ClientInfo(client_library_version="airflow_v" + version.version),
+            client_options=client_options,
         )
         return client
 
