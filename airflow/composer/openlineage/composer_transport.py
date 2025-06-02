@@ -19,7 +19,7 @@ import logging
 import os
 
 from google.api_core.retry import Retry
-from google.cloud.datacatalog.lineage.producer_client.v1 import SyncLineageClient
+from google.cloud.datacatalog.lineage.producer_client.v1 import SyncLineageClient, SyncLineageClientOptions
 from google.cloud.datacatalog_lineage_v1 import ProcessOpenLineageRunEventRequest
 from openlineage.client.serde import Serde
 from openlineage.client.transport.transport import Config, Transport
@@ -33,6 +33,7 @@ from airflow.composer.openlineage.facets import (
 )
 from airflow.composer.openlineage.utils import sanitize_display_name, get_redacted_event
 from airflow.composer.task_formatter import _EXTRA_WORKFLOW_INFO_RECORD_KEY
+from airflow.composer.utils import get_locational_endpoint
 from airflow.version import version as airflow_version
 
 if TYPE_CHECKING:
@@ -47,8 +48,10 @@ SIDECHANNEL_VALUES = {
 UNKNOWN_TYPE_SIDECHANNEL_VALUE = b"\n\x08COMPOSER\x12\x07UNKNOWN"
 
 COMPOSER_ENVIRONMENT_NAME = os.environ.get("COMPOSER_ENVIRONMENT")
+COMPOSER_LOCATION = os.environ.get("COMPOSER_LOCATION")
 LOCATION_PATH = f"projects/{os.environ.get('GCP_PROJECT')}/locations/{os.environ.get('COMPOSER_LOCATION')}"
 COMPOSER_VERSION = os.environ.get("COMPOSER_VERSION")
+USE_REGIONAL_ENDPOINTS = os.environ.get("USE_REGIONAL_ENDPOINTS", "false").lower() == "true"
 
 log: logging.Logger | logging.LoggerAdapter = logging.getLogger(__name__)
 log = logging.LoggerAdapter(log, {_EXTRA_WORKFLOW_INFO_RECORD_KEY: {"log-type": "data_lineage"}})
@@ -66,7 +69,16 @@ class ComposerTransport(Transport):
     config_class = ComposerTransportConfig
 
     def __init__(self, config: ComposerTransportConfig) -> None:
-        self.client = SyncLineageClient()
+        client_options = None
+
+        if USE_REGIONAL_ENDPOINTS:
+            lineage_locational_endpoint = get_locational_endpoint("datalineage", COMPOSER_LOCATION, "v1")
+            if lineage_locational_endpoint:
+                client_options = SyncLineageClientOptions(api_endpoint=lineage_locational_endpoint)
+            else:
+                log.warning("Locational lineage endpoint is not reachable, using global endpoint instead")
+
+        self.client = SyncLineageClient(options=client_options)
 
     def emit(self, event: Event) -> None:
         try:
