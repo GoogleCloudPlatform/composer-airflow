@@ -15,6 +15,8 @@
 from __future__ import annotations
 
 import datetime
+import random
+import string
 from unittest import mock
 
 import pytest
@@ -28,8 +30,12 @@ from google.api_core.exceptions import (
 from google.cloud.logging_v2.types import ListLogEntriesRequest
 from google.logging.type import log_severity_pb2
 
+from airflow.models import DagRun, TaskInstance
+from airflow.models.baseoperator import BaseOperator
+from airflow.models.taskinstancehistory import TaskInstanceHistory
 from airflow.utils import timezone
 from airflow.utils.log.log_reader import StructuredLogMessage
+from airflow.utils.session import provide_session
 from airflow.version import version
 
 
@@ -68,6 +74,7 @@ class TestTaskLogReaderHandler:
     @time_machine.travel("2013-01-03", tick=False)
     def test_read(self, task_instance_mock, try_number, expected_get_logs_filter_try_number_param):
         handler = self.create_handler()
+        handler._get_ti_start_date = mock.Mock(return_value="start-date")
         handler._get_logs_filter = mock.Mock(return_value="logs-filter")
         handler._read_single_page = mock.Mock(
             return_value=([StructuredLogMessage(timestamp=datetime.datetime(2010, 1, 1), event="event")], {})
@@ -77,19 +84,109 @@ class TestTaskLogReaderHandler:
             task_instance=task_instance_mock, try_number=try_number, metadata=None
         )
 
-        handler._get_logs_filter.assert_called_once_with(
+        handler._get_ti_start_date.assert_called_once_with(
             task_instance_mock, expected_get_logs_filter_try_number_param
+        )
+        handler._get_logs_filter.assert_called_once_with(
+            task_instance_mock, expected_get_logs_filter_try_number_param, "start-date"
         )
         handler._read_single_page.assert_called_once_with(logs_filter="logs-filter")
         assert actual_log_messages == [
             StructuredLogMessage(
                 timestamp=datetime.datetime(2013, 1, 3, tzinfo=timezone.utc),
                 level="info",
-                event="Reading logs from Cloud Logging using filter: logs-filter.",
+                event="Reading logs from Cloud Logging using filter:\nlogs-filter",
             ),
             StructuredLogMessage(timestamp=datetime.datetime(2010, 1, 1), event="event"),
         ]
         assert actual_log_metadata == {"end_of_log": True}
+
+    @time_machine.travel("2013-01-03", tick=False)
+    def test_read_empty_ti_start_date(self):
+        handler = self.create_handler()
+        handler._get_ti_start_date = mock.Mock(return_value=None)
+
+        actual_log_messages, actual_log_metadata = handler.read(
+            task_instance=mock.Mock(), try_number=5, metadata=None
+        )
+
+        assert actual_log_messages == [
+            StructuredLogMessage(
+                timestamp=datetime.datetime(2013, 1, 3, tzinfo=timezone.utc),
+                level="info",
+                event=(
+                    "Looks like the task didn't start yet (`start_date` of the task instance is empty). "
+                    "Please retry later."
+                ),
+            ),
+        ]
+        assert actual_log_metadata == {"end_of_log": True}
+
+    def test_get_ti_start_date_from_task_instance(self):
+        actual_start_date = self.handler._get_ti_start_date(
+            mock.MagicMock(try_number=34, start_date=datetime.datetime(2011, 4, 7)),
+            34,
+        )
+
+        assert actual_start_date == datetime.datetime(2011, 4, 7)
+
+    @provide_session
+    def test_get_ti_start_date_from_task_instance_history(self, session):
+        dag_id = "dag-id"
+        task_id = "task-id"
+        run_id = "".join(random.choice(string.ascii_uppercase) for _ in range(6))
+        map_index = 2
+        try_number = 5
+
+        dr = DagRun(
+            dag_id=dag_id,
+            run_id=run_id,
+            run_type="manual",
+        )
+        ti = TaskInstance(
+            task=BaseOperator(task_id=task_id),
+            run_id=run_id,
+            map_index=map_index,
+        )
+        ti.dag_id = dag_id
+        ti.try_number = try_number
+        ti.start_date = datetime.datetime(2010, 1, 8, tzinfo=timezone.utc)
+        session.add(dr)
+        session.add(ti)
+        session.commit()
+
+        tih = TaskInstanceHistory(ti)
+        session.add(tih)
+        session.commit()
+
+        actual_start_date = self.handler._get_ti_start_date(
+            mock.MagicMock(
+                task_id=task_id,
+                dag_id=dag_id,
+                run_id=run_id,
+                map_index=map_index,
+                try_number=34,  # different from "try_number" variable.
+                start_date=datetime.datetime(2011, 4, 7),
+            ),
+            try_number,
+        )
+
+        assert actual_start_date == datetime.datetime(2010, 1, 8, tzinfo=timezone.utc)
+
+    def test_get_ti_start_date_none(self):
+        actual_start_date = self.handler._get_ti_start_date(
+            mock.MagicMock(
+                task_id="non-exist",
+                dag_id="non-exist",
+                run_id="non-exist",
+                map_index=345,
+                try_number=1,
+                start_date=datetime.datetime(2011, 4, 7),
+            ),
+            2,
+        )
+
+        assert actual_start_date is None
 
     @pytest.mark.parametrize(
         "task_instance, try_number, expected_result",
@@ -114,6 +211,7 @@ class TestTaskLogReaderHandler:
                         'labels.run-id="run-id"',
                         'labels.map-index="3"',
                         'labels.try-number="34"',
+                        'timestamp>="2010-03-05T00:57:03"',
                     ]
                 ),
             ),
@@ -136,6 +234,7 @@ class TestTaskLogReaderHandler:
                         'labels.task-id="task-id"',
                         'labels.run-id="run-id"',
                         'labels.try-number="34"',
+                        'timestamp>="2010-03-05T00:57:03"',
                     ]
                 ),
             ),
@@ -145,6 +244,7 @@ class TestTaskLogReaderHandler:
         actual_logs_filter = self.handler._get_logs_filter(
             task_instance=task_instance,
             try_number=try_number,
+            ti_start_date=datetime.datetime(2010, 3, 5, 1, 2, 3),
         )
 
         assert actual_logs_filter == expected_result

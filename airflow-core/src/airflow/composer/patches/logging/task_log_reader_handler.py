@@ -14,6 +14,7 @@
 # limitations under the License.
 from __future__ import annotations
 
+import datetime
 import os
 from functools import cached_property
 from typing import TYPE_CHECKING
@@ -24,13 +25,18 @@ from google.api_core.gapic_v1.client_info import ClientInfo
 from google.cloud.logging_v2.services.logging_service_v2 import LoggingServiceV2Client
 from google.cloud.logging_v2.types import ListLogEntriesRequest
 from google.logging.type import log_severity_pb2
+from sqlalchemy import select
 
 from airflow import version
+from airflow.models.taskinstancehistory import TaskInstanceHistory
 from airflow.utils.log.log_reader import StructuredLogMessage
 from airflow.utils.log.logging_mixin import LoggingMixin
+from airflow.utils.session import NEW_SESSION, provide_session
 from airflow.utils.timezone import utcnow
 
 if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
     from airflow.models import TaskInstance
     from airflow.utils.log.log_reader import LogMessages, LogMetadata
 
@@ -38,6 +44,7 @@ PROJECT = os.environ["GCP_PROJECT"]
 ENVIRONMENT_LOCATION = os.environ["COMPOSER_LOCATION"]
 ENVIRONMENT_NAME = os.environ["COMPOSER_ENVIRONMENT"]
 CLOUD_LOGGING_LOGS_PAGE_SIZE = 1000  # maximum that Cloud Logging allows.
+TI_START_DATE_FILTER_OFFSET = datetime.timedelta(minutes=5)
 
 
 class TaskLogReaderHandler(LoggingMixin):
@@ -50,15 +57,29 @@ class TaskLogReaderHandler(LoggingMixin):
         if try_number is None:
             try_number = task_instance.try_number
 
-        logs_filter = self._get_logs_filter(task_instance, try_number)
+        ti_start_date = self._get_ti_start_date(task_instance, try_number)
+        if ti_start_date is None:
+            return [
+                StructuredLogMessage(
+                    timestamp=utcnow(),
+                    level="info",
+                    event=(
+                        "Looks like the task didn't start yet (`start_date` of the task instance is empty). "
+                        "Please retry later."
+                    ),
+                ),
+            ], {"end_of_log": True}
+
+        logs_filter = self._get_logs_filter(task_instance, try_number, ti_start_date)
         log_messages, log_metadata = self._read_single_page(logs_filter=logs_filter)
 
         # Prepend log messages with message containing filter used to query Cloud Logging.
+        logs_filter_formatted = logs_filter.replace("\n", " ")
         log_messages = [
             StructuredLogMessage(
                 timestamp=utcnow(),
                 level="info",
-                event=f"Reading logs from Cloud Logging using filter: {logs_filter}.",
+                event=f"Reading logs from Cloud Logging using filter:\n{logs_filter_formatted}",
             ),
         ] + log_messages
         # TODO: support pagination on the backend, once we rebase on the version of Airflow where pagination
@@ -74,7 +95,36 @@ class TaskLogReaderHandler(LoggingMixin):
         )
         return client
 
-    def _get_logs_filter(self, task_instance: TaskInstance, try_number: int) -> str:
+    @provide_session
+    def _get_ti_start_date(
+        self,
+        task_instance: TaskInstance,
+        try_number: int,
+        session: Session = NEW_SESSION,
+    ):
+        """Return task instance start date that will be used for Cloud Logging filter."""
+        if task_instance.try_number == try_number:
+            return task_instance.start_date
+
+        query = select(TaskInstanceHistory).where(
+            TaskInstanceHistory.task_id == task_instance.task_id,
+            TaskInstanceHistory.dag_id == task_instance.dag_id,
+            TaskInstanceHistory.run_id == task_instance.run_id,
+            TaskInstanceHistory.map_index == task_instance.map_index,
+            TaskInstanceHistory.try_number == try_number,
+        )
+        tih = session.scalar(query)
+        if tih:
+            return tih.start_date
+
+        return None
+
+    def _get_logs_filter(
+        self,
+        task_instance: TaskInstance,
+        try_number: int,
+        ti_start_date: datetime.datetime,
+    ) -> str:
         """Return log filter that should be used to query Cloud Logging."""
         filters = []
 
@@ -114,6 +164,10 @@ class TaskLogReaderHandler(LoggingMixin):
                 f'labels.map-index="{task_instance.map_index}"',
             )
         filters.append(f'labels.try-number="{try_number}"')
+
+        # + filter by timestamp to optimize query performance.
+        ti_start_date_with_offset = ti_start_date - TI_START_DATE_FILTER_OFFSET
+        filters.append(f'timestamp>="{str(ti_start_date_with_offset.isoformat())}"')
 
         return "\n".join(filters)
 
