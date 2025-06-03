@@ -62,7 +62,7 @@ class TaskLogReaderHandler(LoggingMixin):
             return [
                 StructuredLogMessage(
                     timestamp=utcnow(),
-                    level="info",
+                    level="debug",
                     event=(
                         "Looks like the task didn't start yet (`start_date` of the task instance is empty). "
                         "Please retry later."
@@ -73,12 +73,40 @@ class TaskLogReaderHandler(LoggingMixin):
         logs_filter = self._get_logs_filter(task_instance, try_number, ti_start_date)
         log_messages, log_metadata = self._read_single_page(logs_filter=logs_filter)
 
+        # If it is the last page and there are no logs, return message with information on possible reasons
+        # and how to troubleshoot.
+        # TODO: what if there were messages on previous pages?
+        if not log_messages and not log_metadata.get("next_page_token"):
+            log_messages = [
+                StructuredLogMessage(
+                    timestamp=utcnow(),
+                    level="error",
+                    event="\n".join(
+                        [
+                            "Logs not found. The possible reasons are:",
+                            "*** the task is not yet executed",
+                            "*** worker executing it might have finished abnormally (e.g. was evicted)",
+                            "*** the task is executed, but logs are not yet propagated",
+                            (
+                                "*** the task is executed, but logs were deleted as part of logs retention "
+                                "(default of 30 days)"
+                            ),
+                            (
+                                "Please, refer to "
+                                "https://cloud.google.com/composer/docs/how-to/using/troubleshooting-dags#common_issues "
+                                "for details on troubleshooting."
+                            ),
+                        ]
+                    ),
+                ),
+            ]
+
         # Prepend log messages with message containing filter used to query Cloud Logging.
         logs_filter_formatted = logs_filter.replace("\n", " ")
         log_messages = [
             StructuredLogMessage(
                 timestamp=utcnow(),
-                level="info",
+                level="debug",
                 event=f"Reading logs from Cloud Logging using filter:\n{logs_filter_formatted}",
             ),
         ] + log_messages

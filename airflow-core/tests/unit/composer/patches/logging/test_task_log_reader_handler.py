@@ -94,7 +94,7 @@ class TestTaskLogReaderHandler:
         assert actual_log_messages == [
             StructuredLogMessage(
                 timestamp=datetime.datetime(2013, 1, 3, tzinfo=timezone.utc),
-                level="info",
+                level="debug",
                 event="Reading logs from Cloud Logging using filter:\nlogs-filter",
             ),
             StructuredLogMessage(timestamp=datetime.datetime(2010, 1, 1), event="event"),
@@ -113,7 +113,7 @@ class TestTaskLogReaderHandler:
         assert actual_log_messages == [
             StructuredLogMessage(
                 timestamp=datetime.datetime(2013, 1, 3, tzinfo=timezone.utc),
-                level="info",
+                level="debug",
                 event=(
                     "Looks like the task didn't start yet (`start_date` of the task instance is empty). "
                     "Please retry later."
@@ -121,6 +121,41 @@ class TestTaskLogReaderHandler:
             ),
         ]
         assert actual_log_metadata == {"end_of_log": True}
+
+    @time_machine.travel("2013-01-03", tick=False)
+    def test_read_last_page_no_logs(self):
+        handler = self.create_handler()
+        handler._get_ti_start_date = mock.Mock(return_value="start-date")
+        handler._get_logs_filter = mock.Mock(return_value="logs-filter")
+        handler._read_single_page = mock.Mock(return_value=([], {"next_page_token": None}))
+
+        actual_log_messages, actual_log_metadata = handler.read(
+            task_instance=mock.Mock(), try_number=3, metadata=None
+        )
+
+        assert actual_log_messages == [
+            StructuredLogMessage(
+                timestamp=datetime.datetime(2013, 1, 3, tzinfo=timezone.utc),
+                level="debug",
+                event="Reading logs from Cloud Logging using filter:\nlogs-filter",
+            ),
+            StructuredLogMessage(
+                timestamp=datetime.datetime(2013, 1, 3, tzinfo=timezone.utc),
+                level="error",
+                event=(
+                    "Logs not found. The possible reasons are:\n"
+                    "*** the task is not yet executed\n"
+                    "*** worker executing it might have finished abnormally (e.g. was evicted)\n"
+                    "*** the task is executed, but logs are not yet propagated\n"
+                    "*** the task is executed, but logs were deleted as part of logs retention "
+                    "(default of 30 days)\n"
+                    "Please, refer to "
+                    "https://cloud.google.com/composer/docs/how-to/using/troubleshooting-dags#common_issues "
+                    "for details on troubleshooting."
+                ),
+            ),
+        ]
+        assert actual_log_metadata == {"end_of_log": True, "next_page_token": None}
 
     def test_get_ti_start_date_from_task_instance(self):
         actual_start_date = self.handler._get_ti_start_date(
