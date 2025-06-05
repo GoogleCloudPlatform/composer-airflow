@@ -561,6 +561,9 @@ COMPOSER_DEPENDENCIES = [
     # TODO: Bump pytest version in Airflow 2.10.0+ since the community issue is resolved
     # https://github.com/apache/airflow/issues/37156 is closed
     "pytest<8.0.0",
+    # Only as a constraint, we can remove once it's fixed as it's not a Composer dependency
+    # https://github.com/googleapis/python-spanner-sqlalchemy/issues/682
+    "sqlalchemy-spanner!=1.12.0",
     "sqllineage",
     "sqlparse",
     "tensorflow",
