@@ -548,6 +548,12 @@ COMPOSER_DEPENDENCIES = [
     "pyOpenSSL",
     "pipdeptree",
     "pygments>2.15.0",
+    # Only as a constraint, we can remove once it's fixed as it's not a Composer dependency
+    # https://github.com/pytest-dev/pytest/issues/13477
+    "pytest!=8.4.0",
+    # Only as a constraint, we can remove once it's fixed as it's not a Composer dependency
+    # https://github.com/googleapis/python-spanner-sqlalchemy/issues/682
+    "sqlalchemy-spanner!=1.12.0",
     "sqllineage",
     "sqlparse",
     "tensorflow",
