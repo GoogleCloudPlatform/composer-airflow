@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from flask_appbuilder.const import AUTH_REMOTE_USER
 
+from airflow.composer.patches.core.configuration import ALL_RBAC_ROLES_EXTRA_PERMISSIONS
 from airflow.composer.patches.rbac.composer_auth_remote_user_view import ComposerAuthRemoteUserView
 from airflow.providers.fab.auth_manager.security_manager.override import FabAirflowSecurityManagerOverride
 
@@ -30,3 +31,14 @@ class ComposerAirflowSecurityManager(FabAirflowSecurityManagerOverride):
         app.config["AUTH_TYPE"] = AUTH_REMOTE_USER
 
         super()._init_config()
+
+    def sync_roles(self):
+        super().sync_roles()
+
+        # Add ALL_RBAC_ROLES_EXTRA_PERMISSIONS to all RBAC roles.
+        all_roles = [role for role in self.get_all_roles()]
+        for perm_tuple in ALL_RBAC_ROLES_EXTRA_PERMISSIONS:
+            permission = self.create_permission(*perm_tuple)
+            for role in all_roles:
+                self.add_permission_to_role(role, permission)
+        self.get_session.commit()
