@@ -18,6 +18,7 @@ import os
 from urllib.parse import urlencode
 
 from airflow.plugins_manager import AirflowPlugin, AirflowPluginSource, register_plugin
+from airflow.security import permissions
 
 MENU_CATEGORY_NAME = "Composer"
 
@@ -28,6 +29,18 @@ RESOURCE_DAGS_IN_GCS = "DAGs in Cloud Storage"
 RESOURCE_ENVIRONMENT_MONITORING = "Environment Monitoring"
 RESOURCE_ENVIRONMENT_LOGS = "Environment Logs"
 RESOURCE_COMPOSER_DOCS = "Composer Documentation"
+
+COMPOSER_MENU_PLUGIN_PERMISSIONS = [
+    (permissions.ACTION_CAN_ACCESS_MENU, resource)
+    for resource in [
+        RESOURCE_COMPOSER_MENU,
+        RESOURCE_DAGS_IN_GCC,
+        RESOURCE_DAGS_IN_GCS,
+        RESOURCE_ENVIRONMENT_MONITORING,
+        RESOURCE_ENVIRONMENT_LOGS,
+        RESOURCE_COMPOSER_DOCS,
+    ]
+]
 
 # Links.
 ENVIRONMENT_DETAILS_LINK = (
