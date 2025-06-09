@@ -465,6 +465,54 @@ AgMBAAE=
     @conf_vars(
         {("core", "auth_manager"): "airflow.composer.patches.rbac.composer_auth_manager.ComposerAuthManager"}
     )
+    @mock.patch(
+        "airflow.composer.patches.rbac.composer_auth_remote_user_view.RBAC_USER_REGISTRATION_ROLE",
+        "User",
+    )
+    def test_register_user_if_needed_preregistered_user(self):
+        app = create_app(enable_plugins=False)
+        view = ComposerAuthRemoteUserView()
+        view.appbuilder = app.appbuilder
+        username = "".join(random.choice(string.ascii_uppercase) for _ in range(6))
+        email = f"{username}@google.com"
+        # Preregister user with username=email.
+        preregistered_user = view._register_user_if_needed(username=email, email=email)
+        preregistered_user_id = preregistered_user.id
+
+        actual_user = view._register_user_if_needed(username=username, email=email)
+
+        assert actual_user.id == preregistered_user_id
+        assert actual_user.username == username
+        assert actual_user.email == email
+
+    @conf_vars(
+        {("core", "auth_manager"): "airflow.composer.patches.rbac.composer_auth_manager.ComposerAuthManager"}
+    )
+    @mock.patch(
+        "airflow.composer.patches.rbac.composer_auth_remote_user_view.RBAC_USER_REGISTRATION_ROLE",
+        "User",
+    )
+    @mock.patch(
+        "airflow.composer.patches.rbac.composer_airflow_security_manager.ComposerAirflowSecurityManager.update_user",
+        autospec=True,
+    )
+    def test_register_user_if_needed_preregistered_user_update_fails(self, update_user_mock):
+        update_user_mock.return_value = False
+        app = create_app(enable_plugins=False)
+        view = ComposerAuthRemoteUserView()
+        view.appbuilder = app.appbuilder
+        username = "".join(random.choice(string.ascii_uppercase) for _ in range(6))
+        email = f"{username}@google.com"
+        # Preregister user with username=email.
+        view._register_user_if_needed(username=email, email=email)
+
+        actual_user = view._register_user_if_needed(username=username, email=email)
+
+        assert actual_user is None
+
+    @conf_vars(
+        {("core", "auth_manager"): "airflow.composer.patches.rbac.composer_auth_manager.ComposerAuthManager"}
+    )
     def test_logout(self):
         app = create_app(enable_plugins=False)
         client = app.test_client()

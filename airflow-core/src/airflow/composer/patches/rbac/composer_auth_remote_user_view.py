@@ -111,17 +111,36 @@ class ComposerAuthRemoteUserView(AuthRemoteUserView):
         user = self.appbuilder.sm.find_user(username=username)
 
         if user is None:
-            user = self.appbuilder.sm.add_user(
-                username=username,
-                first_name=email,
-                last_name="-",
-                email=email,
-                role=self.appbuilder.sm.find_role(RBAC_USER_REGISTRATION_ROLE),
-            )
-            # Adding a user can fail for example because of another user with the same email but different
-            # username.
-            if not user:
-                return None
+            # Admin can preregister a user by setting user's email address as the username. When the
+            # preregistered user opens Airflow UI for the first time, the email address is replaced with the
+            # proper username (containing numerical identifier). This way the Google identity
+            # (email address) is bound to the user account it represents at the time of user's first login.
+            # See the following section about differences between Google identities and user accounts:
+            # https://cloud.google.com/architecture/identity/overview-google-authentication#google_identities
+            preregistered_user = self.appbuilder.sm.find_user(username=email)
+
+            if preregistered_user:
+                # User has been preregistered with email address as the username, update the record to set the
+                # proper username.
+                user = preregistered_user
+                user.username = username
+                update_result = self.appbuilder.sm.update_user(user)
+
+                # We fail the login if we cannot update user record with the proper username.
+                if not update_result:
+                    return None
+            else:
+                user = self.appbuilder.sm.add_user(
+                    username=username,
+                    first_name=email,
+                    last_name="-",
+                    email=email,
+                    role=self.appbuilder.sm.find_role(RBAC_USER_REGISTRATION_ROLE),
+                )
+                # Adding a user can fail for example because of another user with the same email but different
+                # username.
+                if not user:
+                    return None
 
         self.appbuilder.sm.update_user_auth_stat(user)
         return user
