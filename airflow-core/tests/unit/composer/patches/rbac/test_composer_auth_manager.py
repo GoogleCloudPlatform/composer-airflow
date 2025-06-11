@@ -23,6 +23,7 @@ from fastapi import HTTPException, status
 
 from airflow.composer.patches.rbac.composer_airflow_security_manager import ComposerAirflowSecurityManager
 from airflow.composer.patches.rbac.composer_auth_manager import ComposerAuthManager
+from airflow.providers.fab.auth_manager.api_fastapi.routes.login import login_router
 from airflow.providers.fab.auth_manager.models import User
 from airflow.providers.fab.www.app import create_app
 from airflow.utils.session import create_session as create_sqla_session
@@ -33,6 +34,13 @@ class TestComposerAuthManager:
         self.app = create_app(enable_plugins=False)
         self.am = ComposerAuthManager()
         self.am.appbuilder = self.app.appbuilder
+
+    def test_init(self):
+        assert "/token" in [r.path for r in login_router.routes]
+
+        self.am.init()
+
+        assert "/token" not in [r.path for r in login_router.routes]
 
     def test_security_manager(self):
         assert isinstance(self.am.security_manager, ComposerAirflowSecurityManager)

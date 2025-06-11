@@ -28,18 +28,27 @@ class TestFastapiSecurityOauth2:
     def setup_method(self):
         patch()
 
-    def test_patch(self):
+    def test_patch_session_id_from_cookie(self):
         oauth2_flow = OAuth2PasswordBearer(tokenUrl="does-not-matter")
 
         actual_token = asyncio.run(oauth2_flow(request=mock.Mock(cookies={"session": "test-session-id"})))
 
         assert actual_token == "test-session-id"
 
-    def test_patch_no_session_cookie(self):
+    def test_patch_session_id_from_header(self):
+        oauth2_flow = OAuth2PasswordBearer(tokenUrl="does-not-matter")
+
+        actual_token = asyncio.run(
+            oauth2_flow(request=mock.Mock(cookies={}, headers={"Auth-Token": "test-session-id2"}))
+        )
+
+        assert actual_token == "test-session-id2"
+
+    def test_patch_no_session_id(self):
         oauth2_flow = OAuth2PasswordBearer(tokenUrl="does-not-matter")
 
         with pytest.raises(HTTPException) as e:
-            asyncio.run(oauth2_flow(request=mock.Mock(cookies={})))
+            asyncio.run(oauth2_flow(request=mock.Mock(cookies={}, headers={})))
 
         assert e.value.status_code == status.HTTP_401_UNAUTHORIZED
         assert e.value.detail == "Not authenticated - no session cookie"

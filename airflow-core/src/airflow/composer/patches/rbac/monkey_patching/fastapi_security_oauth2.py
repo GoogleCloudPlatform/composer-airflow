@@ -29,7 +29,10 @@ def patch():
 def _composer_oauth2_password_bearer_call(f):
     @functools.wraps(f)
     async def wrapper(self, request: Request):
-        session_id = request.cookies.get("session")
+        # Session id is either in:
+        # - cookies, if request comes from browser
+        # - Auth-Token request header, if request comes from other clients
+        session_id = request.cookies.get("session") or request.headers.get("Auth-Token")
         if not session_id:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,

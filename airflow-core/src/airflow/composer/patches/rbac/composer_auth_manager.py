@@ -20,6 +20,7 @@ from fastapi import HTTPException, status
 from flask_session.sessions import want_bytes
 
 from airflow.composer.patches.rbac.composer_airflow_security_manager import ComposerAirflowSecurityManager
+from airflow.providers.fab.auth_manager.api_fastapi.routes.login import login_router
 from airflow.providers.fab.auth_manager.fab_auth_manager import FabAuthManager
 from airflow.providers.fab.auth_manager.models import User
 from airflow.utils.session import create_session as create_sqla_session
@@ -27,6 +28,13 @@ from airflow.utils.session import create_session as create_sqla_session
 
 class ComposerAuthManager(FabAuthManager):
     """FAB Auth Manager adjusted per Composer needs."""
+
+    def init(self):
+        # Remove FAB route for "/token" path. Composer route for this path will be registered in
+        # ComposerAuthRemoteUserView.
+        login_router.routes = [r for r in login_router.routes if r.path != "/token"]
+
+        return super().init()
 
     @cached_property
     def security_manager(self):

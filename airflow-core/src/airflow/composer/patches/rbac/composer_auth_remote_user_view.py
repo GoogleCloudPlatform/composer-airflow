@@ -19,13 +19,14 @@ import urllib.parse
 
 import google.auth
 import jwt
-from flask import get_flashed_messages, redirect, request
+from flask import get_flashed_messages, redirect, request, session
 from flask_appbuilder import expose
 from flask_appbuilder.security.views import AuthRemoteUserView
 from flask_login import login_user
 from google.auth.transport.requests import AuthorizedSession
 
 from airflow.configuration import conf
+from airflow.providers.fab.www.app import csrf
 
 INVERTING_PROXY_USER_ID_REQUEST_HEADER = "X-Inverting-Proxy-User-ID"
 INVERTING_PROXY_BACKEND_ID_REQUEST_HEADER = "X-Inverting-Proxy-Backend-ID"
@@ -56,6 +57,15 @@ class ComposerAuthRemoteUserView(AuthRemoteUserView):
         response.delete_cookie("DATALAB_TUNNEL_TOKEN")
 
         return response
+
+    @expose("/token", methods=("POST",))
+    @csrf.exempt
+    def token(self):
+        # Authenticate user, return 403 in case of failure.
+        if self.auth_current_user() is None:
+            return "Not authorized or account inactive", 403
+
+        return {"access_token": session.sid}
 
     def auth_current_user(self):
         """Authenticate user by using appropriate header in request."""

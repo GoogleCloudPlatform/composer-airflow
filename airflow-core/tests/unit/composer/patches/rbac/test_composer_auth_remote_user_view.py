@@ -21,6 +21,7 @@ from unittest import mock
 from airflow.composer.patches.rbac.composer_auth_remote_user_view import ComposerAuthRemoteUserView
 from airflow.providers.fab.auth_manager.models import User
 from airflow.providers.fab.www.app import create_app
+from airflow.utils.session import provide_session
 
 from tests_common.test_utils.config import conf_vars
 
@@ -532,3 +533,44 @@ AgMBAAE=
                 response.headers,
             )
         )
+
+    @conf_vars(
+        {("core", "auth_manager"): "airflow.composer.patches.rbac.composer_auth_manager.ComposerAuthManager"}
+    )
+    @mock.patch(
+        "airflow.composer.patches.rbac.composer_auth_remote_user_view.ComposerAuthRemoteUserView.auth_current_user",
+        return_value=mock.Mock(),
+    )
+    @provide_session
+    def test_token_successful(self, auth_current_user_mock, session):
+        app = create_app(enable_plugins=False)
+        client = app.test_client()
+        session_interface = app.session_interface
+        session_model = session_interface.sql_session_model
+
+        response = client.post("/token")
+
+        assert response.status_code == 200
+        assert "access_token" in response.json
+        user_session = (
+            session.query(session_model)
+            .filter(session_model.session_id == response.json["access_token"])
+            .first()
+        )
+        assert user_session is not None
+
+    @conf_vars(
+        {("core", "auth_manager"): "airflow.composer.patches.rbac.composer_auth_manager.ComposerAuthManager"}
+    )
+    @mock.patch(
+        "airflow.composer.patches.rbac.composer_auth_remote_user_view.ComposerAuthRemoteUserView.auth_current_user",
+        return_value=None,
+    )
+    def test_token_failed(self, auth_current_user_mock):
+        app = create_app(enable_plugins=False)
+        client = app.test_client()
+
+        response = client.post("/token")
+
+        assert response.status_code == 403
+        assert response.text == "Not authorized or account inactive"
