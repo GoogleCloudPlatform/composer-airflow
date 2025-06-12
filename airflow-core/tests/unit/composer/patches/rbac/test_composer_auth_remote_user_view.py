@@ -162,7 +162,7 @@ class TestComposerAuthRemoteUserView:
 
         actual_user = view.auth_current_user()
 
-        _decode_inverting_proxy_jwt_mock.assert_called_once_with("test-user-id")
+        _decode_inverting_proxy_jwt_mock.assert_called_with("test-user-id")
         assert actual_user is None
 
     @mock.patch(
@@ -193,8 +193,8 @@ class TestComposerAuthRemoteUserView:
 
         actual_user = view.auth_current_user()
 
-        _decode_inverting_proxy_jwt_mock.assert_called_once_with(view, "test-user-id")
-        _register_user_if_needed_mock.assert_called_once_with(
+        _decode_inverting_proxy_jwt_mock.assert_called_with(view, "test-user-id")
+        _register_user_if_needed_mock.assert_called_with(
             view,
             username="test-username",
             email="test-email",
@@ -230,13 +230,48 @@ class TestComposerAuthRemoteUserView:
 
         actual_user = view.auth_current_user()
 
-        _decode_inverting_proxy_jwt_mock.assert_called_once_with(view, "test-user-id")
-        _register_user_if_needed_mock.assert_called_once_with(
+        _decode_inverting_proxy_jwt_mock.assert_called_with(view, "test-user-id")
+        _register_user_if_needed_mock.assert_called_with(
             view,
             username="test-username",
             email="test-email",
         )
         assert actual_user is None
+
+    @mock.patch(
+        "airflow.composer.patches.rbac.composer_auth_remote_user_view.request",
+        mock.Mock(
+            headers={
+                "X-Inverting-Proxy-User-ID": "test-user-id",
+            }
+        ),
+    )
+    @mock.patch(
+        "airflow.composer.patches.rbac.composer_auth_remote_user_view.ComposerAuthRemoteUserView._decode_inverting_proxy_jwt",
+        autospec=True,
+    )
+    @mock.patch(
+        "airflow.composer.patches.rbac.composer_auth_remote_user_view.ComposerAuthRemoteUserView._register_user_if_needed",
+        autospec=True,
+    )
+    @mock.patch("airflow.composer.patches.rbac.composer_auth_remote_user_view.login_user", autospec=True)
+    def test_auth_current_user_retry_successful(
+        self, login_user_mock, _register_user_if_needed_mock, _decode_inverting_proxy_jwt_mock
+    ):
+        user_mock = mock.Mock()
+        _decode_inverting_proxy_jwt_mock.side_effect = [
+            None,
+            {
+                "username": "test-username",
+                "email": "test-email",
+            },
+        ]
+        _register_user_if_needed_mock.return_value = user_mock
+        view = ComposerAuthRemoteUserView()
+
+        actual_user = view.auth_current_user()
+
+        assert actual_user == user_mock
 
     @mock.patch(
         "airflow.composer.patches.rbac.composer_auth_remote_user_view.google.auth.default",

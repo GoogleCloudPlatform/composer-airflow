@@ -24,6 +24,7 @@ from flask_appbuilder import expose
 from flask_appbuilder.security.views import AuthRemoteUserView
 from flask_login import login_user
 from google.auth.transport.requests import AuthorizedSession
+from tenacity import retry, retry_if_result, stop_after_attempt
 
 from airflow.configuration import conf
 from airflow.providers.fab.www.app import csrf
@@ -67,6 +68,19 @@ class ComposerAuthRemoteUserView(AuthRemoteUserView):
 
         return {"access_token": session.sid}
 
+    # On the very first login of a user to Airflow UI, there might be a possible race condition when multiple
+    # auth requests come in parallel. Each request:
+    # - checks if user is already registered
+    # - if not, registers user
+    # If both requests check at the same time that user is not yet registered, then they will try both to
+    # register them and one of them will fail. Retrying this method, will make sure that request will be
+    # successful in case of such race condition.
+    @retry(
+        retry=retry_if_result(lambda user: user is None),  # Retry if the result is None.
+        stop=stop_after_attempt(2),  # Two attempts is enough to overcome mentioned above race condition.
+        # Return result of the method instead of raising RetryError exception after two attempts.
+        retry_error_callback=lambda retry_state: retry_state.outcome.result(),
+    )
     def auth_current_user(self):
         """Authenticate user by using appropriate header in request."""
         if INVERTING_PROXY_USER_ID_REQUEST_HEADER not in request.headers:

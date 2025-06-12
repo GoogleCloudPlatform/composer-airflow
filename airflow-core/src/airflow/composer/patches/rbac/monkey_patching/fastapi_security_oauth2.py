@@ -29,6 +29,9 @@ def patch():
 def _composer_oauth2_password_bearer_call(f):
     @functools.wraps(f)
     async def wrapper(self, request: Request):
+        # Note, we do not call "f" (original method) here and this is intended as we completely replace (not
+        # extend) previous implementation/logic.
+
         # Session id is either in:
         # - cookies, if request comes from browser
         # - Auth-Token request header, if request comes from other clients
