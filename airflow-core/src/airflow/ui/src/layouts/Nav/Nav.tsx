@@ -71,7 +71,10 @@ export const Nav = () => {
         <PluginMenus />
       </Flex>
       <Flex flexDir="column">
-        <DocsButton showAPI={authLinks?.authorized_menu_items.includes("Docs")} version={data?.version} />
+        <DocsButton
+          showAPI={authLinks?.authorized_menu_items.includes("Docs")}
+          version={data?.version.replace("+composer", "")}
+        />
         <UserSettingsButton />
       </Flex>
     </VStack>
