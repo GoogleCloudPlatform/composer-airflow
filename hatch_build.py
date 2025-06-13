@@ -525,6 +525,7 @@ COMPOSER_DEPENDENCIES = [
     "aiodebug",
     # aiohttp and pygments in lower versions contain security vulnerabilities.
     "aiohttp>=3.8.5",
+    "confluent-kafka",
     "crcmod<2.0",
     "cryptography",
     "dbt-bigquery",
