@@ -179,7 +179,7 @@ export const Nav = () => {
         <DocsButton
           externalViews={docsItems}
           showAPI={authLinks?.authorized_menu_items.includes("Docs")}
-          version={data?.version}
+          version={data?.version.replace("+composer", "")}
         />
         <UserSettingsButton externalViews={userItems} />
       </Flex>
