@@ -19,6 +19,7 @@ import os
 import sys
 
 import aiodebug.log_slow_callbacks
+import requests
 from kubernetes import config
 from kubernetes.client import Configuration
 
@@ -99,3 +100,17 @@ def initialize():
     if "triggerer" in sys.argv[0]:
         # This line enables logging slow callbacks in triggers.
         aiodebug.log_slow_callbacks.enable(0.05)
+
+
+def get_locational_endpoint(service, location, version):
+    locational_discovery_endpoint = (
+        f"https://{location}-{service}.googleapis.com/$discovery/rest?version={version}"
+    )
+    locational_endpoint = f"{location}-{service}.googleapis.com"
+    if is_endpoint_reachable(locational_discovery_endpoint):
+        return locational_endpoint
+
+
+def is_endpoint_reachable(endpoint):
+    response = requests.get(endpoint)
+    return response.ok

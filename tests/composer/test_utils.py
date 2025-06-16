@@ -26,6 +26,7 @@ from airflow.composer.utils import (
     get_component_hostname,
     get_composer_gke_cluster_host,
     get_composer_version,
+    get_locational_endpoint,
     initialize,
     is_composer_v1,
     is_serverless_composer,
@@ -153,3 +154,20 @@ class TestUtils:
 
         assert actual == expected
         mock_task_instance.xcom_pull.assert_called_once_with(task_ids=test_task_id, key=test_key)
+
+    @pytest.mark.parametrize(
+        "service, location, version, response_ok, expected_value",
+        [
+            ("service", "location", "version", True, "location-service.googleapis.com"),
+            ("service", "location", "version", False, None),
+        ],
+    )
+    def test_get_locational_endpoint(self, service, location, version, response_ok, expected_value):
+        mock_response = mock.MagicMock()
+        mock_response.ok = response_ok
+
+        with mock.patch("requests.get", return_value=mock_response) as mock_get:
+            result = get_locational_endpoint(service, location, version)
+
+            mock_get.assert_called_once()
+            assert result == expected_value
