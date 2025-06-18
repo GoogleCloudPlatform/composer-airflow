@@ -110,6 +110,7 @@ def supervisor_log_processor(logger, method_name, event_dict):
     # Annotate lines with Composer log labels.
     annotation_dict = {"function": event_dict["func_name"]}
     annotation_dict.update(event_dict.get("composer_ti_info", {}))
+    annotation_dict.update(event_dict.get("composer_extra_info", {}))
     annotation = _LOG_SEPARATOR + json.dumps(annotation_dict)
     annotated_lines = map(
         lambda line: line + annotation,

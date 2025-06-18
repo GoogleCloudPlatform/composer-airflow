@@ -82,6 +82,31 @@ class TestSupervisorLogs:
             '@-@{"function": "execute_task", "workflow": "test-dag", "task-id": "test-task"}'
         )
 
+    def test_supervisor_log_processor_composer_extra_info(self):
+        actual = supervisor_log_processor(
+            "logger",
+            "method-name",
+            {
+                "event": "message",
+                "timestamp": "2023-01-03 22:34:56,123",
+                "filename": "module.py",
+                "lineno": 123,
+                "level": "info",
+                "func_name": "execute_task",
+                "composer_ti_info": {
+                    "workflow": "test-dag",
+                },
+                "composer_extra_info": {
+                    "extra-field": "extra-value",
+                },
+            },
+        )
+
+        assert actual == (
+            "[2023-01-03 22:34:56,123] {module.py:123} INFO - message"
+            '@-@{"function": "execute_task", "workflow": "test-dag", "extra-field": "extra-value"}'
+        )
+
     def test_supervisor_log_processor_line_length(self):
         actual = supervisor_log_processor(
             "logger",
