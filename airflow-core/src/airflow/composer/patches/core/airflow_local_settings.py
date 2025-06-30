@@ -17,6 +17,13 @@
 from __future__ import annotations
 
 from airflow.composer.patches.core.initialize import initialize
+from airflow.composer.patches.core.utils import cross_composer_patches_method
+
+
+@cross_composer_patches_method
+def pod_mutation_hook(pod):
+    pass
+
 
 # Execute initialize method on import of airflow_local_settings.py.
 # Import of airflow_local_settings.py happens during execution of `initialize` method from

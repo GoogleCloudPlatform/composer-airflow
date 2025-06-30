@@ -25,3 +25,8 @@ class TestAirflowLocalSettings:
         from airflow.composer.patches.core import airflow_local_settings  # noqa: F401
 
         initialize_mock.assert_called_once()
+
+    def test_pod_mutation_hook_defined(self):
+        from airflow.composer.patches.core import airflow_local_settings
+
+        airflow_local_settings.pod_mutation_hook(mock.Mock())
