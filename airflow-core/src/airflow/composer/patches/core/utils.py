@@ -52,8 +52,7 @@ def get_component_hostname():
     hostname = net.getfqdn()
     if hostname.endswith(".internal"):
         return hostname[:-9]
-    else:
-        return hostname
+    return hostname
 
 
 def get_composer_gke_cluster_host():
@@ -103,7 +102,7 @@ def cross_composer_patches_method(f):
     @functools.wraps(f)
     def wrapper(*args, **kwargs):
         f_name = f.__name__
-        _, f_module_name = inspect.getmodule(f).__name__.rsplit(".", 1)
+        f_module_name = inspect.getmodule(f).__name__.rsplit(".", 1)[-1]
 
         logger.debug("Composer core %s", f_name)
         f(*args, **kwargs)
