@@ -27,6 +27,7 @@ import os
 import yaml
 
 HOOKS_TO_DISABLE = [
+    "check-cncf-k8s-only-for-executors",
     "check-tests-in-the-right-folders",
     "insert-license",
     "mypy-airflow",
