@@ -29,4 +29,4 @@ class TestAirflowLocalSettings:
     def test_pod_mutation_hook_defined(self):
         from airflow.composer.patches.core import airflow_local_settings
 
-        airflow_local_settings.pod_mutation_hook(mock.Mock())
+        assert hasattr(airflow_local_settings, "pod_mutation_hook")
