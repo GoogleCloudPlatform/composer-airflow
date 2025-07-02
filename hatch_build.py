@@ -547,6 +547,8 @@ COMPOSER_DEPENDENCIES = [
     "google-cloud-firestore",
     "google-cloud-pubsublite<1.0.0",
     "keyrings.google-artifactregistry-auth",
+    "numpy<2.0.0",  # Only as a constraint
+    "pandas<=2.1.4",  # Only as a constraint
     "pip==23.2.1",
     "pyOpenSSL",
     "pipdeptree",
@@ -554,6 +556,7 @@ COMPOSER_DEPENDENCIES = [
     # Only as a constraint, we can remove once it's fixed as it's not a Composer dependency
     # https://github.com/pytest-dev/pytest/issues/13477
     "pytest!=8.4.0",
+    "setuptools>=78.1.1",  # Only as a constraint to avoid vulnerabilities
     # Only as a constraint, we can remove once it's fixed as it's not a Composer dependency
     # https://github.com/googleapis/python-spanner-sqlalchemy/issues/682
     "sqlalchemy-spanner!=1.12.0",
