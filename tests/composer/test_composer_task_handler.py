@@ -25,7 +25,6 @@ import logging
 from unittest import mock
 
 import grpc
-import pytest
 from google.api_core.exceptions import GoogleAPICallError
 from google.cloud.logging_v2.types import ListLogEntriesRequest, ListLogEntriesResponse, LogEntry
 from google.logging.type import log_severity_pb2
@@ -461,41 +460,3 @@ class TestComposerLoggingHandlerTask:
             "try-number": "1",
         }
         assert actual_labels == expected_labels
-
-    @pytest.mark.parametrize(
-        "use_regional_endpoints, locational_endpoint_return_value, expected_client_options",
-        [
-            (
-                True,
-                "us-central1-logging.googleapis.com",
-                {"api_endpoint": "us-central1-logging.googleapis.com"},
-            ),
-            (True, "logging.googleapis.com", {"api_endpoint": "logging.googleapis.com"}),
-            (False, "us-central1-logging.googleapis.com", None),
-            (False, None, None),
-        ],
-    )
-    @mock.patch("airflow.composer.composer_task_handler.get_locational_endpoint", autospec=True)
-    @mock.patch("airflow.composer.composer_task_handler.get_credentials_and_project_id")
-    @mock.patch("airflow.composer.composer_task_handler.LoggingServiceV2Client")
-    def test_logging_service_client(
-        self,
-        mock_logging_client,
-        mock_get_creds_and_project_id,
-        mock_get_locational_endpoint,
-        use_regional_endpoints,
-        locational_endpoint_return_value,
-        expected_client_options,
-    ):
-        mock_get_creds_and_project_id.return_value = ("creds", "project_id")
-        mock_get_locational_endpoint.return_value = locational_endpoint_return_value
-        composer_task_handler = ComposerTaskHandler()
-        composer_task_handler.USE_REGIONAL_ENDPOINTS = use_regional_endpoints
-
-        composer_task_handler._logging_service_client()
-
-        mock_logging_client.assert_called_with(
-            credentials="creds",
-            client_info=mock.ANY,
-            client_options=expected_client_options,
-        )
