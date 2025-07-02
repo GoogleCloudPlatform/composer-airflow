@@ -24,6 +24,8 @@ from kubernetes.client import Configuration, models as k8s
 from kubernetes.utils import parse_quantity
 
 from airflow.composer.patches.core.utils import get_composer_gke_cluster_host
+from airflow.composer.patches.kubernetes.kubernetes_executor import get_task_run_command_from_args
+from airflow.providers.cncf.kubernetes.kubernetes_helper_functions import add_unique_suffix
 from airflow.providers.cncf.kubernetes.pod_generator import PodGenerator
 
 MAX_RESOURCES_DISK_SIZE_GB = 100
@@ -31,6 +33,9 @@ USER_WORKLOADS_NAMESPACE = "composer-user-workloads"
 USE_WORKLOAD_IDENTITY_SERVICE_LABEL = "node.gke.io/use-workload-identity-service"
 GCE_VM_ANNOTATION = "node.gke.io/gce-vm"
 EPS = 1e-9
+# The pod name should be at maximum 63 characters length.
+# https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#dns-label-names
+POD_NAME_MAX_LEN = 63
 
 logger = logging.getLogger(__name__)
 
@@ -56,9 +61,29 @@ def mutate(pod: k8s.V1Pod):
 
     logger.info("Modifying pod spec")
     pod.metadata = PodGenerator.reconcile_metadata(pod.metadata, _get_peer_vm_pod_metadata(pod))
-
     # Clear resources, they are provided via pod.metadata.
     pod.spec.containers[0].resources = None
+
+    # Adjust pod spec for KubernetesExecutor pods.
+    if is_k8s_executor_pod:
+        # 1. Add "airflow-k8s-worker-" prefix to pod name.
+        new_name = "airflow-k8s-worker-" + pod.metadata.name
+        # The generated pod names are already unique, but if we have to truncate them, they will lose their
+        # unique suffix, so we add it again.
+        if len(new_name) > POD_NAME_MAX_LEN:
+            new_name = add_unique_suffix(name=new_name, rand_len=8, max_len=POD_NAME_MAX_LEN)
+        pod.metadata.name = new_name
+
+        # 2. Move command of first container from `args` to environment variable.
+        first_container = pod.spec.containers[0]
+        first_container.env.append(
+            k8s.V1EnvVar(
+                name="AIRFLOW_K8S_EXECUTOR_POD_TASK_RUN_COMMAND",
+                value=get_task_run_command_from_args(first_container.args),
+            )
+        )
+        # Pass ["worker"] as args to bypass GKE policy exemptor.
+        first_container.args = ["worker"]
 
 
 def _get_peer_vm_pod_metadata(pod: k8s.V1Pod):

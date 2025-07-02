@@ -73,13 +73,14 @@ class TestPodMutationHook:
     def test_mutate_k8s_executor(self):
         Configuration.set_default(Configuration(host="http://external-cluster"))
         pod = k8s.V1Pod(
-            metadata=k8s.V1ObjectMeta(namespace="test"),
+            metadata=k8s.V1ObjectMeta(name="test", namespace="test"),
             spec=k8s.V1PodSpec(
                 containers=[
                     k8s.V1Container(
                         name="base",
                         resources=k8s.V1ResourceRequirements(limits={"cpu": "1"}),
                         env=[k8s.V1EnvVar(name="AIRFLOW_IS_K8S_EXECUTOR_POD", value="True")],
+                        args=["test"],
                     )
                 ]
             ),
@@ -89,6 +90,32 @@ class TestPodMutationHook:
 
         assert pod.metadata.namespace == "composer-user-workloads"
         assert pod.spec.containers[0].resources is None
+        assert pod.metadata.name == "airflow-k8s-worker-test"
+        assert pod.spec.containers[0].env[-1] == k8s.V1EnvVar(
+            name="AIRFLOW_K8S_EXECUTOR_POD_TASK_RUN_COMMAND",
+            value="'test'",
+        )
+        assert pod.spec.containers[0].args == ["worker"]
+
+    @mock.patch.dict("os.environ", {"GCP_TENANT_PROJECT": "test-project-234"})
+    def test_mutate_k8s_executor_long_pod_name(self):
+        pod = k8s.V1Pod(
+            metadata=k8s.V1ObjectMeta(name="A" * 100),
+            spec=k8s.V1PodSpec(
+                containers=[
+                    k8s.V1Container(
+                        name="base",
+                        env=[k8s.V1EnvVar(name="AIRFLOW_IS_K8S_EXECUTOR_POD", value="True")],
+                        args=["test"],
+                    )
+                ]
+            ),
+        )
+
+        mutate(pod)
+
+        # Name should be 63 chars long and last 8 characters should be random.
+        assert pod.metadata.name[:-8] == "airflow-k8s-worker-" + ("A" * 35) + "-"
 
     @mock.patch.dict("os.environ", {"GCP_TENANT_PROJECT": "test-project-234"})
     def test_get_peer_vm_pod_metadata(self):
