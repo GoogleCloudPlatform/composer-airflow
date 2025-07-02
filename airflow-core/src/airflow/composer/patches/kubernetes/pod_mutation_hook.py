@@ -23,7 +23,7 @@ import yaml
 from kubernetes.client import Configuration, models as k8s
 from kubernetes.utils import parse_quantity
 
-from airflow.composer.patches.core.utils import get_composer_gke_cluster_host, is_currently_running_component
+from airflow.composer.patches.core.utils import get_composer_gke_cluster_host
 from airflow.providers.cncf.kubernetes.pod_generator import PodGenerator
 
 MAX_RESOURCES_DISK_SIZE_GB = 100
@@ -36,14 +36,20 @@ logger = logging.getLogger(__name__)
 
 
 def mutate(pod: k8s.V1Pod):
+    is_k8s_executor_pod = (
+        pod.spec
+        and pod.spec.containers
+        and pod.spec.containers[0].env
+        and any(env_var.name == "AIRFLOW_IS_K8S_EXECUTOR_POD" for env_var in pod.spec.containers[0].env)
+    )
+
     # In case of running pod by KPO or KubernetesExecutor we should adjust pod spec.
     # Note, that we check below if cluster host where pod will be deployed is a Composer GKE cluster host, to
     # account for GKEStartPodOperator which runs pods in external GKE cluster.
-    # In case of scheduler (KubernetesExecutor), the logic with checking host doesn't work, but we can check
-    # if it is scheduler by inspecting sys.argv.
+    # In case of scheduler (KubernetesExecutor), the logic with checking host doesn't work, so we use
+    # different approach with is_k8s_executor_pod.
     pod_running_in_composer_gke = (
-        is_currently_running_component("scheduler")
-        or Configuration.get_default_copy().host == get_composer_gke_cluster_host()
+        is_k8s_executor_pod or Configuration.get_default_copy().host == get_composer_gke_cluster_host()
     )
     if not pod_running_in_composer_gke:
         return

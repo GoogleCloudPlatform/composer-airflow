@@ -70,8 +70,7 @@ class TestPodMutationHook:
         mock.Mock(return_value="http://internal-cluster"),
     )
     @mock.patch.dict("os.environ", {"GCP_TENANT_PROJECT": "test-project-234"})
-    @mock.patch("sys.argv", ["airflow", "scheduler"])
-    def test_mutate_scheduler(self):
+    def test_mutate_k8s_executor(self):
         Configuration.set_default(Configuration(host="http://external-cluster"))
         pod = k8s.V1Pod(
             metadata=k8s.V1ObjectMeta(namespace="test"),
@@ -80,6 +79,7 @@ class TestPodMutationHook:
                     k8s.V1Container(
                         name="base",
                         resources=k8s.V1ResourceRequirements(limits={"cpu": "1"}),
+                        env=[k8s.V1EnvVar(name="AIRFLOW_IS_K8S_EXECUTOR_POD", value="True")],
                     )
                 ]
             ),
