@@ -18,7 +18,7 @@ import json
 import logging
 from typing import TYPE_CHECKING
 
-from structlog import get_config
+from structlog import BytesLogger, get_config
 from structlog.processors import CallsiteParameter, CallsiteParameterAdder
 
 if TYPE_CHECKING:
@@ -117,7 +117,12 @@ def supervisor_log_processor(logger, method_name, event_dict):
         escaped_lines,
     )
 
-    return "\n".join(annotated_lines)
+    result = "\n".join(annotated_lines)
+    if isinstance(logger, BytesLogger):
+        # If it is a BytesLogger, we need to return `bytes` instead of `str`.
+        result = result.encode()
+
+    return result
 
 
 def patch_supervisor_stdlib_logging_configuration():

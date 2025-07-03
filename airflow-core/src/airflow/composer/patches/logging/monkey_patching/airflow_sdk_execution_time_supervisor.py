@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import functools
+import os
 
 from structlog.contextvars import bound_contextvars
 
@@ -31,6 +32,11 @@ def _composer_supervisor_supervise(f):
     def wrapper(*args, **kwargs):
         # Add task logs context variables to the structlog context.
         with bound_contextvars(**get_task_logs_contextvars(ti=kwargs["ti"])):
+            # For KubernetesExecutor task, do not print its logs to stdout, they will be sent to supervisor
+            # and printed to stdout there.
+            if os.environ.get("AIRFLOW_IS_K8S_EXECUTOR_POD") == "True":
+                kwargs["subprocess_logs_to_stdout"] = False
+
             res = f(*args, **kwargs)
 
         return res

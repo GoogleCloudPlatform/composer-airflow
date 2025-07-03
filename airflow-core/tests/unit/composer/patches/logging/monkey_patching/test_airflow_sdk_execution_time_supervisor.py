@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from unittest import mock
 
+import pytest
 from structlog.contextvars import get_contextvars
 
 from airflow.composer.patches.logging.monkey_patching.airflow_sdk_execution_time_supervisor import patch
@@ -47,3 +48,28 @@ class TestAirflowSdkExecutionTimeSupervisor:
                 "try-number": "1",
             }
         }
+
+    @pytest.mark.parametrize(
+        "os_environ_patch, expected_result",
+        [
+            ({"AIRFLOW_IS_K8S_EXECUTOR_POD": "True"}, {"subprocess_logs_to_stdout": False}),
+            ({}, {}),
+        ],
+    )
+    @mock.patch("airflow.sdk.execution_time.supervisor.supervise", autospec=True)
+    def test_patch_subprocess_logs_to_stdout(self, supervise_mock, os_environ_patch, expected_result):
+        def supervise_mock_side_effect(ti, bundle_info, dag_rel_path, token, **extra_kwargs):
+            return extra_kwargs
+
+        supervise_mock.side_effect = supervise_mock_side_effect
+        patch()
+
+        with mock.patch.dict("os.environ", os_environ_patch):
+            actual_result = supervisor.supervise(
+                ti=mock.Mock(dag_id="dag-id", task_id="task-id", run_id="run-id", map_index=-1, try_number=1),
+                bundle_info=mock.Mock(),
+                dag_rel_path=mock.Mock(),
+                token=mock.Mock(),
+            )
+
+        assert actual_result == expected_result

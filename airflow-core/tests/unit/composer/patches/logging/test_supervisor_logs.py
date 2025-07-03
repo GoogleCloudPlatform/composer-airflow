@@ -17,6 +17,7 @@ from __future__ import annotations
 import logging
 from unittest import mock
 
+from structlog import BytesLogger
 from structlog.processors import CallsiteParameter, CallsiteParameterAdder
 
 from airflow.composer.patches.logging.supervisor_logs import (
@@ -181,6 +182,24 @@ class TestSupervisorLogs:
         assert actual == (
             "[2023-01-03 22:34:56,123] {module.py:123} INFO - Task failed with exception\\nTraceback (most recent call last): ValueError: aaa"
             '@-@{"function": "execute_task"}'
+        )
+
+    def test_supervisor_log_processor_bytes_logger(self):
+        actual = supervisor_log_processor(
+            BytesLogger(),
+            "method-name",
+            {
+                "event": "Text",
+                "timestamp": "2023-01-03 22:34:56,123",
+                "filename": "module.py",
+                "lineno": 123,
+                "level": "info",
+                "func_name": "execute_task",
+            },
+        )
+
+        assert actual == (
+            b'[2023-01-03 22:34:56,123] {module.py:123} INFO - Text@-@{"function": "execute_task"}'
         )
 
     @mock.patch("logging.root", autospec=True)
