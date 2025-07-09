@@ -39,7 +39,7 @@ def _composer_oauth2_password_bearer_call(f):
         if not session_id:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Not authenticated - no session cookie",
+                detail="Not authenticated - missing auth token",
             )
 
         return session_id

@@ -51,4 +51,4 @@ class TestFastapiSecurityOauth2:
             asyncio.run(oauth2_flow(request=mock.Mock(cookies={}, headers={})))
 
         assert e.value.status_code == status.HTTP_401_UNAUTHORIZED
-        assert e.value.detail == "Not authenticated - no session cookie"
+        assert e.value.detail == "Not authenticated - missing auth token"
