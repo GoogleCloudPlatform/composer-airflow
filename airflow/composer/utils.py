@@ -36,7 +36,7 @@ COMPOSER_GKE_CLUSTER_HOST = None
 
 
 def get_composer_version():
-    """Returns Composer version, e.g. 1.16.5."""
+    """Return Composer version, e.g. 1.16.5."""
     # FIXME: update Kokoro tests to avoid handling of unknown Composer version here.
     return os.environ.get("COMPOSER_VERSION")
 
@@ -47,7 +47,7 @@ def is_triggerer_enabled():
 
 
 def is_composer_v1():
-    """Determines if Airflow is running under Composer v1."""
+    """Determine if Airflow is running under Composer v1."""
     composer_version = get_composer_version()
     if not composer_version:
         return False
@@ -56,7 +56,7 @@ def is_composer_v1():
 
 
 def is_serverless_composer():
-    """Determines if Airflow is running under Composer Serverless (aka Composer 2.50)."""
+    """Determine if Airflow is running under Composer Serverless (aka Composer 2.50)."""
     composer_version = get_composer_version()
     if not composer_version:
         return False
@@ -67,7 +67,8 @@ def is_serverless_composer():
 
 
 def get_component_hostname():
-    """Custom implementation for airflow.utils.net.get_hostname.
+    """
+    Act as a custom implementation for airflow.utils.net.get_hostname.
 
     It makes sure the returned hostname doesn't have ".internal" suffix.
     """
@@ -95,10 +96,16 @@ def get_composer_gke_cluster_host():
 
 
 def initialize():
-    """This method acts as a hook to do Composer related setup for Airflow."""
-    if "triggerer" in sys.argv[0]:
+    """Act as a hook to do Composer related setup for Airflow."""
+    if _is_triggerer_launch_command(sys.argv):
         # This line enables logging slow callbacks in triggers.
         aiodebug.log_slow_callbacks.enable(0.05)
+
+        # TODO: delete when community changes got released https://github.com/apache/airflow/pull/53126
+        from airflow.composer.kubernetes.trigger import patch_define_container_state, patch_kubernetes_hook
+
+        patch_kubernetes_hook()
+        patch_define_container_state()
 
 
 def get_locational_endpoint(service, location, version):
@@ -113,3 +120,17 @@ def get_locational_endpoint(service, location, version):
 def is_endpoint_reachable(endpoint):
     response = requests.get(endpoint)
     return response.ok
+
+
+def _is_triggerer_launch_command(cmd_argv: list) -> bool:
+    """
+    Match triggerer start command.
+
+    Following the pattern: ['/opt/python3.11/bin/airflow', 'triggerer', '--skip-serve-logs'].
+    """
+    return all(
+        [
+            "airflow" in cmd_argv[0],
+            len(cmd_argv) > 1 and cmd_argv[1] == "triggerer",
+        ]
+    )
