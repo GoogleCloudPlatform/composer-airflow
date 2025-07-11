@@ -97,9 +97,15 @@ def get_composer_gke_cluster_host():
 
 def initialize():
     """Act as a hook to do Composer related setup for Airflow."""
-    if "triggerer" in sys.argv[0]:
+    if _is_triggerer_launch_command(sys.argv):
         # This line enables logging slow callbacks in triggers.
         aiodebug.log_slow_callbacks.enable(0.05)
+
+        # TODO: delete when community changes got released https://github.com/apache/airflow/pull/53126
+        from airflow.composer.kubernetes.trigger import patch_define_container_state, patch_kubernetes_hook
+
+        patch_kubernetes_hook()
+        patch_define_container_state()
 
 
 def get_locational_endpoint(service, location, version):
@@ -114,3 +120,17 @@ def get_locational_endpoint(service, location, version):
 def is_endpoint_reachable(endpoint):
     response = requests.get(endpoint)
     return response.ok
+
+
+def _is_triggerer_launch_command(cmd_argv: list) -> bool:
+    """
+    Match triggerer start command.
+
+    Following the pattern: ['/opt/python3.11/bin/airflow', 'triggerer', '--skip-serve-logs'].
+    """
+    return all(
+        [
+            "airflow" in cmd_argv[0],
+            len(cmd_argv) > 1 and cmd_argv[1] == "triggerer",
+        ]
+    )

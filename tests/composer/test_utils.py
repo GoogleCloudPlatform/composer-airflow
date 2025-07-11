@@ -23,6 +23,7 @@ from airflow import settings
 from airflow.composer.data_lineage.utils import xcom_pull
 from airflow.composer.utils import (
     COMPOSER_DEFAULT_CELERY_CONFIG,
+    _is_triggerer_launch_command,
     get_component_hostname,
     get_composer_gke_cluster_host,
     get_composer_version,
@@ -118,7 +119,7 @@ class TestUtils:
         assert COMPOSER_DEFAULT_CELERY_CONFIG["redis_backend_health_check_interval"] == 30
 
     @mock.patch("aiodebug.log_slow_callbacks", autospec=True)
-    @mock.patch("sys.argv", ["triggerer"])
+    @mock.patch("sys.argv", ["/opt/python3.11/bin/airflow", "triggerer"])
     def test_is_aiodebug_called(self, aiodebug_log_slow_callbacks_mock):
         initialize()
 
@@ -171,3 +172,25 @@ class TestUtils:
 
             mock_get.assert_called_once()
             assert result == expected_value
+
+    @pytest.mark.parametrize(
+        "sys_argv_command, expected_result",
+        [
+            (["airflow", "triggerer"], True),
+            (["triggerer"], False),
+            (["airflow", "worker"], False),
+            (["", ""], False),
+        ],
+    )
+    def test_is_triggerer_cmd_passed(self, sys_argv_command, expected_result):
+        with mock.patch("sys.argv", ["/opt/python3.11/bin/airflow", "triggerer"]):
+            assert _is_triggerer_launch_command(sys_argv_command) == expected_result
+
+    @mock.patch("sys.argv", ["/opt/python3.11/bin/airflow", "triggerer"])
+    @mock.patch("airflow.composer.kubernetes.trigger.patch_kubernetes_hook")
+    @mock.patch("airflow.composer.kubernetes.trigger.patch_define_container_state")
+    def test_is_kpo_deferrable_patched(self, mock_container_state, kubernetes_hook_patch_mock):
+        initialize()
+
+        mock_container_state.assert_called_once()
+        kubernetes_hook_patch_mock.assert_called_once()
