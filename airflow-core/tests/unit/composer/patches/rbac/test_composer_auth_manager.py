@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import asyncio
+import datetime
 import random
 import string
 
@@ -69,7 +70,7 @@ class TestComposerAuthManager:
                             "_user_id": user_id,
                         }
                     ),
-                    expiry=None,
+                    expiry=datetime.datetime(2100, 1, 1),  # Some date in the future.
                 )
             )
             sqla_session.commit()
@@ -80,9 +81,35 @@ class TestComposerAuthManager:
         assert actual_user.id == user_id
         assert actual_user.username == f"u_{session_id}"
 
-    def test_get_user_from_token_session_expired(self):
+    def test_get_user_from_token_no_session(self):
         with pytest.raises(HTTPException) as e:
             asyncio.run(self.am.get_user_from_token("not_exist.tail"))
+
+        assert e.value.status_code == status.HTTP_401_UNAUTHORIZED
+        assert e.value.detail == "Not authorized - session expired"
+
+    def test_get_user_from_token_session_expired(self):
+        user_id = random.randint(1000, 100000)
+        session_interface = self.app.session_interface
+        session_model = session_interface.sql_session_model
+        session_id = "".join(random.choice(string.ascii_uppercase) for _ in range(6))
+
+        with create_sqla_session() as sqla_session:
+            sqla_session.add(
+                session_model(
+                    session_id=session_id,
+                    data=session_interface.serializer.dumps(
+                        {
+                            "_user_id": user_id,
+                        }
+                    ),
+                    expiry=datetime.datetime(2000, 1, 1),  # Some date in the past.
+                )
+            )
+            sqla_session.commit()
+
+        with pytest.raises(HTTPException) as e:
+            asyncio.run(self.am.get_user_from_token(f"{session_id}.tail"))
 
         assert e.value.status_code == status.HTTP_401_UNAUTHORIZED
         assert e.value.detail == "Not authorized - session expired"
@@ -101,7 +128,7 @@ class TestComposerAuthManager:
                             "_user_id": 1579987,  # not existing
                         }
                     ),
-                    expiry=None,
+                    expiry=datetime.datetime(2100, 1, 1),  # Some date in the future.
                 )
             )
             sqla_session.commit()

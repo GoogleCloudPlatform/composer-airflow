@@ -24,6 +24,7 @@ from airflow.providers.fab.auth_manager.api_fastapi.routes.login import login_ro
 from airflow.providers.fab.auth_manager.fab_auth_manager import FabAuthManager
 from airflow.providers.fab.auth_manager.models import User
 from airflow.utils.session import create_session as create_sqla_session
+from airflow.utils.timezone import utcnow
 
 
 class ComposerAuthManager(FabAuthManager):
@@ -51,8 +52,7 @@ class ComposerAuthManager(FabAuthManager):
 
         with create_sqla_session() as sqla_session:
             session = sqla_session.query(session_model).filter(session_model.session_id == session_id).first()
-            if not session:
-                # Flask session is not found, most likely expired and removed.
+            if not session or session.expiry < utcnow().replace(tzinfo=None):
                 raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Not authorized - session expired")
 
             session_data = session_interface.serializer.loads(want_bytes(session.data))
