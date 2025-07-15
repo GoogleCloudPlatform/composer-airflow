@@ -42,6 +42,7 @@ COMPOSER_DEPENDENCIES = [
     "apache-airflow-task-sdk",
     "aiodebug",
     "aiohttp>=3.8.5",  # security vulnerabilities in lower versions.
+    "confluent-kafka",
     "crcmod<2.0",
     "cryptography",
     "dbt-bigquery",
@@ -54,12 +55,14 @@ COMPOSER_DEPENDENCIES = [
     "google-apitools",
     "google-cloud-aiplatform[evaluation]",
     "google-cloud-asset",
+    "google-cloud-bigquery-storage",
     "google-cloud-datastore",
     "google-cloud-documentai",
     "google-cloud-filestore",
     "google-cloud-firestore",
     "google-cloud-pubsublite<1.0.0",
     "keyrings.google-artifactregistry-auth",
+    "pandas<=2.1.4",  # only as a constraint, some unit tests are failing.
     "pip==23.2.1",
     "pyOpenSSL",
     "pipdeptree",
