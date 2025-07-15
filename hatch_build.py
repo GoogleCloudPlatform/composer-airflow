@@ -508,6 +508,7 @@ DEPENDENCIES = [
 
 COMPOSER_DEPENDENCIES = [
     "apache-airflow-providers-apache-beam",
+    "apache-airflow-providers-apache-kafka",
     # Celery provider 3.9.0 breaks for airflow < 3, will be fixed in 3.9.1
     "apache-airflow-providers-celery!=3.9.0",
     # In version 10.4.3 of the kubernetes provider community introduced AF 2.9.3 incompatible import.
