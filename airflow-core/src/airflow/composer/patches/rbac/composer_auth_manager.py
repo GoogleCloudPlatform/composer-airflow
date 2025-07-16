@@ -53,7 +53,7 @@ class ComposerAuthManager(FabAuthManager):
         with create_sqla_session() as sqla_session:
             session = sqla_session.query(session_model).filter(session_model.session_id == session_id).first()
             if not session or session.expiry < utcnow().replace(tzinfo=None):
-                raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Not authorized - session expired")
+                raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Not authorized - token expired")
 
             session_data = session_interface.serializer.loads(want_bytes(session.data))
             user_id = session_data.get("_user_id")

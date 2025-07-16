@@ -86,7 +86,7 @@ class TestComposerAuthManager:
             asyncio.run(self.am.get_user_from_token("not_exist.tail"))
 
         assert e.value.status_code == status.HTTP_401_UNAUTHORIZED
-        assert e.value.detail == "Not authorized - session expired"
+        assert e.value.detail == "Not authorized - token expired"
 
     def test_get_user_from_token_session_expired(self):
         user_id = random.randint(1000, 100000)
@@ -112,7 +112,7 @@ class TestComposerAuthManager:
             asyncio.run(self.am.get_user_from_token(f"{session_id}.tail"))
 
         assert e.value.status_code == status.HTTP_401_UNAUTHORIZED
-        assert e.value.detail == "Not authorized - session expired"
+        assert e.value.detail == "Not authorized - token expired"
 
     def test_get_user_from_token_user_not_found(self):
         session_interface = self.app.session_interface

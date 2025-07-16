@@ -14,6 +14,7 @@
 # limitations under the License.
 from __future__ import annotations
 
+import datetime
 import logging
 import urllib.parse
 
@@ -28,6 +29,7 @@ from tenacity import retry, retry_if_result, stop_after_attempt
 
 from airflow.configuration import conf
 from airflow.providers.fab.www.app import csrf
+from airflow.utils.timezone import utcnow
 
 INVERTING_PROXY_USER_ID_REQUEST_HEADER = "X-Inverting-Proxy-User-ID"
 INVERTING_PROXY_BACKEND_ID_REQUEST_HEADER = "X-Inverting-Proxy-Backend-ID"
@@ -65,6 +67,11 @@ class ComposerAuthRemoteUserView(AuthRemoteUserView):
         # Authenticate user, return 403 in case of failure.
         if self.auth_current_user() is None:
             return "Not authorized or account inactive", 403
+
+        # Assign _expiration_time field a value of the desired token expiration time. This field will be
+        # analysed in get_expiration_time method to override default behaviour.
+        expiration_time_in_seconds = conf.getint("api_auth", "jwt_expiration_time")
+        session["_expiration_time"] = utcnow() + datetime.timedelta(seconds=expiration_time_in_seconds)
 
         return {"access_token": session.sid}
 

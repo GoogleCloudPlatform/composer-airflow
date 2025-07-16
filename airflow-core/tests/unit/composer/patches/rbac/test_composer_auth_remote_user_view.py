@@ -14,11 +14,15 @@
 # limitations under the License.
 from __future__ import annotations
 
+import datetime
 import random
 import string
 from unittest import mock
 
+import time_machine
+
 from airflow.composer.patches.rbac.composer_auth_remote_user_view import ComposerAuthRemoteUserView
+from airflow.composer.patches.rbac.monkey_patching import airflow_providers_fab_www_session
 from airflow.providers.fab.auth_manager.models import User
 from airflow.providers.fab.www.app import create_app
 from airflow.utils.session import provide_session
@@ -569,8 +573,15 @@ AgMBAAE=
             )
         )
 
+    @time_machine.travel(datetime.datetime(2025, 3, 27, 21, 58, 1), tick=False)
     @conf_vars(
-        {("core", "auth_manager"): "airflow.composer.patches.rbac.composer_auth_manager.ComposerAuthManager"}
+        {
+            (
+                "core",
+                "auth_manager",
+            ): "airflow.composer.patches.rbac.composer_auth_manager.ComposerAuthManager",
+            ("api_auth", "jwt_expiration_time"): "10",
+        }
     )
     @mock.patch(
         "airflow.composer.patches.rbac.composer_auth_remote_user_view.ComposerAuthRemoteUserView.auth_current_user",
@@ -578,6 +589,7 @@ AgMBAAE=
     )
     @provide_session
     def test_token_successful(self, auth_current_user_mock, session):
+        airflow_providers_fab_www_session.patch()
         app = create_app(enable_plugins=False)
         client = app.test_client()
         session_interface = app.session_interface
@@ -593,6 +605,7 @@ AgMBAAE=
             .first()
         )
         assert user_session is not None
+        assert user_session.expiry == datetime.datetime(2025, 3, 27, 21, 58, 11)
 
     @conf_vars(
         {("core", "auth_manager"): "airflow.composer.patches.rbac.composer_auth_manager.ComposerAuthManager"}
