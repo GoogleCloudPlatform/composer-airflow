@@ -19,11 +19,10 @@ import logging
 from typing import TYPE_CHECKING
 
 from airflow.composer.kubernetes.utils import (
-    PEER_VM_ENDPOINT_ANNOTATION,
     PEER_VM_PLACEHOLDER_CONTAINER,
+    await_pod_endpoint_creation,
     get_peer_vm_pod_container_statuses,
 )
-from airflow.exceptions import AirflowException
 from airflow.providers.cncf.kubernetes.triggers.pod import ContainerState
 
 if TYPE_CHECKING:
@@ -77,10 +76,8 @@ def _composer_kubernetes_hook_init(f):
 def _composer_define_container_state(f):
     @functools.wraps(f)
     def wrapper(self, pod: V1Pod) -> ContainerState:
-        import time
-
         from airflow.providers.cncf.kubernetes.hooks.kubernetes import KubernetesHook
-        from airflow.providers.cncf.kubernetes.utils.pod_manager import PodManager, PodPhase
+        from airflow.providers.cncf.kubernetes.utils.pod_manager import PodManager
 
         sync_hook = KubernetesHook(
             conn_id=self.kubernetes_conn_id,
@@ -95,21 +92,7 @@ def _composer_define_container_state(f):
             # KPO pod is running as regular k8s pod, execute native implementation.
             return f(self, pod)
 
-        # Placeholder pod can get to the 'Running' state but annotation with Peer VM endpoint may be absent,
-        # this can happen (as observed) if VM is still being created.
-        while remote_pod.status.phase == PodPhase.RUNNING and not remote_pod.metadata.annotations.get(
-            PEER_VM_ENDPOINT_ANNOTATION
-        ):
-            self.log.info("Awaiting for pod to start execution")
-            time.sleep(5)
-            remote_pod = pod_manager.read_pod(pod)
-
-        peer_vm_endpoint = remote_pod.metadata.annotations.get(PEER_VM_ENDPOINT_ANNOTATION)
-        # If annotation with Peer VM endpoint is missing and we are here, that means that placeholder pod
-        # changed its state to some other than 'Running' (most likely some terminal state) without VM being
-        # finally successfully created.
-        if peer_vm_endpoint is None:
-            raise AirflowException(f"Not found {PEER_VM_ENDPOINT_ANNOTATION} annotation for pod")
+        await_pod_endpoint_creation(self, pod, remote_pod)
 
         # If user's container had finished execution earlier than peer_vm_endpoint has been created,
         # then this function can't create a Handshake with PeerVM container and fails with error.

@@ -21,6 +21,7 @@ import pytest
 from kubernetes.client import models as k8s
 
 from airflow.composer.kubernetes.pod_manager import (
+    _composer_await_container_completion,
     _composer_container_is_running,
     _composer_extract_xcom_json,
     _composer_extract_xcom_kill,
@@ -30,6 +31,7 @@ from airflow.composer.kubernetes.pod_manager import (
     patch_fetch_container_logs,
 )
 from airflow.composer.kubernetes.utils import (
+    PEER_VM_ENDPOINT_ANNOTATION,
     PeerVmPlaceholderPodContainerNotFoundException,
     PeerVmPlaceholderPodShutDownException,
 )
@@ -38,6 +40,7 @@ from airflow.providers.cncf.kubernetes.utils.pod_manager import PodManager
 
 
 class TestPodManager:
+    @mock.patch("airflow.composer.kubernetes.pod_manager._composer_await_container_completion", autospec=True)
     @mock.patch("airflow.composer.kubernetes.pod_manager._composer_fetch_container_logs", autospec=True)
     @mock.patch("airflow.composer.kubernetes.pod_manager._composer_get_container_names", autospec=True)
     @mock.patch("airflow.composer.kubernetes.pod_manager._composer_container_is_running", autospec=True)
@@ -50,6 +53,7 @@ class TestPodManager:
         composer_container_is_running_mock,
         composer_get_container_names_mock,
         composer_fetch_container_logs_mock,
+        composer_await_container_completion_mock,
     ):
         # test setUp
         PodManager.fetch_container_logs._composer_patched = False
@@ -64,6 +68,7 @@ class TestPodManager:
         composer_container_is_running_mock.assert_called_once()
         composer_extract_xcom_json_mock.assert_called_once()
         composer_extract_xcom_kill_mock.assert_called_once()
+        composer_await_container_completion_mock.assert_called_once()
 
     def test_composer_fetch_container_logs_not_peer_vm(self):
         pod_mock = mock.Mock()
@@ -524,3 +529,50 @@ class TestPodManager:
             pod=pod_mock,
             command=["placeholder-pod", "exec", "airflow-xcom-sidecar", '["/bin/sh", "-c", "kill -2 1"]'],
         )
+
+    @mock.patch("airflow.composer.kubernetes.pod_manager.await_pod_endpoint_creation", autospec=True)
+    @mock.patch("airflow.composer.kubernetes.pod_manager.time.sleep", autospec=True)
+    @mock.patch("airflow.composer.kubernetes.pod_manager.get_peer_vm_pod_container_statuses", autospec=True)
+    def test_composer_await_container_completion(
+        self,
+        get_peer_vm_pod_container_statuses_mock,
+        time_sleep_mock,
+        await_pod_endpoint_creation_mock,
+    ):
+        container_name = "base"
+
+        def get_peer_vm_pod_container_statuses_mock_side_effect(self, pod):
+            get_peer_vm_pod_container_statuses_mock_side_effect.call_counter += 1
+            assert self == self_mock
+            assert pod == pod_mock
+            assert get_peer_vm_pod_container_statuses_mock_side_effect.call_counter <= 2
+
+            if get_peer_vm_pod_container_statuses_mock_side_effect.call_counter == 1:
+                return [
+                    {"container": "base", "state": "RUNNING"},
+                ]
+            if get_peer_vm_pod_container_statuses_mock_side_effect.call_counter == 2:
+                return [
+                    {"container": "base", "state": "TERMINATED"},
+                ]
+
+        get_peer_vm_pod_container_statuses_mock_side_effect.call_counter = 0
+        get_peer_vm_pod_container_statuses_mock.side_effect = (
+            get_peer_vm_pod_container_statuses_mock_side_effect
+        )
+        read_pod_mock_return_value = k8s.V1Pod(
+            spec=k8s.V1PodSpec(containers=[k8s.V1Container(name="peervm-placeholder")]),
+            metadata=k8s.V1ObjectMeta(annotations={PEER_VM_ENDPOINT_ANNOTATION: "test-endpoint"}),
+            status=k8s.V1PodStatus(phase="Running"),
+        )
+        self_mock = mock.Mock(read_pod=mock.Mock(return_value=read_pod_mock_return_value))
+        pod_mock = mock.Mock()
+
+        _composer_await_container_completion(mock.Mock())(self_mock, pod_mock, container_name)
+
+        await_pod_endpoint_creation_mock.assert_called_with(
+            self_mock, pod=pod_mock, remote_pod=read_pod_mock_return_value
+        )
+        time_sleep_mock.assert_called_with(1)
+        self_mock.read_pod.assert_called_with(pod_mock)
+        get_peer_vm_pod_container_statuses_mock.assert_called_with(self_mock, pod=pod_mock)
