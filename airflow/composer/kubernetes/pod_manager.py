@@ -31,13 +31,14 @@ from airflow.composer.kubernetes.utils import (
     PEER_VM_ENDPOINT_ANNOTATION,
     PeerVmPlaceholderPodContainerNotFoundException,
     PeerVmPlaceholderPodShutDownException,
+    await_pod_endpoint_creation,
     get_peer_vm_pod_container_statuses,
     is_kubernetes_pod_operator_base_container_terminated,
     exec_on_placeholder_pod,
     parse_payload_from_peer_vm_exec_response,
 )
 from airflow.exceptions import AirflowException
-from airflow.providers.cncf.kubernetes.utils.pod_manager import PodManager, PodPhase, EMPTY_XCOM_RESULT
+from airflow.providers.cncf.kubernetes.utils.pod_manager import EMPTY_XCOM_RESULT, PodManager
 from airflow.providers.cncf.kubernetes.utils.xcom_sidecar import PodDefaults
 
 if TYPE_CHECKING:
@@ -76,6 +77,11 @@ def patch_fetch_container_logs():
     # VM pod.
     PodManager.extract_xcom_kill = _composer_extract_xcom_kill(PodManager.extract_xcom_kill)
 
+    # Patch await_container_completion method, needed for PodManager to be able to run KPO with get_logs=False
+    PodManager.await_container_completion = _composer_await_container_completion(
+        PodManager.await_container_completion
+    )
+
 
 def _composer_fetch_container_logs(f):
     @functools.wraps(f)
@@ -92,26 +98,16 @@ def _composer_fetch_container_logs(f):
         self.log.info("Fetching container logs")
         # Placeholder pod can get to the 'Running' state but annotation with Peer VM endpoint may be absent,
         # this can happen (as observed) if VM is still being created.
-        while remote_pod.status.phase == PodPhase.RUNNING and not remote_pod.metadata.annotations.get(
-            PEER_VM_ENDPOINT_ANNOTATION
-        ):
-            self.log.info("Awaiting for pod to start execution")
-            time.sleep(5)
-            remote_pod = self.read_pod(pod)
+        remote_pod = await_pod_endpoint_creation(self, pod, remote_pod, raise_exception=False)
 
-        peer_vm_endpoint = remote_pod.metadata.annotations.get(PEER_VM_ENDPOINT_ANNOTATION)
-        # If annotation with Peer VM endpoint is missing and we are here, that means that placeholder pod
-        # changed its state to some other than 'Running' (most likely some terminal state) without VM being
-        # finally successfully created.
-        if peer_vm_endpoint is None:
-            self.log.info("Not found %s annotation for pod", PEER_VM_ENDPOINT_ANNOTATION)
+        if remote_pod is None:
             return
 
         _stream_peer_vm_logs(
             self,
             pod=pod,
             container_name=container_name,
-            peer_vm_endpoint=peer_vm_endpoint,
+            peer_vm_endpoint=remote_pod.metadata.annotations.get(PEER_VM_ENDPOINT_ANNOTATION),
             after_timestamp=remote_pod.metadata.creation_timestamp.strftime("%Y-%m-%dT%H:%M:%S.0") + "Z",
         )
 
@@ -134,7 +130,8 @@ def _stream_peer_vm_logs(self, pod, container_name, peer_vm_endpoint, after_time
             is_last_iteration = is_kubernetes_pod_operator_base_container_terminated(self, pod=pod)
         except PeerVmPlaceholderPodContainerNotFoundException:
             self.log.debug(
-                "KubernetesPodOperator pod container is not found. Looks like it was terminated already.")
+                "KubernetesPodOperator pod container is not found. Looks like it was terminated already."
+            )
             is_last_iteration = True
         except PeerVmPlaceholderPodShutDownException:
             self.log.debug("KubernetesPodOperator pod is shut down.")
@@ -216,10 +213,16 @@ def _composer_extract_xcom_json(f):
             f"then cat {PodDefaults.XCOM_MOUNT_PATH}/return.json; "
             f"else echo {EMPTY_XCOM_RESULT}; fi"
         )
-        resp = exec_on_placeholder_pod(self, pod=pod, command=[
-            "placeholder-pod", "exec", PodDefaults.SIDECAR_CONTAINER_NAME,
-            json.dumps(["/bin/sh", "-c", command_to_extract_xcom]),
-        ])
+        resp = exec_on_placeholder_pod(
+            self,
+            pod=pod,
+            command=[
+                "placeholder-pod",
+                "exec",
+                PodDefaults.SIDECAR_CONTAINER_NAME,
+                json.dumps(["/bin/sh", "-c", command_to_extract_xcom]),
+            ],
+        )
 
         if resp is not None:
             payload = parse_payload_from_peer_vm_exec_response(resp)
@@ -253,5 +256,28 @@ def _composer_extract_xcom_kill(f):
             "placeholder-pod", "exec", PodDefaults.SIDECAR_CONTAINER_NAME,
             json.dumps(["/bin/sh", "-c", "kill -2 1"]),
         ])
+
+    return wrapper
+
+
+def _composer_await_container_completion(f):
+    @functools.wraps(f)
+    def wrapper(self, pod: V1Pod, container_name: str, polling_time: float = 1) -> None:
+        remote_pod = self.read_pod(pod)
+
+        if remote_pod.spec.containers[0].name != PEER_VM_PLACEHOLDER_CONTAINER:
+            # KPO pod is running as regular k8s pod, execute native implementation.
+            return f(self, pod, container_name, polling_time)
+
+        await_pod_endpoint_creation(self, pod, remote_pod)
+
+        while True:
+            container_statuses = get_peer_vm_pod_container_statuses(self, pod=pod)
+            container_status = next(c for c in container_statuses if c["container"] == container_name)
+            if container_status["state"] == "TERMINATED":
+                break
+
+            self.log.info("Waiting for container '%s' state to be completed", container_name)
+            time.sleep(polling_time)
 
     return wrapper

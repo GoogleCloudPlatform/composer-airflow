@@ -19,6 +19,7 @@ import json
 import logging
 import math
 import os
+import time
 from contextlib import closing
 from typing import TYPE_CHECKING
 
@@ -32,6 +33,7 @@ from websockets.streams import StreamReader
 
 from airflow.exceptions import AirflowException
 from airflow.providers.cncf.kubernetes.pod_generator import PodGenerator
+from airflow.providers.cncf.kubernetes.utils.pod_manager import PodPhase
 from airflow.providers.cncf.kubernetes.utils.xcom_sidecar import PodDefaults
 
 if TYPE_CHECKING:
@@ -343,3 +345,40 @@ def parse_payload_from_peer_vm_exec_response(response):
     ])
 
     return payload
+
+
+def await_pod_endpoint_creation(
+    self: PodManager, pod: V1Pod, remote_pod: V1Pod, raise_exception: bool = True
+):
+    """
+    Awaits creation of endpoint in PeerVM placeholder pod.
+
+    Placeholder pod can get to the 'Running' state but annotation with Peer VM endpoint may be absent,
+    this can happen (as observed) if VM is still being created. If annotation with Peer VM endpoint is
+    missing after while cycle, that means that placeholder pod changed its state to some other
+    than 'Running' (most likely some terminal state) without VM being finally successfully created.
+
+    Args:
+        self: instance of PodManager.
+        pod: k8s placeholder pod.
+        remote_pod: k8s placeholder pod.
+        raise_exception: Condition to raise exception in case of absent endpoint or log it.
+    Returns:
+        V1Pod or None.
+    """
+    while remote_pod.status.phase == PodPhase.RUNNING and not remote_pod.metadata.annotations.get(
+        PEER_VM_ENDPOINT_ANNOTATION
+    ):
+        self.log.info("Awaiting for pod to start execution")
+        time.sleep(5)
+        remote_pod = self.read_pod(pod)
+
+    peer_vm_endpoint = remote_pod.metadata.annotations.get(PEER_VM_ENDPOINT_ANNOTATION)
+
+    if peer_vm_endpoint is None and raise_exception:
+        raise AirflowException(f"Not found {PEER_VM_ENDPOINT_ANNOTATION} annotation for pod")
+    elif peer_vm_endpoint is None:
+        self.log.info("Not found %s annotation for pod", PEER_VM_ENDPOINT_ANNOTATION)
+        return
+
+    return remote_pod

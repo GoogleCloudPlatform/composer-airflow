@@ -10,10 +10,12 @@ from kubernetes.client import models as k8s
 from kubernetes.client.exceptions import ApiException
 
 from airflow.composer.kubernetes.utils import (
+    PEER_VM_ENDPOINT_ANNOTATION,
     PeerVmPlaceholderPodContainerNotFoundException,
     PeerVmPlaceholderPodShutDownException,
     _get_composer_serverless_machine_type,
     _get_composer_serverless_pod_metadata,
+    await_pod_endpoint_creation,
     exec_on_placeholder_pod,
     get_peer_vm_pod_container_statuses,
     is_kubernetes_pod_operator_base_container_terminated,
@@ -561,3 +563,93 @@ class TestUtils:
             parse_payload_from_peer_vm_exec_response(b"fgEBiAID6A==")
 
         assert str(exc.value) == "Unable to parse response from exec command: invalid opcode"
+
+    @mock.patch("airflow.composer.kubernetes.utils.time.sleep", autospec=True)
+    def test_await_pod_endpoint_creation_successful(self, time_sleep_mock):
+        pod_mock = mock.Mock()
+        remote_pod_mock = mock.Mock(
+            metadata=mock.Mock(annotations={}),
+            status=mock.Mock(phase="Running"),
+        )
+        result_mock = mock.Mock(
+            metadata=mock.Mock(annotations={PEER_VM_ENDPOINT_ANNOTATION: "test-endpoint"}),
+            status=mock.Mock(phase="Running"),
+        )
+
+        def read_pod_side_effect(pod):
+            assert pod == pod_mock
+            return result_mock
+
+        self_mock = mock.Mock(read_pod=mock.Mock(side_effect=read_pod_side_effect))
+
+        result = await_pod_endpoint_creation(self_mock, pod_mock, remote_pod_mock)
+
+        time_sleep_mock.assert_called_once_with(5)
+        assert result == result_mock
+
+    @mock.patch("airflow.composer.kubernetes.utils.time.sleep", autospec=True)
+    def test_await_pod_endpoint_creation_raise_exception(self, time_sleep_mock):
+        pod_mock = mock.Mock(
+            metadata=mock.Mock(annotations={}),
+            status=mock.Mock(phase="Running"),
+        )
+        remote_pod_mock = mock.Mock(
+            metadata=mock.Mock(annotations={}),
+            status=mock.Mock(phase="Running"),
+        )
+
+        def read_pod_side_effect(pod):
+            assert pod == pod_mock
+            read_pod_side_effect.call_counter += 1
+            assert read_pod_side_effect.call_counter <= 2
+
+            if read_pod_side_effect.call_counter == 1:
+                return pod_mock
+            if read_pod_side_effect.call_counter == 2:
+                new_pod_mock = mock.Mock(
+                    metadata=mock.Mock(annotations={}),
+                    status=mock.Mock(phase="Terminated"),
+                )
+                return new_pod_mock
+
+        read_pod_side_effect.call_counter = 0
+        self_mock = mock.Mock(read_pod=mock.Mock(side_effect=read_pod_side_effect))
+
+        with pytest.raises(AirflowException) as exc:
+            await_pod_endpoint_creation(self_mock, pod_mock, remote_pod_mock)
+
+        time_sleep_mock.assert_has_calls([mock.call(5), mock.call(5)])
+        assert str(exc.value) == f"Not found {PEER_VM_ENDPOINT_ANNOTATION} annotation for pod"
+
+    @mock.patch("airflow.composer.kubernetes.utils.time.sleep", autospec=True)
+    def test_await_pod_endpoint_creation_return_none(self, time_sleep_mock):
+        pod_mock = mock.Mock(
+            metadata=mock.Mock(annotations={}),
+            status=mock.Mock(phase="Running"),
+        )
+        remote_pod_mock = mock.Mock(
+            metadata=mock.Mock(annotations={}),
+            status=mock.Mock(phase="Running"),
+        )
+
+        def read_pod_side_effect(pod):
+            assert pod == pod_mock
+            read_pod_side_effect.call_counter += 1
+            assert read_pod_side_effect.call_counter <= 2
+
+            if read_pod_side_effect.call_counter == 1:
+                return pod_mock
+            if read_pod_side_effect.call_counter == 2:
+                new_pod_mock = mock.Mock(
+                    metadata=mock.Mock(annotations={}),
+                    status=mock.Mock(phase="Terminated"),
+                )
+                return new_pod_mock
+
+        read_pod_side_effect.call_counter = 0
+        self_mock = mock.Mock(read_pod=mock.Mock(side_effect=read_pod_side_effect))
+
+        result = await_pod_endpoint_creation(self_mock, pod_mock, remote_pod_mock, raise_exception=False)
+
+        time_sleep_mock.assert_has_calls([mock.call(5), mock.call(5)])
+        assert result is None
