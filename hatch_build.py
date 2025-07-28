@@ -501,9 +501,7 @@ DEPENDENCIES = [
 ]
 
 COMPOSER_DEPENDENCIES = [
-    # Beam provider 6.1.0 (next version) is not compatible with google provider 15.1.0. We should remove
-    # constraint from beam provider once google provider package is upgraded to 16.0.0+.
-    "apache-airflow-providers-apache-beam<=6.0.4",
+    "apache-airflow-providers-apache-beam",
     "apache-airflow-providers-apache-kafka",
     # Celery provider 3.9.0 breaks for airflow < 3, will be fixed in 3.9.1
     # TODO: Internal bug - Also Celery provider >3.10.0 breaks for Airflow <= 2.10.5
