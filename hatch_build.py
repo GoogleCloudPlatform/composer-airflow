@@ -501,7 +501,9 @@ DEPENDENCIES = [
 ]
 
 COMPOSER_DEPENDENCIES = [
-    "apache-airflow-providers-apache-beam",
+    # Beam provider 6.1.0 (next version) is not compatible with google provider 15.1.0. We should remove
+    # constraint from beam provider once google provider package is upgraded to 16.0.0+.
+    "apache-airflow-providers-apache-beam<=6.0.4",
     "apache-airflow-providers-apache-kafka",
     # Celery provider 3.9.0 breaks for airflow < 3, will be fixed in 3.9.1
     # TODO: Internal bug - Also Celery provider >3.10.0 breaks for Airflow <= 2.10.5
@@ -509,10 +511,12 @@ COMPOSER_DEPENDENCIES = [
     # In version 10.4.3 of the kubernetes provider community introduced AF 2.x.x incompatible import.
     # https://github.com/apache/airflow/pull/49186 But revert the changes in 10.5.0
     # https://github.com/apache/airflow/pull/50651
-    # TODO: Internal bug: Remove the "<10.6.0" constraint once the issue is resolved in Composer 3.
-    "apache-airflow-providers-cncf-kubernetes!=10.4.3,<10.6.0",
+    "apache-airflow-providers-cncf-kubernetes!=10.4.3",
     "apache-airflow-providers-dbt-cloud",
-    "apache-airflow-providers-google",
+    # Regressions identified in 16.0.0 and 16.1.0 Internal bug
+    # Remove the constraint once a fix is released, together with the
+    # apache-airflow-providers-apache-beam constraint.
+    "apache-airflow-providers-google<16.0.0",
     "apache-airflow-providers-hashicorp",
     "apache-airflow-providers-http",
     "apache-airflow-providers-mysql",
