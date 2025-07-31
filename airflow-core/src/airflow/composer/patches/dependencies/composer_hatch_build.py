@@ -68,6 +68,7 @@ COMPOSER_DEPENDENCIES = [
     "pipdeptree",
     "pygments>2.15.0",  # security vulnerabilities in lower versions.
     "pytest!=8.4.0",  # only as a constraint, https://github.com/pytest-dev/pytest/issues/13477.
+    "setuptools>=78.1.1",  # only as a constraint to avoid security vulnerabilities in lower versions.
     "sqlalchemy-spanner!=1.12.0",  # only as a constraint, https://github.com/googleapis/python-spanner-sqlalchemy/issues/682.
     "sqllineage",
     "sqlparse",
