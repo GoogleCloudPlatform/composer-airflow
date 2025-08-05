@@ -36,7 +36,6 @@ def patch_kubernetes_hook():
     from airflow.providers.cncf.kubernetes.hooks.kubernetes import KubernetesHook
 
     if not getattr(KubernetesHook.__init__, "_composer_patched", False):
-        log.info("Patching kubernetes hook init")
         KubernetesHook.__init__ = _composer_kubernetes_hook_init(KubernetesHook.__init__)
 
     if not getattr(KubernetesHook.get_conn, "_composer_patched", False):
@@ -49,16 +48,10 @@ def patch_define_container_state():
     from airflow.providers.cncf.kubernetes.triggers.pod import KubernetesPodTrigger
 
     if not getattr(KubernetesPodTrigger.define_container_state, "_composer_patched", False):
-        return
-
-    log.info("Patching define_container_state start")
-
-    KubernetesPodTrigger.define_container_state = _composer_define_container_state(
-        KubernetesPodTrigger.define_container_state
-    )
-
-    log.info("Patching define_container_state finish")
-    setattr(KubernetesPodTrigger.define_container_state, "_composer_patched", True)
+        KubernetesPodTrigger.define_container_state = _composer_define_container_state(
+            KubernetesPodTrigger.define_container_state
+        )
+        setattr(KubernetesPodTrigger.define_container_state, "_composer_patched", True)
 
 
 def _composer_kubernetes_hook_init(f):
