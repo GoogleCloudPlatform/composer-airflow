@@ -556,6 +556,7 @@ COMPOSER_DEPENDENCIES = [
     "google-cloud-firestore",
     "google-cloud-pubsublite<1.0.0",
     "keyrings.google-artifactregistry-auth",
+    "paramiko<=3.5.1",  # Only as a constraint
     "pip==23.2.1",
     "pyOpenSSL",
     "pipdeptree",
