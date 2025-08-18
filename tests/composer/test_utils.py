@@ -186,11 +186,25 @@ class TestUtils:
         with mock.patch("sys.argv", ["/opt/python3.11/bin/airflow", "triggerer"]):
             assert _is_triggerer_launch_command(sys_argv_command) == expected_result
 
+    @pytest.mark.parametrize(
+        "composer_version, patch_function_expected_calls_count",
+        [
+            ("2.1.10", 0),
+            ("3.0.1", 1),
+        ],
+    )
     @mock.patch("sys.argv", ["/opt/python3.11/bin/airflow", "triggerer"])
     @mock.patch("airflow.composer.kubernetes.trigger.patch_kubernetes_hook")
     @mock.patch("airflow.composer.kubernetes.trigger.patch_define_container_state")
-    def test_is_kpo_deferrable_patched(self, mock_container_state, kubernetes_hook_patch_mock):
-        initialize()
+    def test_is_kpo_deferrable_patched(
+        self,
+        mock_container_state,
+        kubernetes_hook_patch_mock,
+        composer_version,
+        patch_function_expected_calls_count,
+    ):
+        with mock.patch.dict("os.environ", {"COMPOSER_VERSION": composer_version}):
+            initialize()
 
-        mock_container_state.assert_called_once()
-        kubernetes_hook_patch_mock.assert_called_once()
+        assert mock_container_state.call_count == patch_function_expected_calls_count
+        assert kubernetes_hook_patch_mock.call_count == patch_function_expected_calls_count

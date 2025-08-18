@@ -69,6 +69,11 @@ def _composer_kubernetes_hook_init(f):
 def _composer_define_container_state(f):
     @functools.wraps(f)
     def wrapper(self, pod: V1Pod) -> ContainerState:
+        from airflow.providers.google.cloud.triggers.kubernetes_engine import GKEStartPodTrigger
+
+        if isinstance(self, GKEStartPodTrigger):
+            return f(self, pod)
+
         from airflow.providers.cncf.kubernetes.hooks.kubernetes import KubernetesHook
         from airflow.providers.cncf.kubernetes.utils.pod_manager import PodManager
 
@@ -85,7 +90,7 @@ def _composer_define_container_state(f):
             # KPO pod is running as regular k8s pod, execute native implementation.
             return f(self, pod)
 
-        await_pod_endpoint_creation(self, pod, remote_pod)
+        await_pod_endpoint_creation(pod_manager, pod, remote_pod)
 
         # If user's container had finished execution earlier than peer_vm_endpoint has been created,
         # then this function can't create a Handshake with PeerVM container and fails with error.

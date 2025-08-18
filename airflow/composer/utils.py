@@ -101,11 +101,15 @@ def initialize():
         # This line enables logging slow callbacks in triggers.
         aiodebug.log_slow_callbacks.enable(0.05)
 
-        # TODO: delete when community changes got released https://github.com/apache/airflow/pull/53126
-        from airflow.composer.kubernetes.trigger import patch_define_container_state, patch_kubernetes_hook
+        if is_serverless_composer():
+            # TODO: delete patch_kubernetes_hook when community changes got released https://github.com/apache/airflow/pull/53126
+            from airflow.composer.kubernetes.trigger import (
+                patch_define_container_state,
+                patch_kubernetes_hook,
+            )
 
-        patch_kubernetes_hook()
-        patch_define_container_state()
+            patch_kubernetes_hook()
+            patch_define_container_state()
 
 
 def get_locational_endpoint(service, location, version):
