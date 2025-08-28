@@ -1,0 +1,20 @@
+# This file contains constraints for python dependencies in Composer.
+#
+# These constraints are enforced only during preparation of the preinstalled
+# packages for Composer Airflow images. They are NOT enforced during
+# installation of custom python packages (python packages installed by customer
+# on top of preinstalled), meaning that customer can technically install
+# versions of the packages that do not satisfy constraints specified in this
+# file.
+#
+# SV - constraint(s) to avoid security vulnerabilities.
+aiohttp>=3.8.5  # SV
+Flask-Session<0.6.0  # TODO: remove once https://github.com/apache/airflow/issues/36897 is closed
+flower>=2.0.0  # SV
+pandas<=2.1.4  # some unit tests are failing for higher versions
+pygments>2.15.0  # SV
+pytest!=8.4.0  # https://github.com/pytest-dev/pytest/issues/13477
+setuptools>=78.1.1  # SV
+sqlalchemy-spanner!=1.12.0  # https://github.com/googleapis/python-spanner-sqlalchemy/issues/682
+virtualenv>=20.24.0  # SV
+werkzeug>=2.2.3  # SV

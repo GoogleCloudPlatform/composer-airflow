@@ -41,16 +41,11 @@ COMPOSER_DEPENDENCIES = [
     "apache-airflow-providers-standard",
     "apache-airflow-task-sdk",
     "aiodebug",
-    "aiohttp>=3.8.5",  # security vulnerabilities in lower versions.
     "confluent-kafka",
-    "crcmod<2.0",
     "cryptography",
     "dbt-bigquery",
     "dbt-core",
     "firebase-admin",
-    # TODO: remove once https://github.com/apache/airflow/issues/36897 is closed
-    "Flask-Session<0.6.0",
-    "flower>=2.0.0",  # security vulnerabilities in lower versions.
     "gcsfs",
     "google-apitools",
     "google-cloud-aiplatform[evaluation]",
@@ -60,22 +55,14 @@ COMPOSER_DEPENDENCIES = [
     "google-cloud-documentai",
     "google-cloud-filestore",
     "google-cloud-firestore",
-    "google-cloud-pubsublite<1.0.0",
+    "google-cloud-pubsublite",
     "keyrings.google-artifactregistry-auth",
-    "pandas<=2.1.4",  # only as a constraint, some unit tests are failing.
-    "pip==23.2.1",
     "pyOpenSSL",
     "pipdeptree",
-    "pygments>2.15.0",  # security vulnerabilities in lower versions.
-    "pytest!=8.4.0",  # only as a constraint, https://github.com/pytest-dev/pytest/issues/13477.
-    "setuptools>=78.1.1",  # only as a constraint to avoid security vulnerabilities in lower versions.
-    "sqlalchemy-spanner!=1.12.0",  # only as a constraint, https://github.com/googleapis/python-spanner-sqlalchemy/issues/682.
     "sqllineage",
     "sqlparse",
     "tensorflow",
-    "virtualenv>=20.24.0",  # security vulnerabilities in lower versions.
     "websockets",
-    "werkzeug>=2.2.3",  # security vulnerabilities in lower versions.
 ]
 
 # Composer dependencies that are not from pypi.org (from other repositories).
