@@ -12,6 +12,7 @@ aiohttp>=3.8.5  # SV
 Flask-Session<0.6.0  # TODO: remove once https://github.com/apache/airflow/issues/36897 is closed
 flower>=2.0.0  # SV
 pandas<=2.1.4  # some unit tests are failing for higher versions
+pip==23.2.1
 pygments>2.15.0  # SV
 pytest!=8.4.0  # https://github.com/pytest-dev/pytest/issues/13477
 setuptools>=78.1.1  # SV
