@@ -1430,7 +1430,18 @@ class SchedulerJobRunner(BaseJobRunner, LoggingMixin):
             and dag.dagrun_timeout
             and dag_run.start_date < timezone.utcnow() - dag.dagrun_timeout
         ):
-            dag_run.set_state(DagRunState.FAILED)
+            # Condition to prevent from emitting metrics twice in case of timed out DAG runs.
+            # For more information check Internal bug
+            timeout_tolerance = 2
+            emit_metrics = (
+                (timezone.utcnow() - dag_run.start_date).total_seconds() - dag.dagrun_timeout.total_seconds()
+                < timeout_tolerance
+            )
+            if emit_metrics:
+                dag_run.set_state(DagRunState.FAILED)
+            else:
+                dag_run.set_state(DagRunState.FAILED, emit_metrics=False)
+
             unfinished_task_instances = session.scalars(
                 select(TI)
                 .where(TI.dag_id == dag_run.dag_id)

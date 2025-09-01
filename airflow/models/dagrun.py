@@ -268,7 +268,7 @@ class DagRun(Base, LoggingMixin):
     def get_state(self):
         return self._state
 
-    def set_state(self, state: DagRunState) -> None:
+    def set_state(self, state: DagRunState, emit_metrics: bool = True) -> None:
         """Change the state of the DagRan.
 
         Changes to attributes are implemented in accordance with the following table
@@ -337,7 +337,7 @@ class DagRun(Base, LoggingMixin):
                 if state in State.finished_dr_states:
                     self.end_date = timezone.utcnow()
             self._state = state
-            if state in [*State.finished_dr_states, DagRunState.RUNNING]:
+            if state in [*State.finished_dr_states, DagRunState.RUNNING] and emit_metrics:
                 Stats.incr(f"workflow.count.{self.dag_id}@-@{state}", 1)
                 if self.start_date and state in State.finished_dr_states:
                     Stats.gauge(
