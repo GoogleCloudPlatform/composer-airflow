@@ -20,6 +20,7 @@ from unittest import mock
 
 from airflow.api_fastapi.app import get_auth_manager
 from airflow.composer.patches.rbac.utils import (
+    _decode_inverting_proxy_jwt_with_public_keys,
     decode_inverting_proxy_jwt,
     get_or_register_user,
 )
@@ -32,35 +33,45 @@ from tests_common.test_utils.config import conf_vars
 class TestUtils:
     @mock.patch("airflow.composer.patches.rbac.utils.google.auth.default", autospec=True)
     @mock.patch("airflow.composer.patches.rbac.utils.AuthorizedSession", autospec=True)
-    @mock.patch("airflow.composer.patches.rbac.utils.JWT_PUBLIC_KEY_URL", "test-public-key-url")
+    @mock.patch("airflow.composer.patches.rbac.utils.JWT_PUBLIC_KEYS_URL", "test-public-keys-url")
     @mock.patch("airflow.composer.patches.rbac.utils.INVERTING_PROXY_BACKEND_ID", "test-inverting-proxy-id")
-    def test_decode_inverting_proxy_jwt(self, authorized_session_mock, google_auth_default_mock):
+    @mock.patch(
+        "airflow.composer.patches.rbac.utils._decode_inverting_proxy_jwt_with_public_keys", autospec=True
+    )
+    def test_decode_inverting_proxy_jwt(
+        self,
+        decode_inverting_proxy_jwt_with_public_keys_mock,
+        authorized_session_mock,
+        google_auth_default_mock,
+    ):
         credentials_mock = mock.Mock()
         google_auth_default_mock.return_value = credentials_mock, mock.Mock()
         request_mock = mock.Mock(
             return_value=mock.Mock(
                 status_code=200,
-                text="""-----BEGIN PUBLIC KEY-----
-MIIBITANBgkqhkiG9w0BAQEFAAOCAQ4AMIIBCQKCAQBFS07s5fq4x0xFooSb9spu
-8PRBFhT1lTQo9+PBLznUVTdyPDO04eHMftgbCwAiCSWZ1COb9rTwFRkWL+TfXc2t
-Upxk/l8Mb9jkJtBQ/JOFJ9jk3lZ6T0mCl7Kann+9dVC18JhIQNbke08dJWTdxxqX
-8WcC++GGtBaQOrShWwQ6vnxItUeVSs/QFjKqr1KGemNhRdLqphcMoZ3UfoggYZ8p
-sxusuBu42fUEP9F0rRpbV81xEmK1Ib5tdZ65mW+Dy9jjIh2nzojgXTKiXjB56vDk
-N03Krbc3a4Rf9cxnGgo4gHEvY3bTb6ikqWQKJMaAtFJhz5gvXDzDHt1qso/okZE5
-AgMBAAE=
------END PUBLIC KEY-----
+                text="""-----BEGIN RSA PUBLIC KEY-----
+MIIBCgKCAQEAo32rqcefi9tzT+kiGCluSM3raFR+xZYLo3DcEJPHh+DMx8koTp0N
+rFs40FngwIwBiii0Vz/Pwnt/T2kpHAqbIniWSBHJnBcAEMmDSua4SV4Ho3JdBdy4
+Erq0VfmMmCa93CdbHeh8Enyj47VP8pRoqz1INoShlnFQ+nOkGeHm7/EM9PPBHkAw
+2KNWOk2QrVhO0OffhrgVA7bfrgLw1LnoB7DrE4eha0SJbxO2cNTDCvLtzNOIGJ7+
+0dk/i+Bo0UOX6dDn87C/sOwOwOumR6KnznH8n0ClCy6ImRfdx5Bk6iBKgc98jG0L
+DSGFOd9s7iFXBW5rlqywzGHrvT5i1beYKQIDAQAB
+-----END RSA PUBLIC KEY-----
+-----BEGIN RSA PUBLIC KEY-----
+MIIBCgKCAQEAwRFGqHPkc8hBegJrSiM+c5/ZydAmOA/Uvn2bSvFxd7e5BrXd+KCi
+rx0uB0qLtpafoOix+GWzS9baQY7TVouCDqbtjol8zRe34BYyBi7mg3ABHd5g8hcz
+TkWqnS2BUTu8Zby4MLPj/dQUerumGhrc7/yxU0ykgc4skJM4o6LzNp7zL+80J9z8
+Cw9VjyHc0o2cqenFk0JM1hGl9z2EpIu7XlQeCqO8qG79hKYCiLdF//jMvu0+h+A1
+MjsvaR+VsF91s8nLKQz5dTubiriq6QXLQbqteQM5Q3BpFMgwZsAiUeB2O9A04ptB
+0l8UDCnRwfkOOl+36xY14t8inOEhCYQMiQIDAQAB
+-----END RSA PUBLIC KEY-----
 """,
             )
         )
         authorized_session_mock.return_value = mock.Mock(request=request_mock)
+        decode_inverting_proxy_jwt_with_public_keys_mock.return_value = "test-decoded-result"
 
-        actual_result = decode_inverting_proxy_jwt(
-            "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0LXVzZXJuYW1lIiwiZW1haWwiOiJ0ZXN0LWVtYWlsIn0"
-            ".LrLq7-cR1ZULO4iDck0w4DvfVMq3la23AFhsXLzv261F5iee2cX0IHxGbt5eKqpIOQQuQkAj6YjOYJGVeA95nstN0XygfFy"
-            "J_Oc1KXyJz5ExGpRx_pjLvBDcxBjr6V2mDr8ssCXeT9IKLDHJ6soEp7ReWg5BPkv_fhsoXnMfSVimjTSLZo_W8uiKtUlXaNv"
-            "vvGYWYepBgAEBjz4BS_U4MoYirK1OL_vp6r0Qpsu0Bra6KTMkTm5sVtrN3gcB4XCksYUkElHjbCcrQBKnqptijhb64xHAvMC"
-            "KCHaHXzVNqeOdlQK0lm72esWf1gMnKbeDopbe-SU8NRi2DKK3Q-4EKw"
-        )
+        actual_result = decode_inverting_proxy_jwt("test-jwt")
 
         google_auth_default_mock.assert_called_once_with(
             scopes=["https://www.googleapis.com/auth/cloud-platform"]
@@ -68,83 +79,46 @@ AgMBAAE=
         authorized_session_mock.assert_called_once_with(credentials_mock)
         request_mock.assert_called_once_with(
             "GET",
-            "test-public-key-url",
+            "test-public-keys-url",
             headers={
                 "X-Inverting-Proxy-Backend-ID": "test-inverting-proxy-id",
             },
         )
-        assert actual_result == {
-            "username": "test-username",
-            "email": "test-email",
-        }
+        decode_inverting_proxy_jwt_with_public_keys_mock.assert_called_once_with(
+            "test-jwt",
+            [
+                """-----BEGIN RSA PUBLIC KEY-----
+MIIBCgKCAQEAo32rqcefi9tzT+kiGCluSM3raFR+xZYLo3DcEJPHh+DMx8koTp0N
+rFs40FngwIwBiii0Vz/Pwnt/T2kpHAqbIniWSBHJnBcAEMmDSua4SV4Ho3JdBdy4
+Erq0VfmMmCa93CdbHeh8Enyj47VP8pRoqz1INoShlnFQ+nOkGeHm7/EM9PPBHkAw
+2KNWOk2QrVhO0OffhrgVA7bfrgLw1LnoB7DrE4eha0SJbxO2cNTDCvLtzNOIGJ7+
+0dk/i+Bo0UOX6dDn87C/sOwOwOumR6KnznH8n0ClCy6ImRfdx5Bk6iBKgc98jG0L
+DSGFOd9s7iFXBW5rlqywzGHrvT5i1beYKQIDAQAB
+-----END RSA PUBLIC KEY-----\n""",
+                """-----BEGIN RSA PUBLIC KEY-----
+MIIBCgKCAQEAwRFGqHPkc8hBegJrSiM+c5/ZydAmOA/Uvn2bSvFxd7e5BrXd+KCi
+rx0uB0qLtpafoOix+GWzS9baQY7TVouCDqbtjol8zRe34BYyBi7mg3ABHd5g8hcz
+TkWqnS2BUTu8Zby4MLPj/dQUerumGhrc7/yxU0ykgc4skJM4o6LzNp7zL+80J9z8
+Cw9VjyHc0o2cqenFk0JM1hGl9z2EpIu7XlQeCqO8qG79hKYCiLdF//jMvu0+h+A1
+MjsvaR+VsF91s8nLKQz5dTubiriq6QXLQbqteQM5Q3BpFMgwZsAiUeB2O9A04ptB
+0l8UDCnRwfkOOl+36xY14t8inOEhCYQMiQIDAQAB
+-----END RSA PUBLIC KEY-----\n""",
+            ],
+        )
+        assert actual_result == "test-decoded-result"
 
     @mock.patch("airflow.composer.patches.rbac.utils.google.auth.default", autospec=True)
     @mock.patch("airflow.composer.patches.rbac.utils.AuthorizedSession", autospec=True)
-    @mock.patch("airflow.composer.patches.rbac.utils.JWT_PUBLIC_KEY_URL", "test-public-key-url")
-    @mock.patch("airflow.composer.patches.rbac.utils.INVERTING_PROXY_BACKEND_ID", "test-inverting-proxy-id")
-    def test_decode_inverting_proxy_jwt_principal(self, authorized_session_mock, google_auth_default_mock):
-        credentials_mock = mock.Mock()
-        google_auth_default_mock.return_value = credentials_mock, mock.Mock()
-        request_mock = mock.Mock(
-            return_value=mock.Mock(
-                status_code=200,
-                text="""-----BEGIN PUBLIC KEY-----
-MIIBITANBgkqhkiG9w0BAQEFAAOCAQ4AMIIBCQKCAQBFS07s5fq4x0xFooSb9spu
-8PRBFhT1lTQo9+PBLznUVTdyPDO04eHMftgbCwAiCSWZ1COb9rTwFRkWL+TfXc2t
-Upxk/l8Mb9jkJtBQ/JOFJ9jk3lZ6T0mCl7Kann+9dVC18JhIQNbke08dJWTdxxqX
-8WcC++GGtBaQOrShWwQ6vnxItUeVSs/QFjKqr1KGemNhRdLqphcMoZ3UfoggYZ8p
-sxusuBu42fUEP9F0rRpbV81xEmK1Ib5tdZ65mW+Dy9jjIh2nzojgXTKiXjB56vDk
-N03Krbc3a4Rf9cxnGgo4gHEvY3bTb6ikqWQKJMaAtFJhz5gvXDzDHt1qso/okZE5
-AgMBAAE=
------END PUBLIC KEY-----
-""",
-            )
-        )
-        authorized_session_mock.return_value = mock.Mock(request=request_mock)
-
-        actual_result = decode_inverting_proxy_jwt(
-            "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0LXVzZXJuYW1lIiwicHJpbmNpcGFsIjoidGVzdC1wcml"
-            "uY2lwYWwifQ.PUtKgAqCoAERFqGSnTlXY_XuhegmFbSqhWznRa28G-qKeKoZN9sJwSwW1bWDiyf3IIXatUR-3OTpkl1oMHjh"
-            "3flhRX65Q5CxfPbXL2BYaCV09RrV29en2DgFu_K4ENepRZabziRvWGwkIoUIuzdcY1KAxjQoJhChlnvvl7bISgo3zse6gS81"
-            "_jXkfZ3bmSFPP1KABPA_RKCb5KovZEziTTIFXrAUNsO6RzJFyFGUBey8gaQM5rbgBafalwduO1wJNnQz57to2Ca3zmoQ5X4m"
-            "1THJEt-UBTOhyZ7vL3_tsJ7D2JIFET4bMGGCxL6zsntw-CNSsu16mLvyRbXPt2firg"
-        )
-
-        google_auth_default_mock.assert_called_once_with(
-            scopes=["https://www.googleapis.com/auth/cloud-platform"]
-        )
-        authorized_session_mock.assert_called_once_with(credentials_mock)
-        request_mock.assert_called_once_with(
-            "GET",
-            "test-public-key-url",
-            headers={
-                "X-Inverting-Proxy-Backend-ID": "test-inverting-proxy-id",
-            },
-        )
-        assert actual_result == {
-            "username": "test-username",
-            "email": "test-principal",
-        }
-
-    @mock.patch("airflow.composer.patches.rbac.utils.google.auth.default", autospec=True)
-    @mock.patch("airflow.composer.patches.rbac.utils.AuthorizedSession", autospec=True)
-    def test_decode_inverting_proxy_jwt_public_key_not_fetched(
-        self, authorized_session_mock, google_auth_default_mock
+    def test_decode_inverting_proxy_jwt_public_keys_not_fetched(
+        self,
+        authorized_session_mock,
+        google_auth_default_mock,
     ):
         google_auth_default_mock.return_value = mock.Mock(), mock.Mock()
-        authorized_session_mock.return_value = mock.Mock(
-            request=mock.Mock(return_value=mock.Mock(status_code=500))
-        )
+        request_mock = mock.Mock(return_value=mock.Mock(status_code=500))
+        authorized_session_mock.return_value = mock.Mock(request=request_mock)
 
-        actual_result = decode_inverting_proxy_jwt("aaa")
-
-        assert actual_result is None
-
-    @mock.patch("airflow.composer.patches.rbac.utils.google.auth.default", autospec=True)
-    def test_decode_inverting_proxy_jwt_exception(self, google_auth_default_mock):
-        google_auth_default_mock.return_value = ValueError("error")
-
-        actual_result = decode_inverting_proxy_jwt("aaa")
+        actual_result = decode_inverting_proxy_jwt("test-jwt")
 
         assert actual_result is None
 
@@ -246,3 +220,37 @@ AgMBAAE=
         actual_user = get_or_register_user(username=username, email=email)
 
         assert actual_user is None
+
+    def test_decode_inverting_proxy_jwt_with_public_keys(self):
+        inverting_proxy_jwt = (
+            "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0LXVzZXJuYW1lIiwiZW1haWwiOiJ0ZXN0LWVtYWlsIn0"
+            ".LrLq7-cR1ZULO4iDck0w4DvfVMq3la23AFhsXLzv261F5iee2cX0IHxGbt5eKqpIOQQuQkAj6YjOYJGVeA95nstN0XygfFy"
+            "J_Oc1KXyJz5ExGpRx_pjLvBDcxBjr6V2mDr8ssCXeT9IKLDHJ6soEp7ReWg5BPkv_fhsoXnMfSVimjTSLZo_W8uiKtUlXaNv"
+            "vvGYWYepBgAEBjz4BS_U4MoYirK1OL_vp6r0Qpsu0Bra6KTMkTm5sVtrN3gcB4XCksYUkElHjbCcrQBKnqptijhb64xHAvMC"
+            "KCHaHXzVNqeOdlQK0lm72esWf1gMnKbeDopbe-SU8NRi2DKK3Q-4EKw"
+        )
+        public_keys = [
+            "incorrect-public-key",
+            """-----BEGIN PUBLIC KEY-----
+MIIBITANBgkqhkiG9w0BAQEFAAOCAQ4AMIIBCQKCAQBFS07s5fq4x0xFooSb9spu
+8PRBFhT1lTQo9+PBLznUVTdyPDO04eHMftgbCwAiCSWZ1COb9rTwFRkWL+TfXc2t
+Upxk/l8Mb9jkJtBQ/JOFJ9jk3lZ6T0mCl7Kann+9dVC18JhIQNbke08dJWTdxxqX
+8WcC++GGtBaQOrShWwQ6vnxItUeVSs/QFjKqr1KGemNhRdLqphcMoZ3UfoggYZ8p
+sxusuBu42fUEP9F0rRpbV81xEmK1Ib5tdZ65mW+Dy9jjIh2nzojgXTKiXjB56vDk
+N03Krbc3a4Rf9cxnGgo4gHEvY3bTb6ikqWQKJMaAtFJhz5gvXDzDHt1qso/okZE5
+AgMBAAE=
+-----END PUBLIC KEY-----
+""",
+        ]
+
+        actual_result = _decode_inverting_proxy_jwt_with_public_keys(inverting_proxy_jwt, public_keys)
+
+        assert actual_result == {
+            "username": "test-username",
+            "email": "test-email",
+        }
+
+    def test_decode_inverting_proxy_jwt_with_public_keys_incorrect_public_keys(self):
+        actual_result = _decode_inverting_proxy_jwt_with_public_keys("test-jwt", ["incorrect-public-key"])
+
+        assert actual_result is None

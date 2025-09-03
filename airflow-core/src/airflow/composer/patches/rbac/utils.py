@@ -18,13 +18,14 @@ import logging
 
 import google.auth
 import jwt
+import pem
 from google.auth.transport.requests import AuthorizedSession
 from tenacity import retry, retry_if_result, stop_after_attempt
 
 from airflow.api_fastapi.app import get_auth_manager
 from airflow.configuration import conf
 
-JWT_PUBLIC_KEY_URL = conf.get("webserver", "jwt_public_key_url", fallback="")
+JWT_PUBLIC_KEYS_URL = conf.get("webserver", "jwt_public_keys_url", fallback="")
 INVERTING_PROXY_BACKEND_ID_REQUEST_HEADER = "X-Inverting-Proxy-Backend-ID"
 INVERTING_PROXY_BACKEND_ID = conf.get("webserver", "inverting_proxy_backend_id", fallback="")
 RBAC_USER_REGISTRATION_ROLE = conf.get("webserver", "rbac_user_registration_role", fallback="")
@@ -34,29 +35,21 @@ log = logging.getLogger(__name__)
 
 def decode_inverting_proxy_jwt(inverting_proxy_jwt):
     """Retrieve and return username and email from decoded Inverting Proxy JWT."""
-    try:
-        credentials, _ = google.auth.default(scopes=["https://www.googleapis.com/auth/cloud-platform"])
-        authed_session = AuthorizedSession(credentials)
+    credentials, _ = google.auth.default(scopes=["https://www.googleapis.com/auth/cloud-platform"])
+    authed_session = AuthorizedSession(credentials)
 
-        response = authed_session.request(
-            "GET",
-            JWT_PUBLIC_KEY_URL,
-            headers={INVERTING_PROXY_BACKEND_ID_REQUEST_HEADER: INVERTING_PROXY_BACKEND_ID},
-        )
-        if response.status_code != 200:
-            log.error("Failed to fetch public key for JWT verification, status: %s", response.status_code)
-            return None
-
-        public_key = response.text
-        decoded_jwt = jwt.decode(inverting_proxy_jwt, public_key, algorithms=["RS256"])
-
-        return {
-            "username": decoded_jwt["sub"],
-            "email": decoded_jwt["email"] if "email" in decoded_jwt else decoded_jwt["principal"],
-        }
-    except Exception as e:
-        log.error("JWT verification error: %s", e)
+    log.debug("Fetching public keys for JWT verification")
+    response = authed_session.request(
+        "GET",
+        JWT_PUBLIC_KEYS_URL,
+        headers={INVERTING_PROXY_BACKEND_ID_REQUEST_HEADER: INVERTING_PROXY_BACKEND_ID},
+    )
+    if response.status_code != 200:
+        log.error("Failed to fetch public keys for JWT verification, status: %s", response.status_code)
         return None
+
+    public_keys = [str(key) for key in pem.parse(response.text)]
+    return _decode_inverting_proxy_jwt_with_public_keys(inverting_proxy_jwt, public_keys)
 
 
 # On the very first login of a user to Airflow UI, there might be a possible race condition when multiple
@@ -73,7 +66,7 @@ def decode_inverting_proxy_jwt(inverting_proxy_jwt):
     retry_error_callback=lambda retry_state: retry_state.outcome.result(),
 )
 def get_or_register_user(username, email):
-    """Return user. If user is not yet registered, register and return it."""
+    """Return user by given username and email. If user is not yet registered, register and return it."""
     appbuilder = get_auth_manager().appbuilder
     user = appbuilder.sm.find_user(username=username)
 
@@ -93,3 +86,33 @@ def get_or_register_user(username, email):
         appbuilder.sm.update_user_auth_stat(user)
 
     return user
+
+
+def _decode_inverting_proxy_jwt_with_public_keys(inverting_proxy_jwt, public_keys):
+    """
+    Decode Inverting Proxy JWT with given public keys.
+
+    Args:
+        inverting_proxy_jwt: encoded JWT.
+        public_keys: list of public key strings in the PEM file format.
+
+    Returns:
+      dictionary with decoded JWT payload or None if none of the given public keys couldn't successfully
+      verify the JWT signature.
+    """
+    for ind, public_key in enumerate(public_keys):
+        log.debug("Trying to decode jwt with public key, ind=%s", ind)
+        try:
+            decoded_jwt = jwt.decode(inverting_proxy_jwt, public_key, algorithms=["RS256"])
+        except Exception:
+            continue
+        else:
+            break
+    else:
+        log.error("JWT verification error with every public key")
+        return None
+
+    return {
+        "username": decoded_jwt["sub"],
+        "email": decoded_jwt["email"] if "email" in decoded_jwt else decoded_jwt["principal"],
+    }
