@@ -203,3 +203,46 @@ AgMBAAE=
         actual_user = get_or_register_user(username=username + "2", email=email)
 
         assert actual_user is None
+
+    @conf_vars(
+        {("core", "auth_manager"): "airflow.composer.patches.rbac.composer_auth_manager.ComposerAuthManager"}
+    )
+    @mock.patch(
+        "airflow.providers.fab.auth_manager.security_manager.override.FabAirflowSecurityManagerOverride.add_user",
+        autospec=True,
+    )
+    @mock.patch(
+        "airflow.providers.fab.auth_manager.security_manager.override.FabAirflowSecurityManagerOverride.update_user_auth_stat",
+        autospec=True,
+    )
+    def test_get_or_register_user_retry_successful(self, update_user_auth_stat_mock, add_user_mock):
+        create_app(enable_plugins=False)
+        user_mock = mock.Mock()
+        add_user_mock.side_effect = [False, user_mock]
+        username = "".join(random.choice(string.ascii_uppercase) for _ in range(6))
+        email = f"{username}@google.com"
+
+        actual_user = get_or_register_user(username=username, email=email)
+
+        assert actual_user == user_mock
+
+    @conf_vars(
+        {("core", "auth_manager"): "airflow.composer.patches.rbac.composer_auth_manager.ComposerAuthManager"}
+    )
+    @mock.patch(
+        "airflow.providers.fab.auth_manager.security_manager.override.FabAirflowSecurityManagerOverride.add_user",
+        autospec=True,
+    )
+    @mock.patch(
+        "airflow.providers.fab.auth_manager.security_manager.override.FabAirflowSecurityManagerOverride.update_user_auth_stat",
+        autospec=True,
+    )
+    def test_get_or_register_user_retry_unsuccessful(self, update_user_auth_stat_mock, add_user_mock):
+        create_app(enable_plugins=False)
+        add_user_mock.return_value = False
+        username = "".join(random.choice(string.ascii_uppercase) for _ in range(6))
+        email = f"{username}@google.com"
+
+        actual_user = get_or_register_user(username=username, email=email)
+
+        assert actual_user is None

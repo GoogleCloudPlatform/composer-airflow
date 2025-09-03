@@ -19,6 +19,7 @@ import logging
 import google.auth
 import jwt
 from google.auth.transport.requests import AuthorizedSession
+from tenacity import retry, retry_if_result, stop_after_attempt
 
 from airflow.api_fastapi.app import get_auth_manager
 from airflow.configuration import conf
@@ -58,6 +59,19 @@ def decode_inverting_proxy_jwt(inverting_proxy_jwt):
         return None
 
 
+# On the very first login of a user to Airflow UI, there might be a possible race condition when multiple
+# API requests come in parallel. On every request this method:
+# - checks if a user is already registered
+# - if not, registers user
+# If two requests check at the same time that user is not yet registered, then they will try both to
+# register them and one of them will fail. Retrying this method, will make sure that both requests will be
+# successful in case of such race condition.
+@retry(
+    retry=retry_if_result(lambda user: user is None),  # Retry if the result is None.
+    stop=stop_after_attempt(2),  # Two attempts is enough to overcome mentioned above race condition.
+    # Return result of the method instead of raising RetryError exception after two attempts.
+    retry_error_callback=lambda retry_state: retry_state.outcome.result(),
+)
 def get_or_register_user(username, email):
     """Return user. If user is not yet registered, register and return it."""
     appbuilder = get_auth_manager().appbuilder
