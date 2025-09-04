@@ -21,12 +21,22 @@ import pytest
 from fastapi import HTTPException, status
 
 from airflow.api_fastapi.app import get_auth_manager
+from airflow.composer.patches.rbac.composer_airflow_security_manager import ComposerAirflowSecurityManager
 from airflow.providers.fab.www.app import create_app
 
 from tests_common.test_utils.config import conf_vars
 
 
 class TestComposerAuthManager:
+    @conf_vars(
+        {("core", "auth_manager"): "airflow.composer.patches.rbac.composer_auth_manager.ComposerAuthManager"}
+    )
+    def test_security_manager(self):
+        create_app(enable_plugins=False)
+        am = get_auth_manager()
+
+        assert isinstance(am.security_manager, ComposerAirflowSecurityManager)
+
     @conf_vars(
         {("core", "auth_manager"): "airflow.composer.patches.rbac.composer_auth_manager.ComposerAuthManager"}
     )

@@ -28,6 +28,7 @@ from airflow.configuration import conf
 JWT_PUBLIC_KEYS_URL = conf.get("webserver", "jwt_public_keys_url", fallback="")
 INVERTING_PROXY_BACKEND_ID_REQUEST_HEADER = "X-Inverting-Proxy-Backend-ID"
 INVERTING_PROXY_BACKEND_ID = conf.get("webserver", "inverting_proxy_backend_id", fallback="")
+INVERTING_PROXY_USER_ID_REQUEST_HEADER = "X-Inverting-Proxy-User-ID"
 RBAC_USER_REGISTRATION_ROLE = conf.get("webserver", "rbac_user_registration_role", fallback="")
 
 log = logging.getLogger(__name__)

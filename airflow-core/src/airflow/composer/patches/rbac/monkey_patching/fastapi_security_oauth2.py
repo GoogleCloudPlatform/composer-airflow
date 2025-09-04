@@ -20,10 +20,10 @@ from typing import TYPE_CHECKING
 
 from fastapi.security.oauth2 import OAuth2PasswordBearer
 
+from airflow.composer.patches.rbac.utils import INVERTING_PROXY_USER_ID_REQUEST_HEADER
+
 if TYPE_CHECKING:
     from fastapi import Request
-
-INVERTING_PROXY_USER_ID_REQUEST_HEADER = "X-Inverting-Proxy-User-ID"
 
 
 def patch():

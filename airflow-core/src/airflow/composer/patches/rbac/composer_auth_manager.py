@@ -14,8 +14,11 @@
 # limitations under the License.
 from __future__ import annotations
 
+from functools import cached_property
+
 from fastapi import HTTPException, status
 
+from airflow.composer.patches.rbac.composer_airflow_security_manager import ComposerAirflowSecurityManager
 from airflow.composer.patches.rbac.utils import (
     decode_inverting_proxy_jwt,
     get_or_register_user,
@@ -25,6 +28,10 @@ from airflow.providers.fab.auth_manager.fab_auth_manager import FabAuthManager
 
 class ComposerAuthManager(FabAuthManager):
     """FAB Auth Manager adjusted per Composer needs."""
+
+    @cached_property
+    def security_manager(self):
+        return ComposerAirflowSecurityManager(self.appbuilder)
 
     async def get_user_from_token(self, token):
         """Retrieve and return a user by given token."""
