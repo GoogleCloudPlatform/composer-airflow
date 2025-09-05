@@ -59,6 +59,14 @@ class ComposerAuthRemoteUserView(AuthRemoteUserView):
         get_flashed_messages()
         return self._redirect_back()
 
+    @expose("/logout/")
+    def logout(self):
+        response = super().logout()
+        # Delete DATALAB_TUNNEL_TOKEN cookie to force user visit page with Google account selection.
+        response.delete_cookie("DATALAB_TUNNEL_TOKEN")
+
+        return response
+
     def _redirect_back(self):
         """Redirect to the originally requested URL."""
         next_url = request.args.get("next")

@@ -173,3 +173,26 @@ class TestComposerAuthRemoteUserView:
 
         assert response.status_code == 401
         assert response.text == "Not authorized - unable to register or inactive user"
+
+    @conf_vars(
+        {("core", "auth_manager"): "airflow.composer.patches.rbac.composer_auth_manager.ComposerAuthManager"}
+    )
+    def test_logout(self):
+        app = create_app(enable_plugins=False)
+        client = app.test_client()
+
+        response = client.get("/logout/")
+
+        assert response.status_code == 302
+        assert response.location == "/"
+        # Check that response has header to delete DATALAB_TUNNEL_TOKEN cookie.
+        assert any(
+            map(
+                lambda h: h
+                == (
+                    "Set-Cookie",
+                    "DATALAB_TUNNEL_TOKEN=; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Max-Age=0; Path=/",
+                ),
+                response.headers,
+            )
+        )
