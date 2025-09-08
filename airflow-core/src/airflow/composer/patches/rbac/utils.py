@@ -33,9 +33,22 @@ RBAC_USER_REGISTRATION_ROLE = conf.get("webserver", "rbac_user_registration_role
 
 log = logging.getLogger(__name__)
 
+# Cached list of public keys to decode Inverting Proxy JWT.
+JWT_PUBLIC_KEYS = None
+
 
 def decode_inverting_proxy_jwt(inverting_proxy_jwt):
     """Retrieve and return username and email from decoded Inverting Proxy JWT."""
+    global JWT_PUBLIC_KEYS
+
+    if JWT_PUBLIC_KEYS is not None:
+        # Try to decode with cached public keys. If decoding fails, then fallback to regular path with
+        # fetching public keys from Inverting Proxy endpoint.
+        log.debug("Decoding JWT with cached public keys")
+        result = _decode_inverting_proxy_jwt_with_public_keys(inverting_proxy_jwt, JWT_PUBLIC_KEYS)
+        if result is not None:
+            return result
+
     credentials, _ = google.auth.default(scopes=["https://www.googleapis.com/auth/cloud-platform"])
     authed_session = AuthorizedSession(credentials)
 
@@ -49,8 +62,8 @@ def decode_inverting_proxy_jwt(inverting_proxy_jwt):
         log.error("Failed to fetch public keys for JWT verification, status: %s", response.status_code)
         return None
 
-    public_keys = [str(key) for key in pem.parse(response.text)]
-    return _decode_inverting_proxy_jwt_with_public_keys(inverting_proxy_jwt, public_keys)
+    JWT_PUBLIC_KEYS = [str(key) for key in pem.parse(response.text)]
+    return _decode_inverting_proxy_jwt_with_public_keys(inverting_proxy_jwt, JWT_PUBLIC_KEYS)
 
 
 # On the very first login of a user to Airflow UI, there might be a possible race condition when multiple

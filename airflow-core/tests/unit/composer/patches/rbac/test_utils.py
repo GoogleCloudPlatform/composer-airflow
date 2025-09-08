@@ -19,6 +19,7 @@ import string
 from unittest import mock
 
 from airflow.api_fastapi.app import get_auth_manager
+from airflow.composer.patches.rbac import utils as rbac_utils
 from airflow.composer.patches.rbac.utils import (
     _decode_inverting_proxy_jwt_with_public_keys,
     decode_inverting_proxy_jwt,
@@ -121,6 +122,135 @@ MjsvaR+VsF91s8nLKQz5dTubiriq6QXLQbqteQM5Q3BpFMgwZsAiUeB2O9A04ptB
         actual_result = decode_inverting_proxy_jwt("test-jwt")
 
         assert actual_result is None
+
+    @mock.patch("airflow.composer.patches.rbac.utils.google.auth.default", autospec=True)
+    @mock.patch("airflow.composer.patches.rbac.utils.AuthorizedSession", autospec=True)
+    @mock.patch(
+        "airflow.composer.patches.rbac.utils._decode_inverting_proxy_jwt_with_public_keys", autospec=True
+    )
+    def test_decode_inverting_proxy_jwt_public_keys_cached(
+        self,
+        decode_inverting_proxy_jwt_with_public_keys_mock,
+        authorized_session_mock,
+        google_auth_default_mock,
+    ):
+        google_auth_default_mock.return_value = mock.Mock(), mock.Mock()
+        request_mock = mock.Mock(
+            return_value=mock.Mock(
+                status_code=200,
+                text="""-----BEGIN RSA PUBLIC KEY-----
+MIIBCgKCAQEAo32rqcefi9tzT+kiGCluSM3raFR+xZYLo3DcEJPHh+DMx8koTp0N
+rFs40FngwIwBiii0Vz/Pwnt/T2kpHAqbIniWSBHJnBcAEMmDSua4SV4Ho3JdBdy4
+Erq0VfmMmCa93CdbHeh8Enyj47VP8pRoqz1INoShlnFQ+nOkGeHm7/EM9PPBHkAw
+2KNWOk2QrVhO0OffhrgVA7bfrgLw1LnoB7DrE4eha0SJbxO2cNTDCvLtzNOIGJ7+
+0dk/i+Bo0UOX6dDn87C/sOwOwOumR6KnznH8n0ClCy6ImRfdx5Bk6iBKgc98jG0L
+DSGFOd9s7iFXBW5rlqywzGHrvT5i1beYKQIDAQAB
+-----END RSA PUBLIC KEY-----
+-----BEGIN RSA PUBLIC KEY-----
+MIIBCgKCAQEAwRFGqHPkc8hBegJrSiM+c5/ZydAmOA/Uvn2bSvFxd7e5BrXd+KCi
+rx0uB0qLtpafoOix+GWzS9baQY7TVouCDqbtjol8zRe34BYyBi7mg3ABHd5g8hcz
+TkWqnS2BUTu8Zby4MLPj/dQUerumGhrc7/yxU0ykgc4skJM4o6LzNp7zL+80J9z8
+Cw9VjyHc0o2cqenFk0JM1hGl9z2EpIu7XlQeCqO8qG79hKYCiLdF//jMvu0+h+A1
+MjsvaR+VsF91s8nLKQz5dTubiriq6QXLQbqteQM5Q3BpFMgwZsAiUeB2O9A04ptB
+0l8UDCnRwfkOOl+36xY14t8inOEhCYQMiQIDAQAB
+-----END RSA PUBLIC KEY-----
+""",
+            )
+        )
+        authorized_session_mock.return_value = mock.Mock(request=request_mock)
+        rbac_utils.JWT_PUBLIC_KEYS = None
+
+        decode_inverting_proxy_jwt("test-jwt")
+
+        assert rbac_utils.JWT_PUBLIC_KEYS == [
+            """-----BEGIN RSA PUBLIC KEY-----
+MIIBCgKCAQEAo32rqcefi9tzT+kiGCluSM3raFR+xZYLo3DcEJPHh+DMx8koTp0N
+rFs40FngwIwBiii0Vz/Pwnt/T2kpHAqbIniWSBHJnBcAEMmDSua4SV4Ho3JdBdy4
+Erq0VfmMmCa93CdbHeh8Enyj47VP8pRoqz1INoShlnFQ+nOkGeHm7/EM9PPBHkAw
+2KNWOk2QrVhO0OffhrgVA7bfrgLw1LnoB7DrE4eha0SJbxO2cNTDCvLtzNOIGJ7+
+0dk/i+Bo0UOX6dDn87C/sOwOwOumR6KnznH8n0ClCy6ImRfdx5Bk6iBKgc98jG0L
+DSGFOd9s7iFXBW5rlqywzGHrvT5i1beYKQIDAQAB
+-----END RSA PUBLIC KEY-----\n""",
+            """-----BEGIN RSA PUBLIC KEY-----
+MIIBCgKCAQEAwRFGqHPkc8hBegJrSiM+c5/ZydAmOA/Uvn2bSvFxd7e5BrXd+KCi
+rx0uB0qLtpafoOix+GWzS9baQY7TVouCDqbtjol8zRe34BYyBi7mg3ABHd5g8hcz
+TkWqnS2BUTu8Zby4MLPj/dQUerumGhrc7/yxU0ykgc4skJM4o6LzNp7zL+80J9z8
+Cw9VjyHc0o2cqenFk0JM1hGl9z2EpIu7XlQeCqO8qG79hKYCiLdF//jMvu0+h+A1
+MjsvaR+VsF91s8nLKQz5dTubiriq6QXLQbqteQM5Q3BpFMgwZsAiUeB2O9A04ptB
+0l8UDCnRwfkOOl+36xY14t8inOEhCYQMiQIDAQAB
+-----END RSA PUBLIC KEY-----\n""",
+        ]
+
+    @mock.patch(
+        "airflow.composer.patches.rbac.utils._decode_inverting_proxy_jwt_with_public_keys", autospec=True
+    )
+    def test_decode_inverting_proxy_jwt_cached_public_keys_used_successfully(
+        self,
+        decode_inverting_proxy_jwt_with_public_keys_mock,
+    ):
+        rbac_utils.JWT_PUBLIC_KEYS = ["public-key-1", "public-key-2"]
+        decode_inverting_proxy_jwt_with_public_keys_mock.return_value = "test-decode-response"
+
+        actual_result = decode_inverting_proxy_jwt("test-jwt")
+
+        decode_inverting_proxy_jwt_with_public_keys_mock.assert_called_once_with(
+            "test-jwt", ["public-key-1", "public-key-2"]
+        )
+        assert actual_result == "test-decode-response"
+
+    @mock.patch("airflow.composer.patches.rbac.utils.google.auth.default", autospec=True)
+    @mock.patch("airflow.composer.patches.rbac.utils.AuthorizedSession", autospec=True)
+    @mock.patch(
+        "airflow.composer.patches.rbac.utils._decode_inverting_proxy_jwt_with_public_keys", autospec=True
+    )
+    def test_decode_inverting_proxy_jwt_cached_public_keys_used_unsuccessfully(
+        self,
+        decode_inverting_proxy_jwt_with_public_keys_mock,
+        authorized_session_mock,
+        google_auth_default_mock,
+    ):
+        rbac_utils.JWT_PUBLIC_KEYS = ["public-key-1", "public-key-2"]
+        decode_inverting_proxy_jwt_with_public_keys_mock.side_effect = [
+            None,
+            "test-decoded-jwt",
+        ]
+        google_auth_default_mock.return_value = mock.Mock(), mock.Mock()
+        request_mock = mock.Mock(
+            return_value=mock.Mock(
+                status_code=200,
+                text="""-----BEGIN RSA PUBLIC KEY-----
+MIIBCgKCAQEAo32rqcefi9tzT+kiGCluSM3raFR+xZYLo3DcEJPHh+DMx8koTp0N
+rFs40FngwIwBiii0Vz/Pwnt/T2kpHAqbIniWSBHJnBcAEMmDSua4SV4Ho3JdBdy4
+Erq0VfmMmCa93CdbHeh8Enyj47VP8pRoqz1INoShlnFQ+nOkGeHm7/EM9PPBHkAw
+2KNWOk2QrVhO0OffhrgVA7bfrgLw1LnoB7DrE4eha0SJbxO2cNTDCvLtzNOIGJ7+
+0dk/i+Bo0UOX6dDn87C/sOwOwOumR6KnznH8n0ClCy6ImRfdx5Bk6iBKgc98jG0L
+DSGFOd9s7iFXBW5rlqywzGHrvT5i1beYKQIDAQAB
+-----END RSA PUBLIC KEY-----""",
+            )
+        )
+        authorized_session_mock.return_value = mock.Mock(request=request_mock)
+
+        actual_result = decode_inverting_proxy_jwt("test-jwt")
+
+        decode_inverting_proxy_jwt_with_public_keys_mock.assert_has_calls(
+            [
+                mock.call("test-jwt", ["public-key-1", "public-key-2"]),
+                mock.call(
+                    "test-jwt",
+                    [
+                        """-----BEGIN RSA PUBLIC KEY-----
+MIIBCgKCAQEAo32rqcefi9tzT+kiGCluSM3raFR+xZYLo3DcEJPHh+DMx8koTp0N
+rFs40FngwIwBiii0Vz/Pwnt/T2kpHAqbIniWSBHJnBcAEMmDSua4SV4Ho3JdBdy4
+Erq0VfmMmCa93CdbHeh8Enyj47VP8pRoqz1INoShlnFQ+nOkGeHm7/EM9PPBHkAw
+2KNWOk2QrVhO0OffhrgVA7bfrgLw1LnoB7DrE4eha0SJbxO2cNTDCvLtzNOIGJ7+
+0dk/i+Bo0UOX6dDn87C/sOwOwOumR6KnznH8n0ClCy6ImRfdx5Bk6iBKgc98jG0L
+DSGFOd9s7iFXBW5rlqywzGHrvT5i1beYKQIDAQAB
+-----END RSA PUBLIC KEY-----"""
+                    ],
+                ),
+            ]
+        )
+        assert actual_result == "test-decoded-jwt"
 
     @conf_vars(
         {("core", "auth_manager"): "airflow.composer.patches.rbac.composer_auth_manager.ComposerAuthManager"}
