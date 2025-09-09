@@ -351,6 +351,55 @@ DSGFOd9s7iFXBW5rlqywzGHrvT5i1beYKQIDAQAB
 
         assert actual_user is None
 
+    @conf_vars(
+        {("core", "auth_manager"): "airflow.composer.patches.rbac.composer_auth_manager.ComposerAuthManager"}
+    )
+    @mock.patch("airflow.composer.patches.rbac.utils.RBAC_USER_REGISTRATION_ROLE", "Op")
+    @mock.patch(
+        "airflow.providers.fab.auth_manager.security_manager.override.FabAirflowSecurityManagerOverride.update_user",
+        autospec=True,
+    )
+    @mock.patch(
+        "airflow.providers.fab.auth_manager.security_manager.override.FabAirflowSecurityManagerOverride.update_user_auth_stat",
+        autospec=True,
+    )
+    def test_get_or_register_user_preregistered_user(self, update_user_auth_stat_mock, update_user_mock):
+        create_app(enable_plugins=False)
+        username = "".join(random.choice(string.ascii_uppercase) for _ in range(6))
+        email = f"{username}@google.com"
+        # Preregister user with username=email.
+        preregistered_user = get_or_register_user(username=email, email=email)
+        preregistered_user_id = preregistered_user.id
+
+        actual_user = get_or_register_user(username=username, email=email)
+
+        update_user_mock.assert_called_with(get_auth_manager().appbuilder.sm, actual_user)
+        update_user_auth_stat_mock.assert_called_with(get_auth_manager().appbuilder.sm, actual_user)
+        assert isinstance(actual_user, User)
+        assert actual_user.id == preregistered_user_id
+        assert actual_user.username == username
+        assert actual_user.email == email
+
+    @conf_vars(
+        {("core", "auth_manager"): "airflow.composer.patches.rbac.composer_auth_manager.ComposerAuthManager"}
+    )
+    @mock.patch("airflow.composer.patches.rbac.utils.RBAC_USER_REGISTRATION_ROLE", "Op")
+    @mock.patch(
+        "airflow.providers.fab.auth_manager.security_manager.override.FabAirflowSecurityManagerOverride.update_user",
+        autospec=True,
+    )
+    def test_get_or_register_user_preregistered_user_update_fails(self, update_user_mock):
+        create_app(enable_plugins=False)
+        username = "".join(random.choice(string.ascii_uppercase) for _ in range(6))
+        email = f"{username}@google.com"
+        # Preregister user with username=email.
+        get_or_register_user(username=email, email=email)
+        update_user_mock.return_value = False
+
+        actual_user = get_or_register_user(username=username, email=email)
+
+        assert actual_user is None
+
     def test_decode_inverting_proxy_jwt_with_public_keys(self):
         inverting_proxy_jwt = (
             "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0LXVzZXJuYW1lIiwiZW1haWwiOiJ0ZXN0LWVtYWlsIn0"
