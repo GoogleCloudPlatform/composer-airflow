@@ -34,7 +34,7 @@ from airflow.models import DagRun, TaskInstance
 from airflow.models.baseoperator import BaseOperator
 from airflow.models.taskinstancehistory import TaskInstanceHistory
 from airflow.utils import timezone
-from airflow.utils.log.log_reader import StructuredLogMessage
+from airflow.utils.log.file_task_handler import StructuredLogMessage
 from airflow.utils.session import provide_session
 from airflow.version import version
 

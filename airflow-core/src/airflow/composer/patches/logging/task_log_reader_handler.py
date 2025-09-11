@@ -29,7 +29,7 @@ from sqlalchemy import select
 
 from airflow import version
 from airflow.models.taskinstancehistory import TaskInstanceHistory
-from airflow.utils.log.log_reader import StructuredLogMessage
+from airflow.utils.log.file_task_handler import StructuredLogMessage
 from airflow.utils.log.logging_mixin import LoggingMixin
 from airflow.utils.session import NEW_SESSION, provide_session
 from airflow.utils.timezone import utcnow
@@ -38,7 +38,7 @@ if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
     from airflow.models import TaskInstance
-    from airflow.utils.log.log_reader import LogMessages, LogMetadata
+    from airflow.utils.log.file_task_handler import LogMessages, LogMetadata
 
 PROJECT = os.environ["GCP_PROJECT"]
 ENVIRONMENT_LOCATION = os.environ["COMPOSER_LOCATION"]
