@@ -23,11 +23,13 @@ import time
 from contextlib import closing
 from typing import TYPE_CHECKING
 
+import tenacity
 import yaml
 from kubernetes.client import models as k8s
 from kubernetes.client.exceptions import ApiException
 from kubernetes.stream import stream as kubernetes_stream
 from kubernetes.utils import parse_quantity
+from websocket._exceptions import WebSocketConnectionClosedException
 from websockets.frames import Frame
 from websockets.streams import StreamReader
 
@@ -209,6 +211,18 @@ def _get_composer_serverless_machine_memory(resources: k8s.V1ResourceRequirement
     return valid_memory_gb_values[-1][1]
 
 
+def before_log_custom_only_on_retries(retry_state: tenacity.RetryCallState):
+    if retry_state.attempt_number > 1:
+        log.warning("Retrying %s, attempt %s.", retry_state.fn.__name__, retry_state.attempt_number)
+
+
+@tenacity.retry(
+    stop=tenacity.stop_after_attempt(5),
+    retry=tenacity.retry_if_exception_type(WebSocketConnectionClosedException),
+    wait=tenacity.wait_fixed(1),
+    before=before_log_custom_only_on_retries,
+    reraise=True,
+)
 def exec_on_placeholder_pod(self: PodManager, pod: V1Pod, command: list[str]):
     """
     Run exec command on Peer VM placeholder pod.
