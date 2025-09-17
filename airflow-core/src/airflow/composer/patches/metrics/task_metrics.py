@@ -16,10 +16,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from airflow.sdk.api.datamodels._generated import (
-    IntermediateTIState,
-    TerminalTIState,
-)
+from airflow.sdk.api.datamodels._generated import TaskInstanceState, TerminalTIState
 from airflow.stats import Stats
 
 if TYPE_CHECKING:
@@ -28,10 +25,10 @@ if TYPE_CHECKING:
 
 
 def emit_metrics_on_task_instance_finished(
-    task_instance: RuntimeTaskInstance, state: IntermediateTIState | TerminalTIState, msg: ToSupervisor
+    task_instance: RuntimeTaskInstance, state: TaskInstanceState, msg: ToSupervisor
 ):
     """Emit metrics when task instance execution is finished."""
-    if state not in TerminalTIState:
+    if state not in [ti_state.value for ti_state in TerminalTIState]:
         return
 
     Stats.incr(

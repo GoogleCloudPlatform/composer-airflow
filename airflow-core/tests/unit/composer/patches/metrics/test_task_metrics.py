@@ -25,8 +25,7 @@ from airflow.composer.patches.metrics.task_metrics import emit_metrics_on_task_i
 from airflow.models import TaskInstance
 from airflow.models.baseoperator import BaseOperator
 from airflow.sdk.api.datamodels._generated import (
-    IntermediateTIState,
-    TerminalTIState,
+    TaskInstanceState,
 )
 from airflow.sdk.execution_time.comms import (
     DeferTask,
@@ -56,11 +55,15 @@ class TestTaskMetrics:
         "state, msg, status",
         [
             (
-                TerminalTIState.SUCCESS,
+                TaskInstanceState.SUCCESS,
                 SucceedTask(end_date=END_DATE, task_outlets=[], outlet_events=[]),
                 "success",
             ),
-            (TerminalTIState.FAILED, TaskState(state=TerminalTIState.FAILED, end_date=END_DATE), "failed"),
+            (
+                TaskInstanceState.FAILED,
+                TaskState(state=TaskInstanceState.FAILED, end_date=END_DATE),
+                "failed",
+            ),
         ],
     )
     def test_emit_metrics_on_task_instance_finished(self, gauge_mock, incr_mock, state, msg, status):
@@ -81,8 +84,8 @@ class TestTaskMetrics:
     @mock.patch("airflow.composer.patches.metrics.listener.Stats.gauge", autospec=True)
     def test_emit_metrics_on_task_instance_finished_no_end_date(self, gauge_mock, incr_mock):
         ti = _create_dummy_task_instance("test-dag", "test-task", START_DATE)
-        state = TerminalTIState.FAILED
-        msg = TaskState(state=TerminalTIState.FAILED, end_date=None)
+        state = TaskInstanceState.FAILED
+        msg = TaskState(state=TaskInstanceState.FAILED, end_date=None)
 
         emit_metrics_on_task_instance_finished(ti, state, msg)
 
@@ -96,7 +99,7 @@ class TestTaskMetrics:
     @mock.patch("airflow.composer.patches.metrics.listener.Stats.gauge", autospec=True)
     def test_emit_metrics_on_task_instance_finished_itermediate_ti_state(self, gauge_mock, incr_mock):
         ti = _create_dummy_task_instance("test-dag", "test-task", START_DATE)
-        state = IntermediateTIState.DEFERRED
+        state = TaskInstanceState.DEFERRED
         msg = DeferTask(
             classpath="Triggerer",
             next_method="next_method",
