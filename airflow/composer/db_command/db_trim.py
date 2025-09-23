@@ -42,9 +42,13 @@ get_count = lambda _result: get_sql_field(_result[0], "count")
 
 config = None
 
-# The number or seconds to sleep between removing batches of expired rows. Lowering the number makes
+# Default number or seconds to sleep between removing batches of expired rows. Lowering the number makes
 # the removal faster, but also increases the database CPU usage.
-SLEEP_BETWEEN_BATCHES_SECONDS = 0.5
+DEFAULT_SLEEP_BETWEEN_BATCHES_SECONDS = 0.5
+
+# Default number of rows do delete in a single batch. Increasing the number makes
+# the removal faster, but also increases the database CPU usage.
+DEFAULT_BATCH_SIZE = 1000
 
 # The number of times to retry removing a batch of expired rows when an exception is thrown.
 MAX_RETRY_ATTEMPTS = 3
@@ -75,7 +79,11 @@ def sigalrm_handler(signum, frame):
     exit(0)
 
 
-def execute_trim(retention_days):
+def execute_trim(
+    retention_days,
+    batch_size=DEFAULT_BATCH_SIZE,
+    sleep_between_batches_seconds=DEFAULT_SLEEP_BETWEEN_BATCHES_SECONDS,
+):
     """
     Trim and remove unndeeded data.
 
@@ -93,13 +101,18 @@ def execute_trim(retention_days):
 
     try:
         with settings.Session() as session:
-            trim_session_table(session=session, config=config, batch_size=1000)
+            trim_session_table(
+                session=session,
+                config=config,
+                batch_size=batch_size,
+                sleep_between_batches_seconds=sleep_between_batches_seconds,
+            )
             for table in config.tables:
                 trim_table(
                     session=session,
                     config=config,
                     table=table,
-                    batch_size=1000,
+                    batch_size=batch_size,
                 )
         logger.info("Airflow metadata cleanup completed.")
     except Exception as e:
@@ -107,7 +120,12 @@ def execute_trim(retention_days):
         exit(1)
 
 
-def trim_session_table(session, config, batch_size=1000):
+def trim_session_table(
+    session,
+    config,
+    batch_size=DEFAULT_BATCH_SIZE,
+    sleep_between_batches_seconds=DEFAULT_SLEEP_BETWEEN_BATCHES_SECONDS,
+):
     """Delete expired rows from the 'session' table in a series of transactions."""
 
     def trim_batch(_session):
@@ -130,10 +148,11 @@ def trim_session_table(session, config, batch_size=1000):
         table_name="session",
         estimated_num_expired_rows=estimated_num_expired_rows,
         trim_batch_func=trim_batch,
+        sleep_between_batches_seconds=sleep_between_batches_seconds,
     )
 
 
-def trim_table(session, table, config, batch_size=1000):
+def trim_table(session, table, config, batch_size=DEFAULT_BATCH_SIZE):
     """Delete expired rows from a given table in a series of transactions."""
 
     def trim_batch(_session):
@@ -160,7 +179,13 @@ def trim_table(session, table, config, batch_size=1000):
     )
 
 
-def run_trimming_loop(session, table_name, estimated_num_expired_rows, trim_batch_func):
+def run_trimming_loop(
+    session,
+    table_name,
+    estimated_num_expired_rows,
+    trim_batch_func,
+    sleep_between_batches_seconds=DEFAULT_SLEEP_BETWEEN_BATCHES_SECONDS,
+):
     """
     Orchestrate deleting expired rows from the given table in a series of transactions.
 
@@ -197,7 +222,7 @@ def run_trimming_loop(session, table_name, estimated_num_expired_rows, trim_batc
                 table_name,
                 format(total_num_removed_rows, ","),
             )
-            time.sleep(SLEEP_BETWEEN_BATCHES_SECONDS)
+            time.sleep(sleep_between_batches_seconds)
         except Exception as e:
             session.rollback()
             logger.warning(
