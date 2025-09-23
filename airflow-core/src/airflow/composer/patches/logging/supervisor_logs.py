@@ -24,6 +24,24 @@ from structlog.processors import CallsiteParameter, CallsiteParameterAdder
 if TYPE_CHECKING:
     from airflow.executors.workloads import TaskInstance
 
+# List of keys to omit when rendering context data for log message.
+_LOG_CONTEXT_DATA_KEYS_TO_OMIT = [
+    # Log message itself.
+    "event",
+    # Exception.
+    "error_detail",
+    # Extra fields used to format log message.
+    "timestamp",
+    "filename",
+    "lineno",
+    "level",
+    # Fields with Composer log labels.
+    "func_name",
+    "composer_ti_info",
+    "composer_extra_info",
+    # Other fields that are not needed in the context data.
+    "logger",
+]
 # Separator between actual log message and json annotation with Composer labels. This separator will be
 # recognised and parsed by fluentd.
 _LOG_SEPARATOR = "@-@"
@@ -74,6 +92,11 @@ def patch_supervisor_log_processors():
 def supervisor_log_processor(logger, method_name, event_dict):
     """Render the log message with custom format and Composer labels added as a json annotation."""
     message = event_dict["event"]
+
+    # Append context data to the log message.
+    message += "".join(
+        [f" [{k}={v}]" for k, v in event_dict.items() if k not in _LOG_CONTEXT_DATA_KEYS_TO_OMIT]
+    )
 
     # If present, append exception to the log message.
     if error_detail := event_dict.get("error_detail"):
