@@ -176,7 +176,7 @@ class TestDbTrim:
     @mock.patch("airflow.composer.db_command.db_trim.trim_session_table")
     @mock.patch("airflow.composer.db_command.db_trim.trim_table")
     def test_execute_trim_calls_trimming_once(self, mock_table_trim, mock_session_trim):
-        execute_trim(retention_days=1000, batch_size=1000, sleep_between_batches_seconds=0.5)
+        execute_trim(retention_days=1000)
 
         assert mock_table_trim.call_count == len(test_tables)
         assert mock_session_trim.call_count == 1
@@ -191,7 +191,6 @@ class TestDbTrim:
             table_name="fake_table",
             estimated_num_expired_rows=3000,
             trim_batch_func=trim_batch,
-            sleep_between_batches_seconds=0.5,
         )
 
         assert trim_batch.call_count == 4
