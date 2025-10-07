@@ -30,12 +30,10 @@ from google.api_core.exceptions import (
 from google.cloud.logging_v2.types import ListLogEntriesRequest
 from google.logging.type import log_severity_pb2
 
-from airflow.models import DagRun, TaskInstance
-from airflow.models.baseoperator import BaseOperator
 from airflow.models.taskinstancehistory import TaskInstanceHistory
+from airflow.providers.standard.operators.empty import EmptyOperator
 from airflow.utils import timezone
 from airflow.utils.log.file_task_handler import StructuredLogMessage
-from airflow.utils.session import provide_session
 from airflow.version import version
 
 
@@ -165,34 +163,25 @@ class TestTaskLogReaderHandler:
 
         assert actual_start_date == datetime.datetime(2011, 4, 7)
 
-    @provide_session
-    def test_get_ti_start_date_from_task_instance_history(self, session):
+    def test_get_ti_start_date_from_task_instance_history(self, dag_maker):
         dag_id = "dag-id"
         task_id = "task-id"
         run_id = "".join(random.choice(string.ascii_uppercase) for _ in range(6))
         map_index = 2
         try_number = 5
 
-        dr = DagRun(
-            dag_id=dag_id,
-            run_id=run_id,
-            run_type="manual",
-        )
-        ti = TaskInstance(
-            task=BaseOperator(task_id=task_id),
-            run_id=run_id,
-            map_index=map_index,
-        )
-        ti.dag_id = dag_id
+        with dag_maker(dag_id):
+            EmptyOperator(task_id=task_id)
+        dr = dag_maker.create_dagrun(run_id=run_id)
+        ti = dr.task_instances[0]
+        ti.map_index = map_index
         ti.try_number = try_number
         ti.start_date = datetime.datetime(2010, 1, 8, tzinfo=timezone.utc)
-        session.add(dr)
-        session.add(ti)
-        session.commit()
+        dag_maker.session.commit()
 
         tih = TaskInstanceHistory(ti)
-        session.add(tih)
-        session.commit()
+        dag_maker.session.add(tih)
+        dag_maker.session.commit()
 
         actual_start_date = self.handler._get_ti_start_date(
             mock.MagicMock(
