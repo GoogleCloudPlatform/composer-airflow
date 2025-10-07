@@ -24,7 +24,7 @@ from airflow.models.baseoperator import BaseOperator
 from airflow.sdk.execution_time import task_runner
 
 
-class TestAirflowPluginsManager:
+class TestAirflowSdkExecutionTimeTaskRunner:
     @mock.patch(
         "airflow.sdk.execution_time.task_runner.run",
         return_value=("mocked-state", "mocked-msg", "mocked-error"),
@@ -38,6 +38,7 @@ class TestAirflowPluginsManager:
         run_id = "".join(random.choice(string.ascii_uppercase) for _ in range(6))
         ti = TaskInstance(
             task=BaseOperator(task_id="test-task-id"),
+            dag_version_id="test-version",
             run_id=run_id,
         )
 

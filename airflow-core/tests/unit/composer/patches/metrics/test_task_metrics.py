@@ -36,8 +36,9 @@ from airflow.sdk.execution_time.comms import (
 
 def _create_dummy_task_instance(dag_id, task_id, start_date):
     ti = TaskInstance(
-        run_id="".join(random.choice(string.ascii_uppercase) for _ in range(6)),
         task=BaseOperator(task_id=task_id),
+        dag_version_id="test-version",
+        run_id="".join(random.choice(string.ascii_uppercase) for _ in range(6)),
     )
     ti.dag_id = dag_id
     ti.start_date = start_date
