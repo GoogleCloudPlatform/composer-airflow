@@ -524,6 +524,8 @@ COMPOSER_DEPENDENCIES = [
     "aiodebug",
     # aiohttp and pygments in lower versions contain security vulnerabilities.
     "aiohttp>=3.8.5",
+    # TODO: Internal bug - Remove once the bug is fixed
+    "click<=8.2.2",  # only as constraint
     "confluent-kafka",
     "crcmod<2.0",
     "cryptography",
