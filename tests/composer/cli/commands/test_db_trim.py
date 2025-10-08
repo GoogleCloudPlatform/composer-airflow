@@ -127,6 +127,93 @@ class TestDbTrim:
             else:
                 assert before_count_tables[key] == after_count_tables[key]
 
+    @pytest.mark.parametrize(
+        "env_size, cli_batch_size, cli_sleep, expected_batch_size, expected_sleep",
+        [
+            # Test cases for default values based on environment
+            (
+                None,
+                None,
+                None,
+                db_command.DEFAULT_BATCH_SIZE,
+                db_command.DEFAULT_SLEEP_BETWEEN_BATCHES_SECONDS,
+            ),
+            (
+                "unhandled",
+                None,
+                None,
+                db_command.DEFAULT_BATCH_SIZE,
+                db_command.DEFAULT_SLEEP_BETWEEN_BATCHES_SECONDS,
+            ),
+            ("XL", None, None, 15000, 0.2),
+            # Test cases where only batch size is passed via CLI
+            (None, 2323, None, 2323, db_command.DEFAULT_SLEEP_BETWEEN_BATCHES_SECONDS),
+            ("XL", 1331, None, 1331, 0.2),
+            # Test cases where only sleep is passed via CLI
+            (None, None, 0.4, db_command.DEFAULT_BATCH_SIZE, 0.4),
+            ("XL", None, 0.4, 15000, 0.4),
+            # Test cases where both batch size and sleep are passed via CLI
+            (None, 9999, 0.3, 9999, 0.3),
+            ("XL", 9999, 0.3, 9999, 0.3),
+            # Test cases for clamping logic
+            (None, 50, None, db_command.MIN_BATCH_SIZE, db_command.DEFAULT_SLEEP_BETWEEN_BATCHES_SECONDS),
+            (None, 200000, None, db_command.MAX_BATCH_SIZE, db_command.DEFAULT_SLEEP_BETWEEN_BATCHES_SECONDS),
+            (None, None, 0.05, db_command.DEFAULT_BATCH_SIZE, db_command.MIN_SLEEP_BETWEEN_BATCHES_SECONDS),
+            (None, None, 1.0, db_command.DEFAULT_BATCH_SIZE, db_command.MAX_SLEEP_BETWEEN_BATCHES_SECONDS),
+        ],
+        ids=[
+            "no-env-uses-defaults",
+            "unhandled-env-uses-defaults",
+            "xl-env-uses-xl-defaults",
+            "cli-batch-size-overrides-default-sleep",
+            "cli-batch-size-overrides-xl-sleep",
+            "cli-sleep-overrides-default-batch-size",
+            "cli-sleep-does-not-override-xl-batch-size",
+            "cli-args-override-defaults",
+            "cli-args-override-xl-env",
+            "cli-batch-size-below-min-is-clamped",
+            "cli-batch-size-above-max-is-clamped",
+            "cli-sleep-below-min-is-clamped",
+            "cli-sleep-above-max-is-clamped",
+        ],
+    )
+    @mock.patch("airflow.composer.cli.commands.db_command.execute_trim")
+    def test_trim_logic(
+        self,
+        mock_execute_trim,
+        env_size,
+        cli_batch_size,
+        cli_sleep,
+        expected_batch_size,
+        expected_sleep,
+    ):
+        cmd_args = [
+            "db",
+            "trim",
+            "--retention-days",
+            "60",
+            "--acknowledge-composer-internal",
+        ]
+
+        if cli_batch_size is not None:
+            cmd_args.extend(["--retention-batch-size", str(cli_batch_size)])
+        if cli_sleep is not None:
+            cmd_args.extend(["--retention-sleep", str(cli_sleep)])
+
+        env_patch = {}
+        if env_size is not None:
+            env_patch["COMPOSER_ENVIRONMENT_SIZE"] = env_size
+
+        with mock.patch.dict(os.environ, env_patch, clear=True):
+            args = self.parser.parse_args(cmd_args)
+            db_command.trim(args)
+
+        mock_execute_trim.assert_called_once_with(
+            args.retention_days,
+            batch_size=expected_batch_size,
+            sleep_between_batches_seconds=expected_sleep,
+        )
+
     def test_tables_to_trim_order(self):
         """Checking the order of tables per Airflow version
 
@@ -179,7 +266,11 @@ class TestDbTrim:
     @mock.patch("airflow.composer.db_command.db_trim.trim_session_table")
     @mock.patch("airflow.composer.db_command.db_trim.trim_table")
     def test_execute_trim_calls_trimming_once(self, mock_table_trim, mock_session_trim):
-        execute_trim(retention_days=1000)
+        execute_trim(
+            retention_days=1000,
+            batch_size=db_command.DEFAULT_BATCH_SIZE,
+            sleep_between_batches_seconds=db_command.DEFAULT_SLEEP_BETWEEN_BATCHES_SECONDS,
+        )
 
         assert mock_table_trim.call_count == len(test_tables)
         assert mock_session_trim.call_count == 1
@@ -194,6 +285,7 @@ class TestDbTrim:
             table_name="fake_table",
             estimated_num_expired_rows=3000,
             trim_batch_func=trim_batch,
+            sleep_between_batches_seconds=0.5,
         )
 
         assert trim_batch.call_count == 4
@@ -209,6 +301,7 @@ class TestDbTrim:
             table_name="fake_table",
             estimated_num_expired_rows=2000,
             trim_batch_func=trim_batch,
+            sleep_between_batches_seconds=0.5,
         )
 
         assert trim_batch.call_count == 3
@@ -229,6 +322,7 @@ class TestDbTrim:
                 table_name="fake_table",
                 estimated_num_expired_rows=2000,
                 trim_batch_func=trim_batch,
+                sleep_between_batches_seconds=0.5,
             )
 
         assert "fake deadlock" in str(final_exception.value)
