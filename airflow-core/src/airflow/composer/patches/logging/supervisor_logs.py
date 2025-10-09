@@ -40,6 +40,7 @@ _LOG_CONTEXT_DATA_KEYS_TO_OMIT = [
     "composer_ti_info",
     "composer_extra_info",
     # Other fields that are not needed in the context data.
+    "loc",
     "logger",
 ]
 # Separator between actual log message and json annotation with Composer labels. This separator will be
@@ -49,6 +50,14 @@ _LOG_SEPARATOR = "@-@"
 # Given that log entry also includes labels and 4096 characters is a full screen
 # of text, splitting them at 4096 should be fine.
 _LOG_LINE_SPLIT_LENGTH = 4096
+
+_SUPERVISOR_CONTEXT_DATA_CALLSITE_PARAMETER_ADDER = CallsiteParameterAdder(
+    [
+        CallsiteParameter.FILENAME,
+        CallsiteParameter.FUNC_NAME,
+        CallsiteParameter.LINENO,
+    ]
+)
 
 
 def get_task_logs_contextvars(ti: TaskInstance):
@@ -76,17 +85,14 @@ def patch_supervisor_log_processors():
     # Remove the last processor which is rendering the message.
     processors.pop()
 
-    # Add CallsiteParameterAdder processor and processor which will render message with custom format.
-    processors.append(
-        CallsiteParameterAdder(
-            [
-                CallsiteParameter.FILENAME,
-                CallsiteParameter.FUNC_NAME,
-                CallsiteParameter.LINENO,
-            ]
-        )
-    )
+    # Add Composer context data processor and processor which will render message with custom format.
+    processors.append(supervisor_context_data_processor)
     processors.append(supervisor_log_processor)
+
+
+def supervisor_context_data_processor(logger, method_name, event_dict):
+    """Add context data required to render log message."""
+    return _SUPERVISOR_CONTEXT_DATA_CALLSITE_PARAMETER_ADDER(logger, method_name, event_dict)
 
 
 def supervisor_log_processor(logger, method_name, event_dict):

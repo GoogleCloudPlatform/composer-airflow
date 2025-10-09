@@ -18,12 +18,12 @@ import logging
 from unittest import mock
 
 from structlog import BytesLogger
-from structlog.processors import CallsiteParameter, CallsiteParameterAdder
 
 from airflow.composer.patches.logging.supervisor_logs import (
     get_task_logs_contextvars,
     patch_supervisor_log_processors,
     patch_supervisor_stdlib_logging_configuration,
+    supervisor_context_data_processor,
     supervisor_log_processor,
 )
 
@@ -52,13 +52,16 @@ class TestSupervisorLogs:
         patch_supervisor_log_processors()
 
         assert len(processors) == 2
-        assert isinstance(processors[0], CallsiteParameterAdder)
-        assert [ah[0] for ah in processors[0]._active_handlers] == [
-            CallsiteParameter.FILENAME,
-            CallsiteParameter.FUNC_NAME,
-            CallsiteParameter.LINENO,
-        ]
+        assert processors[0] is supervisor_context_data_processor
         assert processors[1] is supervisor_log_processor
+
+    def test_supervisor_context_data_processor(self):
+        actual = supervisor_context_data_processor("logger", "method-name", {})
+
+        assert list(sorted(actual.keys())) == ["filename", "func_name", "lineno"]
+        assert actual["filename"] == "supervisor_logs.py"
+        assert actual["func_name"] == "supervisor_context_data_processor"
+        # Skipping to check "lineno" value here as it may change easily and make this test broken.
 
     def test_supervisor_log_processor_composer_ti_info(self):
         actual = supervisor_log_processor(
