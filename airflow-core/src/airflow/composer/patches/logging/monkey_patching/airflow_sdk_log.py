@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import functools
 
+from airflow.composer.patches.core.utils import is_currently_running_component
 from airflow.composer.patches.logging.supervisor_logs import (
     patch_supervisor_log_processors,
     patch_supervisor_stdlib_logging_configuration,
@@ -25,7 +26,9 @@ from airflow.sdk import log
 
 
 def patch():
-    log.configure_logging = _composer_log_configure_logging(log.configure_logging)
+    if is_currently_running_component("worker"):
+        # This configure_logging method is also used in triggerer, but we need to patch it only for worker.
+        log.configure_logging = _composer_log_configure_logging(log.configure_logging)
 
 
 def _composer_log_configure_logging(f):

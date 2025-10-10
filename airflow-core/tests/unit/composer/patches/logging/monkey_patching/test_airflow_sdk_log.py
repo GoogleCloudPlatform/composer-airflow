@@ -21,6 +21,27 @@ from airflow.sdk import log
 
 
 class TestAirflowSdkLog:
+    @mock.patch("sys.argv", ["airflow", "celery", "worker"])
+    @mock.patch(
+        "airflow.composer.patches.logging.monkey_patching.airflow_sdk_log._composer_log_configure_logging",
+        autospec=True,
+    )
+    def test_patch_worker(self, composer_log_configure_logging_mock):
+        patch()
+
+        composer_log_configure_logging_mock.assert_called_once()
+
+    @mock.patch("sys.argv", ["airflow", "triggerer"])
+    @mock.patch(
+        "airflow.composer.patches.logging.monkey_patching.airflow_sdk_log._composer_log_configure_logging",
+        autospec=True,
+    )
+    def test_patch_triggerer(self, composer_log_configure_logging_mock):
+        patch()
+
+        composer_log_configure_logging_mock.assert_not_called()
+
+    @mock.patch("sys.argv", ["airflow", "celery", "worker"])
     @mock.patch("airflow.sdk.log.configure_logging", return_value=123)
     @mock.patch(
         "airflow.composer.patches.logging.monkey_patching.airflow_sdk_log.patch_supervisor_log_processors",
@@ -50,6 +71,7 @@ class TestAirflowSdkLog:
         patch_supervisor_stdlib_logging_configuration_mock.assert_called_once_with()
         patch_task_runner_log_processors_mock.assert_not_called()
 
+    @mock.patch("sys.argv", ["airflow", "celery", "worker"])
     @mock.patch("airflow.sdk.log.configure_logging", return_value=123)
     @mock.patch(
         "airflow.composer.patches.logging.monkey_patching.airflow_sdk_log.patch_supervisor_log_processors",
@@ -79,6 +101,7 @@ class TestAirflowSdkLog:
         patch_supervisor_stdlib_logging_configuration_mock.assert_called_once_with()
         patch_task_runner_log_processors_mock.assert_not_called()
 
+    @mock.patch("sys.argv", ["airflow", "celery", "worker"])
     @mock.patch("airflow.sdk.log.configure_logging", return_value=123)
     @mock.patch(
         "airflow.composer.patches.logging.monkey_patching.airflow_sdk_log.patch_supervisor_log_processors",
