@@ -79,6 +79,10 @@ def is_currently_running_component(component_name):
         if is_currently_running_component("triggerer"):
             ...
     """
+    if component_name == "worker":
+        # Airflow worker is running with "airflow celery worker" command.
+        return len(sys.argv) >= 3 and sys.argv[1] == "celery" and sys.argv[2] == "worker"
+
     return len(sys.argv) >= 2 and sys.argv[1] == component_name
 
 

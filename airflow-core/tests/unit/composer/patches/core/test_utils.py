@@ -78,6 +78,9 @@ class TestUtils:
             (["airflow"], "triggerer", False),
             ([], "triggerer", False),
             (["airflow", "scheduler"], "scheduler", True),
+            (["airflow", "celery", "worker"], "worker", True),
+            (["airflow", "worker"], "worker", False),
+            (["airflow", "celery", "flower"], "worker", False),
         ],
     )
     def test_is_currently_running_component(self, sys_argv, component_name, expected_result):
