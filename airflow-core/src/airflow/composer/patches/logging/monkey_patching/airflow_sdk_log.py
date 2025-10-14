@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import functools
+import os
 
 from airflow.composer.patches.core.utils import is_currently_running_component
 from airflow.composer.patches.logging.supervisor_logs import (
@@ -26,8 +27,9 @@ from airflow.sdk import log
 
 
 def patch():
-    if is_currently_running_component("worker"):
-        # This configure_logging method is also used in triggerer, but we need to patch it only for worker.
+    if is_currently_running_component("worker") or os.environ.get("AIRFLOW_IS_K8S_EXECUTOR_POD") == "True":
+        # This configure_logging method is also used in triggerer, but we need to patch it only for
+        # Celery/Kubernetes workers.
         log.configure_logging = _composer_log_configure_logging(log.configure_logging)
 
 

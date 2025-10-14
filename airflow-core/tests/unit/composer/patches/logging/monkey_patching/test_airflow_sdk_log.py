@@ -31,6 +31,17 @@ class TestAirflowSdkLog:
 
         composer_log_configure_logging_mock.assert_called_once()
 
+    @mock.patch("sys.argv", ["airflow", "tasks", "run"])
+    @mock.patch.dict("os.environ", {"AIRFLOW_IS_K8S_EXECUTOR_POD": "True"})
+    @mock.patch(
+        "airflow.composer.patches.logging.monkey_patching.airflow_sdk_log._composer_log_configure_logging",
+        autospec=True,
+    )
+    def test_patch_k8s_worker(self, composer_log_configure_logging_mock):
+        patch()
+
+        composer_log_configure_logging_mock.assert_called_once()
+
     @mock.patch("sys.argv", ["airflow", "triggerer"])
     @mock.patch(
         "airflow.composer.patches.logging.monkey_patching.airflow_sdk_log._composer_log_configure_logging",
