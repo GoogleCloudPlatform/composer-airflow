@@ -74,7 +74,7 @@ class TestTaskLogReaderHandler:
         handler = self.create_handler()
         handler._get_ti_start_date = mock.Mock(return_value="start-date")
         handler._get_logs_filter = mock.Mock(return_value="logs-filter")
-        handler._read_single_page = mock.Mock(
+        handler._read_all_pages = mock.Mock(
             return_value=([StructuredLogMessage(timestamp=datetime.datetime(2010, 1, 1), event="event")], {})
         )
 
@@ -88,7 +88,7 @@ class TestTaskLogReaderHandler:
         handler._get_logs_filter.assert_called_once_with(
             task_instance_mock, expected_get_logs_filter_try_number_param, "start-date"
         )
-        handler._read_single_page.assert_called_once_with(logs_filter="logs-filter")
+        handler._read_all_pages.assert_called_once_with(logs_filter="logs-filter")
         assert actual_log_messages == [
             StructuredLogMessage(
                 timestamp=datetime.datetime(2013, 1, 3, tzinfo=timezone.utc),
@@ -125,7 +125,7 @@ class TestTaskLogReaderHandler:
         handler = self.create_handler()
         handler._get_ti_start_date = mock.Mock(return_value="start-date")
         handler._get_logs_filter = mock.Mock(return_value="logs-filter")
-        handler._read_single_page = mock.Mock(return_value=([], {"next_page_token": None}))
+        handler._read_all_pages = mock.Mock(return_value=([], {"next_page_token": None}))
 
         actual_log_messages, actual_log_metadata = handler.read(
             task_instance=mock.Mock(), try_number=3, metadata=None
@@ -276,7 +276,7 @@ class TestTaskLogReaderHandler:
     @mock.patch(
         "airflow.composer.patches.logging.task_log_reader_handler.LoggingServiceV2Client", autospec=True
     )
-    def test_read_single_page(self, logging_client_mock):
+    def test_read_all_pages(self, logging_client_mock):
         client_mock = mock.Mock(
             list_log_entries=mock.Mock(
                 return_value=mock.Mock(
@@ -292,6 +292,16 @@ class TestTaskLogReaderHandler:
                                 ],
                                 next_page_token="page token 123",
                             ),
+                            mock.Mock(
+                                entries=[
+                                    mock.Mock(
+                                        timestamp=datetime.datetime(2010, 1, 1),
+                                        severity=log_severity_pb2.LogSeverity.INFO,
+                                        text_payload="text-payload2",
+                                    )
+                                ],
+                                next_page_token="page token 124",
+                            ),
                         ]
                     )
                 )
@@ -299,7 +309,7 @@ class TestTaskLogReaderHandler:
         )
         logging_client_mock.return_value = client_mock
 
-        actual_log_messages, actual_log_metadata = self.handler._read_single_page("logs-filter")
+        actual_log_messages, actual_log_metadata = self.handler._read_all_pages("logs-filter")
 
         logging_client_mock.assert_called_once()
         assert (
@@ -316,9 +326,12 @@ class TestTaskLogReaderHandler:
             )
         )
         assert actual_log_messages == [
-            StructuredLogMessage(timestamp=datetime.datetime(2010, 1, 1), level="INFO", event="text-payload")
+            StructuredLogMessage(timestamp=datetime.datetime(2010, 1, 1), level="INFO", event="text-payload"),
+            StructuredLogMessage(
+                timestamp=datetime.datetime(2010, 1, 1), level="INFO", event="text-payload2"
+            ),
         ]
-        assert actual_log_metadata == {"next_page_token": "page token 123"}
+        assert actual_log_metadata == {"next_page_token": None}
 
     @pytest.mark.parametrize(
         "error, expected_event",
@@ -350,11 +363,11 @@ class TestTaskLogReaderHandler:
         "airflow.composer.patches.logging.task_log_reader_handler.LoggingServiceV2Client", autospec=True
     )
     @time_machine.travel("2016-01-01", tick=False)
-    def test_read_single_page_errors(self, logging_client_mock, error, expected_event):
+    def test_read_all_pages_errors(self, logging_client_mock, error, expected_event):
         client_mock = mock.Mock(list_log_entries=mock.Mock(side_effect=error))
         logging_client_mock.return_value = client_mock
 
-        actual_log_messages, actual_log_metadata = self.handler._read_single_page("logs-filter")
+        actual_log_messages, actual_log_metadata = self.handler._read_all_pages("logs-filter")
 
         assert actual_log_messages == [
             StructuredLogMessage(

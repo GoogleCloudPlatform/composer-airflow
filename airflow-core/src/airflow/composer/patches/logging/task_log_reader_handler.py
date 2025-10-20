@@ -71,7 +71,7 @@ class TaskLogReaderHandler(LoggingMixin):
             ], {"end_of_log": True}
 
         logs_filter = self._get_logs_filter(task_instance, try_number, ti_start_date)
-        log_messages, log_metadata = self._read_single_page(logs_filter=logs_filter)
+        log_messages, log_metadata = self._read_all_pages(logs_filter=logs_filter)
 
         # If it is the last page and there are no logs, return message with information on possible reasons
         # and how to troubleshoot.
@@ -199,8 +199,9 @@ class TaskLogReaderHandler(LoggingMixin):
 
         return "\n".join(filters)
 
-    def _read_single_page(self, logs_filter: str) -> tuple[LogMessages, LogMetadata]:
-        """Read one page of Cloud Logging logs."""
+    # TODO: Internal bug - Add proper support (yield logs) for pagination.
+    def _read_all_pages(self, logs_filter: str) -> tuple[LogMessages, LogMetadata]:
+        """Read all pages of Cloud Logging logs."""
         request = ListLogEntriesRequest(
             resource_names=[f"projects/{PROJECT}"],
             filter=logs_filter,
@@ -214,16 +215,16 @@ class TaskLogReaderHandler(LoggingMixin):
         try:
             response = self._client.list_log_entries(request=request)
 
-            page = next(response.pages)
-            for entry in page.entries:
-                log_messages.append(
-                    StructuredLogMessage(
-                        timestamp=entry.timestamp,
-                        level=log_severity_pb2.LogSeverity.Name(entry.severity),
-                        event=entry.text_payload,
+            for page in response.pages:
+                for entry in page.entries:
+                    log_messages.append(
+                        StructuredLogMessage(
+                            timestamp=entry.timestamp,
+                            level=log_severity_pb2.LogSeverity.Name(entry.severity),
+                            event=entry.text_payload,
+                        )
                     )
-                )
-            log_metadata["next_page_token"] = page.next_page_token
+            log_metadata["next_page_token"] = None
         except GoogleAPICallError as e:
             if e.grpc_status_code == grpc.StatusCode.PERMISSION_DENIED:
                 error = (
