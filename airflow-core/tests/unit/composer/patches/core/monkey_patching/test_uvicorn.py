@@ -14,15 +14,18 @@
 # limitations under the License.
 from __future__ import annotations
 
-from uvicorn.supervisors.multiprocess import Process
+from unittest import mock
 
-from airflow.composer.patches.core.monkey_patching.uvicorn_supervisors_multiprocess import patch
+import uvicorn
+
+from airflow.composer.patches.core.monkey_patching.uvicorn import patch
 
 
-class TestUvicornSupervisorsMultiprocess:
-    def test_patch(self):
-        assert Process.is_alive.__defaults__ == (5,)
-
+class TestUvicorn:
+    @mock.patch("uvicorn.run", autospec=True)
+    def test_patch_uvicorn_run(self, run_mock):
         patch()
 
-        assert Process.is_alive.__defaults__ == (60,)
+        uvicorn.run("app", host="123.40.1.2", port=1234)
+
+        run_mock.assert_called_once_with("app", host="123.40.1.2", port=1234, timeout_worker_healthcheck=60)
