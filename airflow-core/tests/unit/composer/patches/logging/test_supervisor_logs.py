@@ -228,6 +228,25 @@ class TestSupervisorLogs:
             '[final_state=success] [empty_dict={}] [none=None]@-@{"function": "execute_task"}'
         )
 
+    def test_supervisor_log_processor_non_str_event(self):
+        actual = supervisor_log_processor(
+            "logger",
+            "method-name",
+            {
+                "event": {"key": "value"},
+                "timestamp": "2023-01-03 22:34:56,123",
+                "filename": "module.py",
+                "lineno": 123,
+                "level": "info",
+                "func_name": "execute_task",
+            },
+        )
+
+        assert (
+            actual
+            == "[2023-01-03 22:34:56,123] {module.py:123} INFO - {'key': 'value'}@-@{\"function\": \"execute_task\"}"
+        )
+
     @mock.patch("logging.root", autospec=True)
     def test_patch_supervisor_stdlib_logging_configuration(self, root_mock):
         set_formatter_mock = mock.Mock()

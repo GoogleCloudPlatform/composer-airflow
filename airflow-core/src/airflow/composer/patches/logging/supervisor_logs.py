@@ -97,7 +97,7 @@ def supervisor_context_data_processor(logger, method_name, event_dict):
 
 def supervisor_log_processor(logger, method_name, event_dict):
     """Render the log message with custom format and Composer labels added as a json annotation."""
-    message = event_dict["event"]
+    message = str(event_dict["event"])
 
     # Append context data to the log message.
     message += "".join(
