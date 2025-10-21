@@ -26,3 +26,10 @@ def filter_warnings():
         "ignore",
         r".*Using the in-memory storage for tracking rate limits as no storage was explicitly specified.*",
     )
+
+    # This warning is produced by starlette. This is no-op from customer perspective, and should be addressed
+    # in Airflow code base.
+    warnings.filterwarnings(
+        "ignore",
+        r".*'HTTP_422_UNPROCESSABLE_ENTITY' is deprecated. Use 'HTTP_422_UNPROCESSABLE_CONTENT' instead.*",
+    )

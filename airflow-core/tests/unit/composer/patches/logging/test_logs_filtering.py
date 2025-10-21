@@ -16,14 +16,24 @@ from __future__ import annotations
 
 import subprocess
 
+import pytest
+
 
 class TestLogsFiltering:
-    def test_filter_warnings_using_the_in_memory_storage(self):
-        message = (
-            "previous text/ Using the in-memory storage for tracking rate limits "
-            "as no storage was explicitly specified. other text..."
-        )
-
+    @pytest.mark.parametrize(
+        "message",
+        [
+            (
+                "previous text/ Using the in-memory storage for tracking rate limits "
+                "as no storage was explicitly specified. other text..."
+            ),
+            (
+                "previous text/ 'HTTP_422_UNPROCESSABLE_ENTITY' is deprecated. Use "
+                "'HTTP_422_UNPROCESSABLE_CONTENT' instead. other text..."
+            ),
+        ],
+    )
+    def test_filter_warnings_using_the_in_memory_storage(self, message):
         output = subprocess.check_output(
             [
                 "python",
