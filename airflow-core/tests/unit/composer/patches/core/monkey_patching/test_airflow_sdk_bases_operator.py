@@ -18,14 +18,14 @@ from unittest import mock
 
 import pytest
 
-from airflow.composer.patches.core.monkey_patching.airflow_models_baseoperator import patch
+from airflow.composer.patches.core.monkey_patching.airflow_sdk_bases_operator import patch
 from airflow.exceptions import AirflowException, TaskDeferred
-from airflow.models.baseoperator import BaseOperator
+from airflow.sdk.bases.operator import BaseOperator
 
 from tests_common.test_utils.config import conf_vars
 
 
-class TestAirflowModelsBaseOperator:
+class TestAirflowSdkBasesOperator:
     @classmethod
     def setup_class(cls):
         patch()

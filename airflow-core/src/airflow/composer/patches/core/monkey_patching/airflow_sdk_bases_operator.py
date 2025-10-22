@@ -18,7 +18,7 @@ import functools
 
 from airflow.composer.patches.core.utils import is_triggerer_enabled
 from airflow.exceptions import AirflowException
-from airflow.models.baseoperator import BaseOperator
+from airflow.sdk.bases.operator import BaseOperator
 
 
 def patch():
