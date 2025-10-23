@@ -29,10 +29,10 @@ from sqlalchemy import select
 
 from airflow import version
 from airflow.models.taskinstancehistory import TaskInstanceHistory
+from airflow.sdk.timezone import utcnow
 from airflow.utils.log.file_task_handler import StructuredLogMessage
 from airflow.utils.log.logging_mixin import LoggingMixin
 from airflow.utils.session import NEW_SESSION, provide_session
-from airflow.utils.timezone import utcnow
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session

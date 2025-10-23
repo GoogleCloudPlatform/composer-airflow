@@ -32,7 +32,7 @@ from google.logging.type import log_severity_pb2
 
 from airflow.models.taskinstancehistory import TaskInstanceHistory
 from airflow.providers.standard.operators.empty import EmptyOperator
-from airflow.utils import timezone
+from airflow.sdk import timezone
 from airflow.utils.log.file_task_handler import StructuredLogMessage
 from airflow.version import version
 
