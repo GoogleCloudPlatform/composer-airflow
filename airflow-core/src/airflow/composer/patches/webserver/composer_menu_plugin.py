@@ -18,7 +18,7 @@ import os
 from urllib.parse import urlencode
 
 from airflow.plugins_manager import AirflowPlugin, AirflowPluginSource, register_plugin
-from airflow.security import permissions
+from airflow.providers.fab.www.security import permissions
 
 MENU_CATEGORY_NAME = "Composer"
 
