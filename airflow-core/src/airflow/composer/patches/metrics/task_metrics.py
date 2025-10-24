@@ -48,3 +48,16 @@ def emit_metrics_on_task_instance_finished(
             ),
             duration.total_seconds(),
         )
+
+
+def emit_metrics_on_task_failed(ti: RuntimeTaskInstance):
+    """
+    Emit Airflow metrics when task instance fails.
+
+    In Airflow 3.1.0 the task success metrics were introduced again but not the task failed ones.
+    We should remove this patch once these metrics are present in community.
+    """
+    operator = ti.task.__class__.__name__
+    stats_tags = {"dag_id": ti.dag_id, "task_id": ti.task_id}
+    Stats.incr(f"operator_failures_{operator}", tags=stats_tags)
+    Stats.incr("ti_failures", tags=stats_tags)

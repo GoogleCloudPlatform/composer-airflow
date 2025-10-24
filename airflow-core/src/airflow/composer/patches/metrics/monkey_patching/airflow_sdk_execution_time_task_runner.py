@@ -16,12 +16,18 @@ from __future__ import annotations
 
 import functools
 
-from airflow.composer.patches.metrics.task_metrics import emit_metrics_on_task_instance_finished
+from airflow.composer.patches.metrics.task_metrics import (
+    emit_metrics_on_task_failed,
+    emit_metrics_on_task_instance_finished,
+)
 from airflow.sdk.execution_time import task_runner
 
 
 def patch():
     task_runner.run = _composer_task_runner_run(task_runner.run)
+    task_runner._handle_current_task_failed = _composer_task_runner_handle_current_task_failed(
+        task_runner._handle_current_task_failed
+    )
 
 
 def _composer_task_runner_run(f):
@@ -32,5 +38,17 @@ def _composer_task_runner_run(f):
         emit_metrics_on_task_instance_finished(ti, state, msg)
 
         return state, msg, error
+
+    return wrapper
+
+
+def _composer_task_runner_handle_current_task_failed(f):
+    @functools.wraps(f)
+    def wrapper(ti):
+        res = f(ti)
+
+        emit_metrics_on_task_failed(ti)
+
+        return res
 
     return wrapper
