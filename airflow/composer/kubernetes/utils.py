@@ -29,7 +29,6 @@ from kubernetes.client import models as k8s
 from kubernetes.client.exceptions import ApiException
 from kubernetes.stream import stream as kubernetes_stream
 from kubernetes.utils import parse_quantity
-from websocket._exceptions import WebSocketConnectionClosedException
 from websockets.frames import Frame
 from websockets.streams import StreamReader
 
@@ -218,7 +217,6 @@ def before_log_custom_only_on_retries(retry_state: tenacity.RetryCallState):
 
 @tenacity.retry(
     stop=tenacity.stop_after_attempt(5),
-    retry=tenacity.retry_if_exception_type(WebSocketConnectionClosedException),
     wait=tenacity.wait_fixed(1),
     before=before_log_custom_only_on_retries,
     reraise=True,
