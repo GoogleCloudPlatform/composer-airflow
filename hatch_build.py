@@ -524,8 +524,8 @@ COMPOSER_DEPENDENCIES = [
     "aiodebug",
     # aiohttp and pygments in lower versions contain security vulnerabilities.
     "aiohttp>=3.8.5",
-    # TODO: Internal bug - Remove once the bug is fixed
-    "click<=8.2.2",  # only as constraint
+    # TODO: Internal bug - Remove once the bug is fixed, 8.2.1 used since 8.2.2 is yanked
+    "click<=8.2.1",  # only as constraint
     "confluent-kafka",
     "crcmod<2.0",
     "cryptography",
@@ -542,7 +542,8 @@ COMPOSER_DEPENDENCIES = [
     "google-cloud-aiplatform[evaluation]",
     "google-cloud-asset",
     "google-cloud-bigquery-storage",
-    "google-cloud-datacatalog-lineage-producer-client",
+    # To overcome dependency build fail with older versioned downloaded
+    "google-cloud-datacatalog-lineage-producer-client>=0.2.2",
     "google-cloud-datastore",
     "google-cloud-documentai",
     "google-cloud-filestore",
