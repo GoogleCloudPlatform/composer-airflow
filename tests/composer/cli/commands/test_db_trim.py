@@ -105,14 +105,16 @@ class TestDbTrim:
         ) as insert_sql_file:
             execute_sql_file(insert_sql_file)
 
-        args = self.parser.parse_args(
-            [
-                "db",
-                "trim",
-                *extra_args,
-            ]
-        )
-        db_command.trim(args)
+        env_patch = {"COMPOSER_ENVIRONMENT_SIZE": "ENVIRONMENT_SIZE_SMALL"}
+        with mock.patch.dict(os.environ, env_patch, clear=True):
+            args = self.parser.parse_args(
+                [
+                    "db",
+                    "trim",
+                    *extra_args,
+                ]
+            )
+            db_command.trim(args)
 
         after_count_tables = count_tables_rows(tables, trim_execute_time)
 
@@ -132,7 +134,7 @@ class TestDbTrim:
         [
             # Test cases for default values based on environment
             (
-                None,
+                "ENVIRONMENT_SIZE_SMALL",
                 None,
                 None,
                 db_command.DEFAULT_BATCH_SIZE,
@@ -145,21 +147,45 @@ class TestDbTrim:
                 db_command.DEFAULT_BATCH_SIZE,
                 db_command.DEFAULT_SLEEP_BETWEEN_BATCHES_SECONDS,
             ),
-            ("XL", None, None, 15000, 0.2),
+            ("ENVIRONMENT_SIZE_EXTRA_LARGE", None, None, 15000, 0.2),
             # Test cases where only batch size is passed via CLI
-            (None, 2323, None, 2323, db_command.DEFAULT_SLEEP_BETWEEN_BATCHES_SECONDS),
-            ("XL", 1331, None, 1331, 0.2),
+            ("ENVIRONMENT_SIZE_SMALL", 2323, None, 2323, db_command.DEFAULT_SLEEP_BETWEEN_BATCHES_SECONDS),
+            ("ENVIRONMENT_SIZE_EXTRA_LARGE", 1331, None, 1331, 0.2),
             # Test cases where only sleep is passed via CLI
-            (None, None, 0.4, db_command.DEFAULT_BATCH_SIZE, 0.4),
-            ("XL", None, 0.4, 15000, 0.4),
+            ("ENVIRONMENT_SIZE_SMALL", None, 0.4, db_command.DEFAULT_BATCH_SIZE, 0.4),
+            ("ENVIRONMENT_SIZE_EXTRA_LARGE", None, 0.4, 15000, 0.4),
             # Test cases where both batch size and sleep are passed via CLI
-            (None, 9999, 0.3, 9999, 0.3),
-            ("XL", 9999, 0.3, 9999, 0.3),
+            ("ENVIRONMENT_SIZE_SMALL", 9999, 0.3, 9999, 0.3),
+            ("ENVIRONMENT_SIZE_EXTRA_LARGE", 9999, 0.3, 9999, 0.3),
             # Test cases for clamping logic
-            (None, 50, None, db_command.MIN_BATCH_SIZE, db_command.DEFAULT_SLEEP_BETWEEN_BATCHES_SECONDS),
-            (None, 200000, None, db_command.MAX_BATCH_SIZE, db_command.DEFAULT_SLEEP_BETWEEN_BATCHES_SECONDS),
-            (None, None, 0.05, db_command.DEFAULT_BATCH_SIZE, db_command.MIN_SLEEP_BETWEEN_BATCHES_SECONDS),
-            (None, None, 1.0, db_command.DEFAULT_BATCH_SIZE, db_command.MAX_SLEEP_BETWEEN_BATCHES_SECONDS),
+            (
+                "ENVIRONMENT_SIZE_SMALL",
+                50,
+                None,
+                db_command.MIN_BATCH_SIZE,
+                db_command.DEFAULT_SLEEP_BETWEEN_BATCHES_SECONDS,
+            ),
+            (
+                "ENVIRONMENT_SIZE_SMALL",
+                200000,
+                None,
+                db_command.MAX_BATCH_SIZE,
+                db_command.DEFAULT_SLEEP_BETWEEN_BATCHES_SECONDS,
+            ),
+            (
+                "ENVIRONMENT_SIZE_SMALL",
+                None,
+                0.05,
+                db_command.DEFAULT_BATCH_SIZE,
+                db_command.MIN_SLEEP_BETWEEN_BATCHES_SECONDS,
+            ),
+            (
+                "ENVIRONMENT_SIZE_SMALL",
+                None,
+                1.0,
+                db_command.DEFAULT_BATCH_SIZE,
+                db_command.MAX_SLEEP_BETWEEN_BATCHES_SECONDS,
+            ),
         ],
         ids=[
             "no-env-uses-defaults",
@@ -232,16 +258,19 @@ class TestDbTrim:
     )
     @mock.patch("airflow.composer.cli.commands.db_command.trim")
     def test_cli_db_trim_within_range_success(self, mock_db_trim, retention_days):
-        args = self.parser.parse_args(
-            [
-                "db",
-                "trim",
-                "--retention-days",
-                f"{retention_days}",
-                "--acknowledge-composer-internal",
-            ]
-        )
-        db_command.trim(args)
+        env_patch = {"COMPOSER_ENVIRONMENT_SIZE": "ENVIRONMENT_SIZE_SMALL"}
+        with mock.patch.dict(os.environ, env_patch, clear=True):
+            args = self.parser.parse_args(
+                [
+                    "db",
+                    "trim",
+                    "--retention-days",
+                    f"{retention_days}",
+                    "--acknowledge-composer-internal",
+                ]
+            )
+            db_command.trim(args)
+
         mock_db_trim.assert_called_once_with(args)
 
     @pytest.mark.parametrize(
@@ -249,17 +278,19 @@ class TestDbTrim:
         [(-5), (13), (1000)],
     )
     def test_cli_db_trim_within_range_failure(self, retention_days):
-        args = self.parser.parse_args(
-            [
-                "db",
-                "trim",
-                "--retention-days",
-                f"{retention_days}",
-                "--acknowledge-composer-internal",
-            ]
-        )
-        with pytest.raises(ValueError) as value_exception:
-            db_command.trim(args)
+        env_patch = {"COMPOSER_ENVIRONMENT_SIZE": "ENVIRONMENT_SIZE_SMALL"}
+        with mock.patch.dict(os.environ, env_patch, clear=True):
+            args = self.parser.parse_args(
+                [
+                    "db",
+                    "trim",
+                    "--retention-days",
+                    f"{retention_days}",
+                    "--acknowledge-composer-internal",
+                ]
+            )
+            with pytest.raises(ValueError) as value_exception:
+                db_command.trim(args)
 
         assert "Retention horizon must be in range(30, 730)" in str(value_exception.value)
 
