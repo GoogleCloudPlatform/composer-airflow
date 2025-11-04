@@ -31,6 +31,7 @@ class TestFileTaskHandler:
                 dag_id="test_dag_id",
                 task_id="test_task_id",
                 execution_date=datetime(2019, 1, 2),
+                run_id="test_run_id",
                 map_index=3,
                 try_number=2,
             )
@@ -41,7 +42,7 @@ class TestFileTaskHandler:
 
         assert record.workflow_info == (
             '@-@{"workflow": "test_dag_id", "task-id": "test_task_id", '
-            '"execution-date": "2019-01-02T00:00:00", '
+            '"execution-date": "2019-01-02T00:00:00", "run-id": "test_run_id", '
             '"map-index": "3", "try-number": "2"}'
         )
 

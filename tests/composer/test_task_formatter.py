@@ -66,6 +66,7 @@ class TestTaskFormatter:
             '"workflow": "dag_for_testing_composer_task_formatter", '
             '"task-id": "task_for_testing_composer_task_formatter", '
             r'"execution-date": "2020-01-01T00:00:00\+00:00", '
+            '"run-id": "test_run_id", '
             '"map-index": "-1", '
             '"try-number": "1"}\n',
             self.stream.getvalue(),
@@ -88,6 +89,7 @@ class TestTaskFormatter:
             'AssertionError@-@{"workflow": "dag_for_testing_composer_task_formatter", '
             '"task-id": "task_for_testing_composer_task_formatter", '
             '"execution-date": "2020-01-01T00:00:00\\+00:00", '
+            '"run-id": "test_run_id", '
             '"map-index": "-1", "try-number": "1"}\n)',
             self.stream.getvalue(),
         )
@@ -102,6 +104,7 @@ class TestTaskFormatter:
             '"workflow": "dag_for_testing_composer_task_formatter", '
             '"task-id": "task_for_testing_composer_task_formatter", '
             r'"execution-date": "2020-01-01T00:00:00\+00:00", '
+            '"run-id": "test_run_id", '
             '"map-index": "-1", '
             '"try-number": "1"}\n',
             self.stream.getvalue(),
@@ -121,6 +124,7 @@ class TestTaskFormatter:
             '"workflow": "dag_for_testing_composer_task_formatter", '
             '"task-id": "task_for_testing_composer_task_formatter", '
             r'"execution-date": "2020-01-01T00:00:00+00:00", '
+            '"run-id": "test_run_id", '
             '"map-index": "-1", '
             '"try-number": "1"}'
         )
@@ -132,6 +136,7 @@ class TestTaskFormatter:
                 '"workflow": "dag_for_testing_composer_task_formatter", '
                 '"task-id": "task_for_testing_composer_task_formatter", '
                 r'"execution-date": "2020-01-01T00:00:00\+00:00", '
+                '"run-id": "test_run_id", '
                 '"map-index": "-1", '
                 '"try-number": "1"}',
                 line,
@@ -155,6 +160,7 @@ class TestTaskFormatter:
             '"workflow": "dag_for_testing_composer_task_formatter", '
             '"task-id": "task_for_testing_composer_task_formatter", '
             r'"execution-date": "2020-01-01T00:00:00\+00:00", '
+            '"run-id": "test_run_id", '
             '"map-index": "-1", '
             '"try-number": "1", '
             '"extra-label": "value"}\n',
@@ -190,6 +196,7 @@ class TestTaskFormatter:
             '"workflow": "dag_for_testing_composer_task_formatter", '
             '"task-id": "task_for_testing_composer_task_formatter", '
             r'"execution-date": "2020-01-01T00:00:00\+00:00", '
+            '"run-id": "test_run_id", '
             '"map-index": "-1", '
             '"try-number": "1"}\n',
             self.stream.getvalue(),
@@ -213,6 +220,7 @@ class TestTaskFormatter:
             '"workflow": "dag_for_testing_composer_task_formatter", '
             '"task-id": "task_for_testing_composer_task_formatter", '
             r'"execution-date": "2020-01-01T00:00:00\+00:00", '
+            '"run-id": "test_run_id", '
             '"map-index": "-1", '
             '"try-number": "1"}\n',
             self.stream.getvalue(),

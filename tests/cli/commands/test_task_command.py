@@ -897,6 +897,7 @@ class TestLogsfromTaskRunCommand:
             "workflow": "test_logging_dag",
             "task-id": "test_task",
             "execution-date": "2017-01-01T00:00:00+00:00",
+            "run-id": "test_run",
             "map-index": "-1",
             "try-number": "1",
         }

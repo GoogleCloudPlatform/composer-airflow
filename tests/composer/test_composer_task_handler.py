@@ -403,6 +403,7 @@ class TestComposerLoggingHandlerTask:
             'MESSAGE@-@{"workflow": "dag_for_testing_composer_task_handler",'
             ' "task-id": "task_for_testing_composer_log_handler",'
             ' "execution-date": "2022-01-01T00:00:00+00:00",'
+            ' "run-id": "test_composer_run_id",'
             ' "map-index": "-1",'
             ' "try-number": "1"}\n'
         ) == captured_output.getvalue()

@@ -107,6 +107,7 @@ class TestStandardTaskRunner:
         Job.task_instance.map_index = "map_index"
         Job.task_instance.try_number = "try_number"
         Job.task_instance.execution_date.isoformat.return_value = "2018-12-04"
+        Job.task_instance.run_id = "run_id"
         Job.task_instance.run_as_user = None
         Job.task_instance.command_as_list.return_value = [
             "airflow",
@@ -276,6 +277,7 @@ class TestStandardTaskRunner:
         Job.task_instance.map_index = "map_index"
         Job.task_instance.try_number = "try_number"
         Job.task_instance.execution_date.isoformat.return_value = "2018-12-04"
+        Job.task_instance.run_id = "run_id"
         Job.task_instance.run_as_user = getuser()
         Job.task_instance.command_as_list.return_value = [
             "airflow",
@@ -322,6 +324,7 @@ class TestStandardTaskRunner:
         Job.task_instance.map_index = "map_index"
         Job.task_instance.try_number = "try_number"
         Job.task_instance.execution_date.isoformat.return_value = "2018-12-04"
+        Job.task_instance.run_id = "run_id"
         Job.task_instance.run_as_user = getuser()
         Job.task_instance.command_as_list.return_value = [
             "airflow",
