@@ -552,7 +552,8 @@ COMPOSER_DEPENDENCIES = [
     "google-cloud-aiplatform[evaluation]",
     "google-cloud-asset",
     "google-cloud-bigquery-storage",
-    "google-cloud-datacatalog-lineage-producer-client",
+    # To overcome dependency build fail with older versioned downloaded
+    "google-cloud-datacatalog-lineage-producer-client>=0.2.2",
     "google-cloud-datastore",
     "google-cloud-documentai",
     "google-cloud-filestore",
