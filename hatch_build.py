@@ -559,7 +559,8 @@ COMPOSER_DEPENDENCIES = [
     "pygments>2.15.0",
     # Only as a constraint, we can remove once it's fixed as it's not a Composer dependency
     # https://github.com/pytest-dev/pytest/issues/13477
-    "pytest!=8.4.0",
+    # https://github.com/apache/airflow/pull/58166
+    "pytest!=8.4.0,<9.0.0",
     "setuptools>=78.1.1",  # Only as a constraint to avoid vulnerabilities
     # Only as a constraint, we can remove once it's fixed as it's not a Composer dependency
     # https://github.com/googleapis/python-spanner-sqlalchemy/issues/682
