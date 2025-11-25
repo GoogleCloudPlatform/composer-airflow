@@ -279,6 +279,44 @@ class TestTrim:
             days=retention_days
         ) - timedelta(seconds=5)
 
+    @provide_session
+    def test_execute_trim_task_instance_dag_run_tables_logical_date_null(self, session, create_task_instance):
+        retention_days = 30
+        utcnow = timezone.utcnow()
+
+        # Drop tables, as they anyway shouldn't be used across the tests.
+        session.query(TaskInstance).delete()
+        session.query(DagRun).delete()
+        for ind, logical_date in enumerate(
+            [
+                None,
+                utcnow - timedelta(days=retention_days) - timedelta(seconds=1000),
+                utcnow - timedelta(days=retention_days) - timedelta(seconds=10),
+                utcnow - timedelta(days=retention_days) + timedelta(seconds=10),
+            ]
+        ):
+            ti = create_task_instance(run_id=f"trim_task_instance_dag_run_{ind}")
+
+            ti.dag_run.logical_date = logical_date
+            session.add(ti)
+        session.commit()
+
+        assert session.query(TaskInstance).count() == 4
+        assert session.query(DagRun).count() == 4
+
+        execute_trim(retention_days, batch_size=100, sleep_between_batches_seconds=0)
+
+        assert session.query(TaskInstance).count() == 2
+        assert session.query(DagRun).count() == 2
+        assert set(ti.logical_date for ti in session.query(TaskInstance).all()) == {
+            None,
+            utcnow - timedelta(days=retention_days) + timedelta(seconds=10),
+        }
+        assert set(ti.logical_date for ti in session.query(DagRun).all()) == {
+            None,
+            utcnow - timedelta(days=retention_days) + timedelta(seconds=10),
+        }
+
     @mock.patch("signal.signal", autospec=True)
     def test_execute_trim_signals(self, signal_mock):
         execute_trim(30, batch_size=100, sleep_between_batches_seconds=0)
