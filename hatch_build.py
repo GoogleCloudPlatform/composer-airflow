@@ -506,10 +506,8 @@ COMPOSER_DEPENDENCIES = [
     # Celery provider 3.9.0 breaks for airflow < 3, will be fixed in 3.9.1
     # TODO: Internal bug - Also Celery provider >3.10.0 breaks for Airflow <= 2.10.5
     "apache-airflow-providers-celery <=3.10.0,!=3.9.0",
-    # In version 10.4.3 of the kubernetes provider community introduced AF 2.x.x incompatible import.
-    # https://github.com/apache/airflow/pull/49186 But revert the changes in 10.5.0
-    # https://github.com/apache/airflow/pull/50651
-    "apache-airflow-providers-cncf-kubernetes!=10.4.3",
+    # v10.10.0 has a regression breaking XCom in deferrable K8s operators.
+    "apache-airflow-providers-cncf-kubernetes!=10.10.0",
     "apache-airflow-providers-dbt-cloud",
     "apache-airflow-providers-google",
     "apache-airflow-providers-hashicorp",
