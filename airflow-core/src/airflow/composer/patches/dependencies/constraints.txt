@@ -9,6 +9,9 @@
 #
 # SV - constraint(s) to avoid security vulnerabilities.
 aiohttp>=3.8.5  # SV
+# TODO: unpin once https://github.com/apache/airflow/pull/58488 is released.
+# v10.10.0 has a regression breaking XCom in deferrable K8s operators.
+apache-airflow-providers-cncf-kubernetes!=10.10.0
 apache-airflow-providers-common-compat>=1.8.0  # unit tests failing for versions prior to 1.8.0
 apache-airflow-providers-fab>=2.4.3,<3.0.0  # help pip to properly resolve dependencies. unit tests failing for 3.0.0
 click<8.3.0  # 8.3.0 version is not compatible with Airflow
