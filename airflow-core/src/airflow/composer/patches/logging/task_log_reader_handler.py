@@ -17,6 +17,7 @@ from __future__ import annotations
 import datetime
 import os
 from functools import cached_property
+from itertools import chain
 from typing import TYPE_CHECKING
 
 import grpc
@@ -59,62 +60,22 @@ class TaskLogReaderHandler(LoggingMixin):
 
         ti_start_date = self._get_ti_start_date(task_instance, try_number)
         if ti_start_date is None:
-            return [
-                StructuredLogMessage(
-                    timestamp=utcnow(),
-                    level="debug",
-                    event=(
-                        "Looks like the task didn't start yet (`start_date` of the task instance is empty). "
-                        "Please retry later."
+            return chain(
+                [
+                    StructuredLogMessage(
+                        timestamp=utcnow(),
+                        level="debug",
+                        event=(
+                            "Looks like the task didn't start yet (`start_date` of the task instance is empty)."
+                        ),
                     ),
-                ),
-            ], {"end_of_log": True}
+                ]
+            ), {"end_of_log": True}
 
         logs_filter = self._get_logs_filter(task_instance, try_number, ti_start_date)
-        log_messages, log_metadata = self._read_all_pages(logs_filter=logs_filter)
+        log_messages = self._read_all_pages(logs_filter=logs_filter)
 
-        # If it is the last page and there are no logs, return message with information on possible reasons
-        # and how to troubleshoot.
-        # TODO: what if there were messages on previous pages?
-        if not log_messages and not log_metadata.get("next_page_token"):
-            log_messages = [
-                StructuredLogMessage(
-                    timestamp=utcnow(),
-                    level="error",
-                    event="\n".join(
-                        [
-                            "Logs not found. The possible reasons are:",
-                            "*** the task is not yet executed",
-                            "*** worker executing it might have finished abnormally (e.g. was evicted)",
-                            "*** the task is executed, but logs are not yet propagated",
-                            (
-                                "*** the task is executed, but logs were deleted as part of logs retention "
-                                "(default of 30 days)"
-                            ),
-                            (
-                                "Please, refer to "
-                                "https://cloud.google.com/composer/docs/how-to/using/troubleshooting-dags#common_issues "
-                                "for details on troubleshooting."
-                            ),
-                        ]
-                    ),
-                ),
-            ]
-
-        # Prepend log messages with message containing filter used to query Cloud Logging.
-        logs_filter_formatted = logs_filter.replace("\n", " ")
-        log_messages = [
-            StructuredLogMessage(
-                timestamp=utcnow(),
-                level="debug",
-                event=f"Reading logs from Cloud Logging using filter:\n{logs_filter_formatted}",
-            ),
-        ] + log_messages
-        # TODO: support pagination on the backend, once we rebase on the version of Airflow where pagination
-        # is supported on the UI side.
-        log_metadata["end_of_log"] = True
-
-        return log_messages, log_metadata
+        return log_messages, {"end_of_log": True}
 
     @cached_property
     def _client(self) -> LoggingServiceV2Client:
@@ -199,9 +160,16 @@ class TaskLogReaderHandler(LoggingMixin):
 
         return "\n".join(filters)
 
-    # TODO: Internal bug - Add proper support (yield logs) for pagination.
     def _read_all_pages(self, logs_filter: str) -> tuple[LogMessages, LogMetadata]:
         """Read all pages of Cloud Logging logs."""
+        # Prepend log messages with message containing filter that will be used to query Cloud Logging.
+        logs_filter_formatted = logs_filter.replace("\n", " ")
+        yield StructuredLogMessage(
+            timestamp=utcnow(),
+            level="debug",
+            event=f"Reading logs from Cloud Logging using the following filter:\n{logs_filter_formatted}",
+        )
+
         request = ListLogEntriesRequest(
             resource_names=[f"projects/{PROJECT}"],
             filter=logs_filter,
@@ -209,22 +177,18 @@ class TaskLogReaderHandler(LoggingMixin):
             order_by="timestamp asc",
             page_size=CLOUD_LOGGING_LOGS_PAGE_SIZE,
         )
-
-        log_messages = []
-        log_metadata = {}
+        logs_count = 0
         try:
             response = self._client.list_log_entries(request=request)
 
             for page in response.pages:
                 for entry in page.entries:
-                    log_messages.append(
-                        StructuredLogMessage(
-                            timestamp=entry.timestamp,
-                            level=log_severity_pb2.LogSeverity.Name(entry.severity),
-                            event=entry.text_payload,
-                        )
+                    logs_count += 1
+                    yield StructuredLogMessage(
+                        timestamp=entry.timestamp,
+                        level=log_severity_pb2.LogSeverity.Name(entry.severity),
+                        event=entry.text_payload,
                     )
-            log_metadata["next_page_token"] = None
         except GoogleAPICallError as e:
             if e.grpc_status_code == grpc.StatusCode.PERMISSION_DENIED:
                 error = (
@@ -242,6 +206,29 @@ class TaskLogReaderHandler(LoggingMixin):
                 error = f"Unexpected error occurred. {e.grpc_status_code}: {e.message}"
 
             self.log.error(e)
-            return [StructuredLogMessage(timestamp=utcnow(), level="error", event=error)], {}
-
-        return log_messages, log_metadata
+            yield StructuredLogMessage(timestamp=utcnow(), level="error", event=error)
+        else:
+            # If there was no error on reading logs and no logs found, return message with information on
+            # possible reasons and how to troubleshoot.
+            if logs_count == 0:
+                yield StructuredLogMessage(
+                    timestamp=utcnow(),
+                    level="error",
+                    event="\n".join(
+                        [
+                            "Logs not found. The possible reasons are:",
+                            "*** the task is not yet executed",
+                            "*** the task is executed, but logs are not yet propagated",
+                            "*** worker executing it might have finished abnormally (e.g. was evicted)",
+                            (
+                                "*** the task is executed, but logs were deleted as part of logs retention "
+                                "(default of 30 days)"
+                            ),
+                            (
+                                "Please, refer to "
+                                "https://cloud.google.com/composer/docs/how-to/using/troubleshooting-dags#common_issues "
+                                "for details on troubleshooting."
+                            ),
+                        ]
+                    ),
+                )
