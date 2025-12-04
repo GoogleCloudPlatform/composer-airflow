@@ -33,15 +33,20 @@ stat_name_handler = functools.partial(
 
 @hookimpl
 def on_dag_run_success(dag_run: DagRun, msg: str):
-    _emit_metrics_on_dag_run_finished(dag_run=dag_run)
+    _emit_workflow_metrics(dag_run=dag_run)
 
 
 @hookimpl
 def on_dag_run_failed(dag_run: DagRun, msg: str):
-    _emit_metrics_on_dag_run_finished(dag_run=dag_run)
+    _emit_workflow_metrics(dag_run=dag_run)
 
 
-def _emit_metrics_on_dag_run_finished(dag_run: DagRun):
+@hookimpl
+def on_dag_run_running(dag_run: DagRun, msg: str):
+    _emit_workflow_metrics(dag_run=dag_run)
+
+
+def _emit_workflow_metrics(dag_run: DagRun):
     Stats.incr(f"workflow.count.{dag_run.dag_id}@-@{dag_run.state}", 1)
     if dag_run.start_date and dag_run.end_date:
         Stats.gauge(

@@ -21,6 +21,7 @@ from unittest import mock
 
 from airflow.composer.patches.metrics.listener import (
     on_dag_run_failed,
+    on_dag_run_running,
     on_dag_run_success,
 )
 from airflow.models import DagRun, TaskInstance
@@ -98,3 +99,18 @@ class TestListener:
 
         incr_mock.assert_called_once_with("workflow.count.test-dag@-@failed", 1)
         gauge_mock.assert_not_called()
+
+    @mock.patch("airflow.composer.patches.metrics.listener.Stats.incr", autospec=True)
+    @mock.patch("airflow.composer.patches.metrics.listener.Stats.gauge", autospec=True)
+    def test_on_dag_run_running(self, gauge_mock, incr_mock):
+        on_dag_run_running(
+            dag_run=mock.Mock(
+                dag_id="test-dag",
+                state="running",
+                start_date=datetime(2010, 1, 1),
+                end_date=None,
+            ),
+            msg="message",
+        )
+
+        incr_mock.assert_called_once_with("workflow.count.test-dag@-@running", 1)
