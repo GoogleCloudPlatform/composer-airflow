@@ -17,30 +17,13 @@ from __future__ import annotations
 import os
 from urllib.parse import urlencode
 
-from airflow.plugins_manager import AirflowPlugin, AirflowPluginSource, register_plugin
-from airflow.providers.fab.www.security import permissions
+from airflow.plugins_manager import (
+    AirflowPlugin,
+    AirflowPluginSource,
+    register_plugin,
+)
 
 MENU_CATEGORY_NAME = "Composer"
-
-# Resources.
-RESOURCE_COMPOSER_MENU = "Composer Menu"
-RESOURCE_DAGS_IN_GCC = "DAGs in Cloud Console"
-RESOURCE_DAGS_IN_GCS = "DAGs in Cloud Storage"
-RESOURCE_ENVIRONMENT_MONITORING = "Environment Monitoring"
-RESOURCE_ENVIRONMENT_LOGS = "Environment Logs"
-RESOURCE_COMPOSER_DOCS = "Composer Documentation"
-
-COMPOSER_MENU_PLUGIN_PERMISSIONS = [
-    (permissions.ACTION_CAN_ACCESS_MENU, resource)
-    for resource in [
-        RESOURCE_COMPOSER_MENU,
-        RESOURCE_DAGS_IN_GCC,
-        RESOURCE_DAGS_IN_GCS,
-        RESOURCE_ENVIRONMENT_MONITORING,
-        RESOURCE_ENVIRONMENT_LOGS,
-        RESOURCE_COMPOSER_DOCS,
-    ]
-]
 
 # Links.
 ENVIRONMENT_DETAILS_LINK = (
@@ -59,41 +42,36 @@ ENVIRONMENT_MONITORING_LINK = ENVIRONMENT_DETAILS_LINK.format(tab="/monitoring")
 ENVIRONMENT_LOGS_LINK = ENVIRONMENT_DETAILS_LINK.format(tab="/logs")
 COMPOSER_DOCS_LINK = "https://cloud.google.com/composer/docs"
 
-# Menu items.
-DAGS_GCC_APPBUILDER_MITEM = {
-    "name": RESOURCE_DAGS_IN_GCC,
-    "label": "DAGs in Cloud Console",
+# External views.
+DAGS_GCC_EXTERNAL_VIEW = {
+    "name": "DAGs in Cloud Console",
     "href": DAGS_IN_GCC_LINK,
-    "category": RESOURCE_COMPOSER_MENU,
-    "category_label": MENU_CATEGORY_NAME,
+    "destination": "nav",
+    "category": MENU_CATEGORY_NAME,
 }
-DAGS_GCS_APPBUILDER_MITEM = {
-    "name": RESOURCE_DAGS_IN_GCS,
-    "label": "DAGs in Cloud Storage",
+DAGS_GCS_EXTERNAL_VIEW = {
+    "name": "DAGs in Cloud Storage",
     "href": DAGS_IN_GCS_LINK,
-    "category": RESOURCE_COMPOSER_MENU,
-    "category_label": MENU_CATEGORY_NAME,
+    "destination": "nav",
+    "category": MENU_CATEGORY_NAME,
 }
-ENV_MON_APPBUILDER_MITEM = {
-    "name": RESOURCE_ENVIRONMENT_MONITORING,
-    "label": "Environment Monitoring",
+ENV_MON_EXTERNAL_VIEW = {
+    "name": "Environment Monitoring",
     "href": ENVIRONMENT_MONITORING_LINK,
-    "category": RESOURCE_COMPOSER_MENU,
-    "category_label": MENU_CATEGORY_NAME,
+    "destination": "nav",
+    "category": MENU_CATEGORY_NAME,
 }
-ENV_LOGS_APPBUILDER_MITEM = {
-    "name": RESOURCE_ENVIRONMENT_LOGS,
-    "label": "Environment Logs",
+ENV_LOGS_EXTERNAL_VIEW = {
+    "name": "Environment Logs",
     "href": ENVIRONMENT_LOGS_LINK,
-    "category": RESOURCE_COMPOSER_MENU,
-    "category_label": MENU_CATEGORY_NAME,
+    "destination": "nav",
+    "category": MENU_CATEGORY_NAME,
 }
-COMP_DOCS_APPBUILDER_MITEM = {
-    "name": RESOURCE_COMPOSER_DOCS,
-    "label": "Composer Documentation",
+COMP_DOCS_EXTERNAL_VIEW = {
+    "name": "Composer Documentation",
     "href": COMPOSER_DOCS_LINK,
-    "category": RESOURCE_COMPOSER_MENU,
-    "category_label": MENU_CATEGORY_NAME,
+    "destination": "nav",
+    "category": MENU_CATEGORY_NAME,
 }
 
 
@@ -117,10 +95,10 @@ class ComposerMenuPlugin(AirflowPlugin):
     """Airflow plugin for adding Composer links as menu items in Airflow UI."""
 
     name = "ComposerMenuPlugin"
-    appbuilder_menu_items = [
-        DAGS_GCC_APPBUILDER_MITEM,
-        DAGS_GCS_APPBUILDER_MITEM,
-        ENV_MON_APPBUILDER_MITEM,
-        ENV_LOGS_APPBUILDER_MITEM,
-        COMP_DOCS_APPBUILDER_MITEM,
+    external_views = [
+        DAGS_GCC_EXTERNAL_VIEW,
+        DAGS_GCS_EXTERNAL_VIEW,
+        ENV_MON_EXTERNAL_VIEW,
+        ENV_LOGS_EXTERNAL_VIEW,
+        COMP_DOCS_EXTERNAL_VIEW,
     ]

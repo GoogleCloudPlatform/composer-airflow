@@ -39,7 +39,7 @@ class TestComposerMenuPlugin:
             reload(composer_menu_plugin)
 
     @pytest.mark.parametrize(
-        "expected_label, expected_href",
+        "expected_name, expected_href",
         [
             (
                 "DAGs in Cloud Console",
@@ -69,17 +69,18 @@ class TestComposerMenuPlugin:
             ("Composer Documentation", "https://cloud.google.com/composer/docs"),
         ],
     )
-    def test_menu_links(self, expected_label, expected_href):
-        menu_items = composer_menu_plugin.ComposerMenuPlugin().appbuilder_menu_items
+    def test_menu_links(self, expected_name, expected_href):
+        menu_items = composer_menu_plugin.ComposerMenuPlugin().external_views
 
-        assert expected_label in [menu_item["label"] for menu_item in menu_items]
+        assert expected_name in [menu_item["name"] for menu_item in menu_items]
         for menu_item in menu_items:
-            if menu_item["label"] == expected_label:
+            if menu_item["name"] == expected_name:
                 assert menu_item["href"] == expected_href
 
     def test_menu_items_under_same_category(self):
-        for menu_item in composer_menu_plugin.ComposerMenuPlugin().appbuilder_menu_items:
-            assert menu_item["category_label"] == "Composer"
+        for menu_item in composer_menu_plugin.ComposerMenuPlugin().external_views:
+            assert menu_item["destination"] == "nav"
+            assert menu_item["category"] == "Composer"
 
     @mock.patch("airflow.composer.patches.webserver.composer_menu_plugin.register_plugin", autospec=True)
     def test_register_composer_menu_plugin(self, register_plugin_mock):
