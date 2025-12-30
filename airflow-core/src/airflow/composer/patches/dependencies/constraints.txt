@@ -13,11 +13,13 @@ apache-airflow-providers-cncf-kubernetes!=10.10.0  # 10.10.0 has a regression br
 apache-airflow-providers-common-compat>=1.8.0  # unit tests failing for versions prior to 1.8.0
 apache-airflow-providers-fab>=2.4.3,<3.0.0  # help pip to properly resolve dependencies. unit tests failing for 3.0.0
 click<8.3.0  # 8.3.0 version is not compatible with Airflow
+dbt-core>=1.10.8  # help pip to properly resolve dependencies
 fastapi<=0.118.2  # later versions are not compatible with Airflow
 Flask-AppBuilder>=4.6.3  # help pip to properly resolve dependencies
 Flask-Session<0.6.0  # TODO: remove once https://github.com/apache/airflow/issues/36897 is closed
 flower>=2.0.0  # SV
 google-cloud-datacatalog-lineage-producer-client>=0.2.2  # help pip to properly resolve dependencies
+google-cloud-datastore>=2.21.0  # help pip to properly resolve dependencies
 pandas<=2.1.4  # some unit tests are failing for higher versions
 pip==23.2.1
 pygments>2.15.0  # SV
