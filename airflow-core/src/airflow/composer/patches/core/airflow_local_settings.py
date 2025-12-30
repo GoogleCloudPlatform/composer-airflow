@@ -16,8 +16,14 @@
 
 from __future__ import annotations
 
+import logging
+
 from airflow.composer.patches.core.initialize import initialize
 from airflow.composer.patches.core.utils import cross_composer_patches_method
+
+logger = logging.getLogger(__name__)
+
+logger.debug("Loading Composer airflow_local_settings.py file")
 
 
 @cross_composer_patches_method
