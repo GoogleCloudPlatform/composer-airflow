@@ -576,6 +576,7 @@ COMPOSER_DEPENDENCIES = [
     "tensorflow",
     # TODO: Internal bug - Review if possible to remove constraint in Airflow >= 2.11
     "universal-pathlib<=0.2.6",  # Only as constraint
+    "urllib3>=2.6.0",  # Only as constraint to solve SV
     "virtualenv>=20.24.0",
     "websockets",
     # Versions < 2.2.3 contain security vulnerabilities.
