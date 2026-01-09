@@ -14,5 +14,8 @@
 # limitations under the License.
 from __future__ import annotations
 
-# API server is accessible at this endpoint.
+# API server is accessible at this endpoint (configured in pypi-dependencies repo).
 API_SERVER_URL = "http://127.0.0.1:8080"
+
+# Airflow home folder (configured in pypi-dependencies repo).
+AIRFLOW_HOME = "/root/airflow"
