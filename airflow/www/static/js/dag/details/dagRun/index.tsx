@@ -47,7 +47,8 @@ const DagRun = ({ runId }: Props) => {
 
   return (
     <Box
-      maxHeight={`calc(100% - ${offsetTop}px)`}
+      // in case of offsetTop is 0, we need to use 80% to show long run config section
+      maxHeight={offsetTop ? `calc(100% - ${offsetTop}px)` : "80%"}
       ref={detailsRef}
       overflowY="auto"
       pb={4}
