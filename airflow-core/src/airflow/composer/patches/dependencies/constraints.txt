@@ -9,23 +9,31 @@
 #
 # SV - constraint(s) to avoid security vulnerabilities.
 aiohttp>=3.8.5  # SV
-apache-airflow-providers-cncf-kubernetes!=10.10.0  # 10.10.0 has a regression breaking XCom in deferrable K8s operators
+# 10.10.0 has a regression breaking XCom in deferrable K8s operators
+# 10.12.0 breaks deferrable mode https://github.com/apache/airflow/issues/60600
+apache-airflow-providers-cncf-kubernetes!=10.10.0,!=10.12.0
 apache-airflow-providers-common-compat>=1.8.0  # unit tests failing for versions prior to 1.8.0
 apache-airflow-providers-fab>=2.4.3,<3.0.0  # help pip to properly resolve dependencies. unit tests failing for 3.0.0
+apache-beam>=2.70.0  # help pip to properly resolve dependencies
 click<8.3.0  # 8.3.0 version is not compatible with Airflow
 # TODO: remove pinning versions for connexion and dbt-core
 connexion==2.14.2  # help pip to properly resolve dependencies
+dbt-adapters==1.16.3  # help pip to properly resolve dependencies
+dbt-bigquery==1.10.3  # help pip to properly resolve dependencies
 dbt-core==1.10.8  # help pip to properly resolve dependencies
 fastapi<=0.118.2  # later versions are not compatible with Airflow
 Flask-AppBuilder>=4.6.3  # help pip to properly resolve dependencies
 Flask-Session<0.6.0  # TODO: remove once https://github.com/apache/airflow/issues/36897 is closed
+firebase-admin>=7.0.0
 flower>=2.0.0  # SV
+google-cloud-aiplatform>=1.132.0  # help pip to properly resolve dependencies
 google-cloud-asset>=4.1.0  # help pip to properly resolve dependencies
+google-cloud-bigquery-storage>=2.36.0  # help pip to properly resolve dependencies
 google-cloud-datacatalog-lineage-producer-client>=0.2.2  # help pip to properly resolve dependencies
 google-cloud-datastore>=2.21.0  # help pip to properly resolve dependencies
 google-cloud-documentai>=3.7.0  # help pip to properly resolve dependencies
 google-cloud-filestore>=1.14.0  # help pip to properly resolve dependencies
-google-cloud-firestore>=2.21.0  # help pip to properly resolve dependencies
+google-cloud-firestore>=2.23.0  # help pip to properly resolve dependencies
 pandas<=2.1.4  # some unit tests are failing for higher versions
 pip==23.2.1
 pygments>2.15.0  # SV
@@ -34,6 +42,7 @@ pytest!=8.4.0,<9.0.0  # https://github.com/pytest-dev/pytest/issues/13477
 setuptools>=78.1.1  # SV
 sqlalchemy-spanner!=1.12.0  # https://github.com/googleapis/python-spanner-sqlalchemy/issues/682
 structlog<25.5.0  # 25.5.0 is incompatible with Airflow
+tensorflow>=2.20.0  # help pip to properly resolve dependencies
 urllib3>=2.6.0 # SV
 virtualenv>=20.24.0  # SV
 werkzeug>=2.2.3  # SV
