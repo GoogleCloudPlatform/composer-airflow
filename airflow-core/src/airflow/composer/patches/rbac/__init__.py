@@ -6,4 +6,5 @@ Changes:
 - implement Composer Auth Manager
 - implement Composer Airflow Security Manager
 - implement Composer Auth Remote User View
+- implement Per-Folder Roles Autoregistration feature
 """

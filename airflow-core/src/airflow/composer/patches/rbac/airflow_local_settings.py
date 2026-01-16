@@ -12,31 +12,15 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Composer Airflow local settings."""
 
 from __future__ import annotations
 
-import logging
-
-from airflow.composer.patches.core.initialize import initialize
-from airflow.composer.patches.core.utils import cross_composer_patches_method
-
-logger = logging.getLogger(__name__)
-
-logger.debug("Loading Composer airflow_local_settings.py file")
+from airflow.composer.patches.rbac.per_folder_roles_autoregistration import (
+    RBAC_AUTOREGISTER_PER_FOLDER_ROLES,
+    apply_pfra_dag_policy,
+)
 
 
-@cross_composer_patches_method
-def pod_mutation_hook(pod):
-    pass
-
-
-@cross_composer_patches_method
 def dag_policy(dag):
-    pass
-
-
-# Execute initialize method on import of airflow_local_settings.py.
-# Import of airflow_local_settings.py happens during execution of `initialize` method from
-# airflow/settings.py.
-initialize()
+    if RBAC_AUTOREGISTER_PER_FOLDER_ROLES:
+        apply_pfra_dag_policy(dag)

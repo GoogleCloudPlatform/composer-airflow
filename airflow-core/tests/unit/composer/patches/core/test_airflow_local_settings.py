@@ -30,3 +30,8 @@ class TestAirflowLocalSettings:
         from airflow.composer.patches.core import airflow_local_settings
 
         assert hasattr(airflow_local_settings, "pod_mutation_hook")
+
+    def test_dag_policy_defined(self):
+        from airflow.composer.patches.core import airflow_local_settings
+
+        assert hasattr(airflow_local_settings, "dag_policy")

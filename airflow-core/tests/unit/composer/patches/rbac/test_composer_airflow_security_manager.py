@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import random
 import string
+from unittest import mock
 
 from flask_appbuilder.const import AUTH_REMOTE_USER
 
@@ -35,6 +36,28 @@ class TestComposerAirflowSecurityManager:
 
         assert ComposerAirflowSecurityManager.authremoteuserview == ComposerAuthRemoteUserView
         assert app.config["AUTH_TYPE"] == AUTH_REMOTE_USER
+
+    @mock.patch(
+        "airflow.composer.patches.rbac.composer_airflow_security_manager.RBAC_AUTOREGISTER_PER_FOLDER_ROLES",
+        True,
+    )
+    def test_composer_airflow_security_manager_pfra_enabled(self):
+        app = create_app(enable_plugins=False)
+        security_manager = ComposerAirflowSecurityManager(app.appbuilder)
+
+        found = False
+        for role_config in security_manager.ROLE_CONFIGS:
+            if role_config["role"] == "UserNoDags":
+                found = True
+                break
+        # Assert that config for "UserNoDags" role is present.
+        assert found
+        # Assert that permissions for "UserNoDags" role are subset of Viewer and User roles permissions.
+        for p in role_config["perms"]:
+            assert p in security_manager.VIEWER_PERMISSIONS or p in security_manager.USER_PERMISSIONS
+        # Assert that some DAGs permission is present for User role but not for "UserNoDags" role.
+        assert ("can_edit", "DAGs") in security_manager.USER_PERMISSIONS
+        assert ("can_edit", "DAGs") not in role_config["perms"]
 
     @conf_vars(
         {("core", "auth_manager"): "airflow.composer.patches.rbac.composer_auth_manager.ComposerAuthManager"}

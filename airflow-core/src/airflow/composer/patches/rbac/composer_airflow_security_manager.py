@@ -18,7 +18,9 @@ from flask_appbuilder.const import AUTH_REMOTE_USER
 
 from airflow.composer.patches.core.configuration import ALL_RBAC_ROLES_EXTRA_PERMISSIONS
 from airflow.composer.patches.rbac.composer_auth_remote_user_view import ComposerAuthRemoteUserView
+from airflow.composer.patches.rbac.per_folder_roles_autoregistration import RBAC_AUTOREGISTER_PER_FOLDER_ROLES
 from airflow.providers.fab.auth_manager.security_manager.override import FabAirflowSecurityManagerOverride
+from airflow.providers.fab.www.security import permissions
 
 
 class ComposerAirflowSecurityManager(FabAirflowSecurityManagerOverride):
@@ -29,6 +31,21 @@ class ComposerAirflowSecurityManager(FabAirflowSecurityManagerOverride):
     def _init_config(self):
         app = self.appbuilder.get_app
         app.config["AUTH_TYPE"] = AUTH_REMOTE_USER
+
+        if RBAC_AUTOREGISTER_PER_FOLDER_ROLES:
+            # Add a role with permissions like in the User role except for permissions to any DAGs. This role
+            # can be used as the user registration role so that new users can open Airflow UI but don't have
+            # access to any DAGs by default.
+            self.ROLE_CONFIGS.append(
+                {
+                    "role": "UserNoDags",
+                    "perms": [
+                        p
+                        for p in self.VIEWER_PERMISSIONS + self.USER_PERMISSIONS
+                        if p[1] != permissions.RESOURCE_DAG
+                    ],
+                }
+            )
 
         super()._init_config()
 
