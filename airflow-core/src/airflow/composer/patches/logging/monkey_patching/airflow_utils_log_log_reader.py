@@ -14,9 +14,12 @@
 # limitations under the License.
 from __future__ import annotations
 
+import os
+
 from airflow.composer.patches.logging.task_log_reader_handler import TaskLogReaderHandler
 from airflow.utils.log.log_reader import TaskLogReader
 
 
 def patch():
-    TaskLogReader.log_handler = TaskLogReaderHandler()
+    if os.environ.get("COMPOSER_LOCAL_DEV") != "True":
+        TaskLogReader.log_handler = TaskLogReaderHandler()

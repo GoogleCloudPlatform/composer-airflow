@@ -26,6 +26,25 @@ class TestAirflowUtilsLogLogReader:
             "GCP_PROJECT": "test-project",
             "COMPOSER_LOCATION": "test-location",
             "COMPOSER_ENVIRONMENT": "test-environment",
+            "COMPOSER_LOCAL_DEV": "True",
+        },
+    )
+    def test_patch_local_dev(self):
+        from airflow.composer.patches.logging.monkey_patching.airflow_utils_log_log_reader import patch
+        from airflow.composer.patches.logging.task_log_reader_handler import TaskLogReaderHandler
+
+        assert not isinstance(TaskLogReader.log_handler, TaskLogReaderHandler)
+
+        patch()
+
+        assert not isinstance(TaskLogReader.log_handler, TaskLogReaderHandler)
+
+    @mock.patch.dict(
+        "os.environ",
+        {
+            "GCP_PROJECT": "test-project",
+            "COMPOSER_LOCATION": "test-location",
+            "COMPOSER_ENVIRONMENT": "test-environment",
         },
     )
     def test_patch(self):
