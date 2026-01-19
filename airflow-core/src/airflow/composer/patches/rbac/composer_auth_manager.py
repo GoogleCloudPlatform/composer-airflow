@@ -64,3 +64,8 @@ class ComposerAuthManager(FabAuthManager):
             )
 
         return user
+
+
+# Alias that can be used instead - in some places airflow-core relies on the fact that "FabAuthManager" is in
+# the name of the auth manager.
+ComposerFabAuthManager = ComposerAuthManager
