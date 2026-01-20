@@ -18,9 +18,9 @@ apache-beam>=2.70.0  # help pip to properly resolve dependencies
 click<8.3.0  # 8.3.0 version is not compatible with Airflow
 # TODO: remove pinning versions for connexion and dbt-core
 connexion==2.14.2  # help pip to properly resolve dependencies
-dbt-adapters==1.16.3  # help pip to properly resolve dependencies
-dbt-bigquery==1.10.3  # help pip to properly resolve dependencies
-dbt-core==1.10.8  # help pip to properly resolve dependencies
+dbt-adapters>=1.22.5  # help pip to properly resolve dependencies
+dbt-bigquery>=1.11.0  # help pip to properly resolve dependencies
+dbt-core>=1.11.2  # help pip to properly resolve dependencies
 fastapi<=0.118.2  # later versions are not compatible with Airflow
 Flask-AppBuilder>=4.6.3  # help pip to properly resolve dependencies
 Flask-Session<0.6.0  # TODO: remove once https://github.com/apache/airflow/issues/36897 is closed
