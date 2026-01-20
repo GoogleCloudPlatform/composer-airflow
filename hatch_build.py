@@ -527,8 +527,9 @@ COMPOSER_DEPENDENCIES = [
     "confluent-kafka",
     "crcmod<2.0",
     "cryptography",
-    "dbt-bigquery<=1.10.3",  # Composer dependency, constraint to help pip resolver
-    "dbt-core",
+    "dbt-adapters>=1.22.5",  # Only as a constraint to help pip resolver
+    "dbt-bigquery>=1.11.0",  # Composer dependency, constraint to help pip resolver
+    "dbt-core>=1.11.2",  # Composer dependency, constraint to help pip resolver
     "firebase-admin",
     "flask_limiter<=3.12",  # Only as a constraint
     # TODO: remove once https://github.com/apache/airflow/issues/36897 is closed
