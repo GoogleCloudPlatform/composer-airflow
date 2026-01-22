@@ -261,11 +261,12 @@ DSGFOd9s7iFXBW5rlqywzGHrvT5i1beYKQIDAQAB
         autospec=True,
     )
     def test_get_or_register_user(self, update_user_auth_stat_mock):
-        create_app(enable_plugins=False)
+        app = create_app(enable_plugins=False)
         username = "".join(random.choice(string.ascii_uppercase) for _ in range(6))
         email = f"{username}@google.com"
 
-        actual_user = get_or_register_user(username=username, email=email)
+        with app.app_context():
+            actual_user = get_or_register_user(username=username, email=email)
 
         update_user_auth_stat_mock.assert_called_once_with(get_auth_manager().appbuilder.sm, actual_user)
 
@@ -282,13 +283,14 @@ DSGFOd9s7iFXBW5rlqywzGHrvT5i1beYKQIDAQAB
     )
     @mock.patch("airflow.composer.patches.rbac.utils.RBAC_USER_REGISTRATION_ROLE", "Op")
     def test_get_or_register_user_already_registered(self):
-        create_app(enable_plugins=False)
+        app = create_app(enable_plugins=False)
         username = "".join(random.choice(string.ascii_uppercase) for _ in range(6))
         email = f"{username}@google.com"
 
-        get_or_register_user(username=username, email=email)
-        # Try to register second time with same username and email.
-        actual_user = get_or_register_user(username=username, email=email)
+        with app.app_context():
+            get_or_register_user(username=username, email=email)
+            # Try to register second time with same username and email.
+            actual_user = get_or_register_user(username=username, email=email)
 
         assert actual_user.username == username
 
@@ -297,14 +299,15 @@ DSGFOd9s7iFXBW5rlqywzGHrvT5i1beYKQIDAQAB
     )
     @mock.patch("airflow.composer.patches.rbac.utils.RBAC_USER_REGISTRATION_ROLE", "Op")
     def test_get_or_register_user_unsuccessful(self):
-        create_app(enable_plugins=False)
+        app = create_app(enable_plugins=False)
         username = "".join(random.choice(string.ascii_uppercase) for _ in range(6))
         email = f"{username}@google.com"
 
-        get_or_register_user(username=username, email=email)
-        # Try to register second time with different username but same email. sm.add_user method should return
-        # None in this case.
-        actual_user = get_or_register_user(username=username + "2", email=email)
+        with app.app_context():
+            get_or_register_user(username=username, email=email)
+            # Try to register second time with different username but same email. sm.add_user method should return
+            # None in this case.
+            actual_user = get_or_register_user(username=username + "2", email=email)
 
         assert actual_user is None
 
@@ -320,13 +323,14 @@ DSGFOd9s7iFXBW5rlqywzGHrvT5i1beYKQIDAQAB
         autospec=True,
     )
     def test_get_or_register_user_retry_successful(self, update_user_auth_stat_mock, add_user_mock):
-        create_app(enable_plugins=False)
+        app = create_app(enable_plugins=False)
         user_mock = mock.Mock()
         add_user_mock.side_effect = [False, user_mock]
         username = "".join(random.choice(string.ascii_uppercase) for _ in range(6))
         email = f"{username}@google.com"
 
-        actual_user = get_or_register_user(username=username, email=email)
+        with app.app_context():
+            actual_user = get_or_register_user(username=username, email=email)
 
         assert actual_user == user_mock
 
@@ -342,12 +346,13 @@ DSGFOd9s7iFXBW5rlqywzGHrvT5i1beYKQIDAQAB
         autospec=True,
     )
     def test_get_or_register_user_retry_unsuccessful(self, update_user_auth_stat_mock, add_user_mock):
-        create_app(enable_plugins=False)
+        app = create_app(enable_plugins=False)
         add_user_mock.return_value = False
         username = "".join(random.choice(string.ascii_uppercase) for _ in range(6))
         email = f"{username}@google.com"
 
-        actual_user = get_or_register_user(username=username, email=email)
+        with app.app_context():
+            actual_user = get_or_register_user(username=username, email=email)
 
         assert actual_user is None
 
@@ -364,14 +369,16 @@ DSGFOd9s7iFXBW5rlqywzGHrvT5i1beYKQIDAQAB
         autospec=True,
     )
     def test_get_or_register_user_preregistered_user(self, update_user_auth_stat_mock, update_user_mock):
-        create_app(enable_plugins=False)
+        app = create_app(enable_plugins=False)
         username = "".join(random.choice(string.ascii_uppercase) for _ in range(6))
         email = f"{username}@google.com"
         # Preregister user with username=email.
-        preregistered_user = get_or_register_user(username=email, email=email)
+        with app.app_context():
+            preregistered_user = get_or_register_user(username=email, email=email)
         preregistered_user_id = preregistered_user.id
 
-        actual_user = get_or_register_user(username=username, email=email)
+        with app.app_context():
+            actual_user = get_or_register_user(username=username, email=email)
 
         update_user_mock.assert_called_with(get_auth_manager().appbuilder.sm, actual_user)
         update_user_auth_stat_mock.assert_called_with(get_auth_manager().appbuilder.sm, actual_user)
@@ -389,14 +396,16 @@ DSGFOd9s7iFXBW5rlqywzGHrvT5i1beYKQIDAQAB
         autospec=True,
     )
     def test_get_or_register_user_preregistered_user_update_fails(self, update_user_mock):
-        create_app(enable_plugins=False)
+        app = create_app(enable_plugins=False)
         username = "".join(random.choice(string.ascii_uppercase) for _ in range(6))
         email = f"{username}@google.com"
         # Preregister user with username=email.
-        get_or_register_user(username=email, email=email)
+        with app.app_context():
+            get_or_register_user(username=email, email=email)
         update_user_mock.return_value = False
 
-        actual_user = get_or_register_user(username=username, email=email)
+        with app.app_context():
+            actual_user = get_or_register_user(username=username, email=email)
 
         assert actual_user is None
 
