@@ -13,17 +13,14 @@ aiohttp>=3.8.5  # SV
 # 10.12.0 and 10.12.1 break deferrable mode https://github.com/apache/airflow/issues/60600
 apache-airflow-providers-cncf-kubernetes!=10.10.0,!=10.12.0,!=10.12.1
 apache-airflow-providers-common-compat>=1.8.0  # unit tests failing for versions prior to 1.8.0
-apache-airflow-providers-fab>=2.4.3,<3.0.0  # help pip to properly resolve dependencies. unit tests failing for 3.0.0
+apache-airflow-providers-fab>=3.0.0  # help pip to properly resolve dependencies
 apache-beam>=2.70.0  # help pip to properly resolve dependencies
 click<8.3.0  # 8.3.0 version is not compatible with Airflow
-# TODO: remove pinning versions for connexion and dbt-core
-connexion==2.14.2  # help pip to properly resolve dependencies
 dbt-adapters>=1.22.5  # help pip to properly resolve dependencies
 dbt-bigquery>=1.11.0  # help pip to properly resolve dependencies
 dbt-core>=1.11.2  # help pip to properly resolve dependencies
 fastapi<=0.118.2  # later versions are not compatible with Airflow
 Flask-AppBuilder>=4.6.3  # help pip to properly resolve dependencies
-Flask-Session<0.6.0  # TODO: remove once https://github.com/apache/airflow/issues/36897 is closed
 firebase-admin>=7.0.0
 flower>=2.0.0  # SV
 google-cloud-aiplatform>=1.132.0  # help pip to properly resolve dependencies
