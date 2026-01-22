@@ -15,11 +15,9 @@ apache-airflow-providers-cncf-kubernetes!=10.10.0,!=10.12.0,!=10.12.1
 apache-airflow-providers-common-compat>=1.8.0  # unit tests failing for versions prior to 1.8.0
 apache-airflow-providers-fab>=3.0.0
 apache-beam>=2.70.0
-click<8.3.0  # 8.3.0 version is not compatible with Airflow
 dbt-adapters>=1.22.5
 dbt-bigquery>=1.11.0
 dbt-core>=1.11.2
-fastapi<=0.118.2  # later versions are not compatible with Airflow
 Flask-AppBuilder>=4.6.3
 firebase-admin>=7.0.0
 flower>=2.0.0  # SV
