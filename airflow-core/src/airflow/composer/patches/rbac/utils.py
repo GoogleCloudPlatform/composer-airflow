@@ -22,7 +22,10 @@ import pem
 from google.auth.transport.requests import AuthorizedSession
 from tenacity import retry, retry_if_result, stop_after_attempt
 
-from airflow.api_fastapi.app import get_auth_manager
+from airflow.api_fastapi.app import (
+    cached_app,
+    get_auth_manager,
+)
 from airflow.configuration import conf
 
 JWT_PUBLIC_KEYS_URL = conf.get("webserver", "jwt_public_keys_url", fallback="")
@@ -149,3 +152,19 @@ def _decode_inverting_proxy_jwt_with_public_keys(inverting_proxy_jwt, public_key
         "username": decoded_jwt["sub"],
         "email": decoded_jwt["email"] if "email" in decoded_jwt else decoded_jwt["principal"],
     }
+
+
+def get_flask_app():
+    """Return Flask application retrieved from FastAPI application."""
+    fastapi_app = cached_app()
+
+    # Find route mounted at "/auth" path, the path where auth manager application is mounted.
+    for route in fastapi_app.router.routes:
+        if route.path == "/auth":
+            auth_manager_fastapi_app = route.app
+            break
+
+    # Find route mounted at root path, the path where Flask application is mounted.
+    for route in auth_manager_fastapi_app.router.routes:
+        if route.path == "":
+            return route.app.app

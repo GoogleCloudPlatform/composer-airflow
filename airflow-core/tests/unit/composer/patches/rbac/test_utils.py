@@ -18,11 +18,14 @@ import random
 import string
 from unittest import mock
 
+from flask import Flask
+
 from airflow.api_fastapi.app import get_auth_manager
 from airflow.composer.patches.rbac import utils as rbac_utils
 from airflow.composer.patches.rbac.utils import (
     _decode_inverting_proxy_jwt_with_public_keys,
     decode_inverting_proxy_jwt,
+    get_flask_app,
     get_or_register_user,
 )
 from airflow.providers.fab.auth_manager.models import User
@@ -442,3 +445,11 @@ AgMBAAE=
         actual_result = _decode_inverting_proxy_jwt_with_public_keys("test-jwt", ["incorrect-public-key"])
 
         assert actual_result is None
+
+    @conf_vars(
+        {("core", "auth_manager"): "airflow.composer.patches.rbac.composer_auth_manager.ComposerAuthManager"}
+    )
+    def test_get_flask_app(self):
+        actual_flask_app = get_flask_app()
+
+        assert isinstance(actual_flask_app, Flask)
