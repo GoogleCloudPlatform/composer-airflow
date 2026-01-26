@@ -58,4 +58,4 @@ class ComposerAirflowSecurityManager(FabAirflowSecurityManagerOverride):
             permission = self.create_permission(*perm_tuple)
             for role in all_roles:
                 self.add_permission_to_role(role, permission)
-        self.session.commit()
+        self.get_session.commit()

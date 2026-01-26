@@ -32,8 +32,7 @@ from tests_common.test_utils.config import conf_vars
 class TestComposerAirflowSecurityManager:
     def test_composer_airflow_security_manager(self):
         app = create_app(enable_plugins=False)
-        with app.app_context():
-            ComposerAirflowSecurityManager(app.appbuilder)
+        ComposerAirflowSecurityManager(app.appbuilder)
 
         assert ComposerAirflowSecurityManager.authremoteuserview == ComposerAuthRemoteUserView
         assert app.config["AUTH_TYPE"] == AUTH_REMOTE_USER
@@ -44,8 +43,7 @@ class TestComposerAirflowSecurityManager:
     )
     def test_composer_airflow_security_manager_pfra_enabled(self):
         app = create_app(enable_plugins=False)
-        with app.app_context():
-            security_manager = ComposerAirflowSecurityManager(app.appbuilder)
+        security_manager = ComposerAirflowSecurityManager(app.appbuilder)
 
         found = False
         for role_config in security_manager.ROLE_CONFIGS:

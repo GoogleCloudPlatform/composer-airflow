@@ -17,7 +17,7 @@ from __future__ import annotations
 import functools
 import logging
 
-from sqlalchemy import Index, text
+from sqlalchemy import Index
 from sqlalchemy.engine.reflection import Inspector
 
 from airflow.models.taskinstance import TaskInstance
@@ -77,5 +77,5 @@ def _adjust_length_of_hostname_columns(session):
 
     As we use them in index and there's limit for index size, we have to shorten length of these columns.
     """
-    session.execute(text("ALTER TABLE job ALTER COLUMN hostname TYPE VARCHAR(100);"))
-    session.execute(text("ALTER TABLE task_instance ALTER COLUMN hostname TYPE VARCHAR(100);"))
+    session.execute("ALTER TABLE job ALTER COLUMN hostname TYPE VARCHAR(100);")
+    session.execute("ALTER TABLE task_instance ALTER COLUMN hostname TYPE VARCHAR(100);")
