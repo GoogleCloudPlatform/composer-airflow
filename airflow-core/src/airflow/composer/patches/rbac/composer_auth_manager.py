@@ -21,7 +21,6 @@ from fastapi import HTTPException, status
 from airflow.composer.patches.rbac.composer_airflow_security_manager import ComposerAirflowSecurityManager
 from airflow.composer.patches.rbac.utils import (
     decode_inverting_proxy_jwt,
-    get_flask_app,
     get_or_register_user,
 )
 from airflow.providers.fab.auth_manager.api_fastapi.routes.login import login_router
@@ -54,11 +53,10 @@ class ComposerAuthManager(FabAuthManager):
 
         username = decoded_inverting_proxy_jwt["username"]
         email = decoded_inverting_proxy_jwt["email"]
-        with get_flask_app().app_context():
-            user = get_or_register_user(
-                username=username,
-                email=email,
-            )
+        user = get_or_register_user(
+            username=username,
+            email=email,
+        )
 
         if user is None or not user.is_active:
             raise HTTPException(
