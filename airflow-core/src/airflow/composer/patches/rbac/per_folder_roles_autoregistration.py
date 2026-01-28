@@ -24,9 +24,16 @@ from airflow.providers.fab.www.security import permissions
 
 log = logging.getLogger(__name__)
 
-RBAC_AUTOREGISTER_PER_FOLDER_ROLES = conf.getboolean(
-    "webserver", "rbac_autoregister_per_folder_roles", fallback=False
-)
+if conf.has_option("api", "rbac_autoregister_per_folder_roles"):
+    RBAC_AUTOREGISTER_PER_FOLDER_ROLES = conf.getboolean("api", "rbac_autoregister_per_folder_roles")
+elif conf.has_option("webserver", "rbac_autoregister_per_folder_roles"):
+    RBAC_AUTOREGISTER_PER_FOLDER_ROLES = conf.getboolean("webserver", "rbac_autoregister_per_folder_roles")
+    log.warning(
+        "Configuration 'rbac_autoregister_per_folder_roles' in 'webserver' section is deprecated. "
+        "Please move it to 'api' section instead."
+    )
+else:
+    RBAC_AUTOREGISTER_PER_FOLDER_ROLES = False
 
 
 def apply_pfra_dag_policy(dag):
