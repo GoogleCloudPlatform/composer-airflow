@@ -32,18 +32,6 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 
-def patch_kubernetes_hook():
-    from airflow.providers.cncf.kubernetes.hooks.kubernetes import KubernetesHook
-
-    if not getattr(KubernetesHook.__init__, "_composer_patched", False):
-        KubernetesHook.__init__ = _composer_kubernetes_hook_init(KubernetesHook.__init__)
-
-    if not getattr(KubernetesHook.get_conn, "_composer_patched", False):
-        log.info("Patching kubernetes hook get_conn")
-        KubernetesHook.get_conn = _composer_kubernetes_hook_get_conn(KubernetesHook.get_conn)
-        setattr(KubernetesHook.get_conn, "_composer_patched", True)
-
-
 def patch_define_container_state():
     from airflow.providers.cncf.kubernetes.triggers.pod import KubernetesPodTrigger
 
@@ -52,18 +40,6 @@ def patch_define_container_state():
             KubernetesPodTrigger.define_container_state
         )
         setattr(KubernetesPodTrigger.define_container_state, "_composer_patched", True)
-
-
-def _composer_kubernetes_hook_init(f):
-    @functools.wraps(f)
-    def wrapper(self, config_dict: dict | None = None, *args, **kwargs):
-        return_value = f(self, *args, **kwargs)
-
-        if not hasattr(self, "config_dict"):
-            self.config_dict = config_dict
-        return return_value
-
-    return wrapper
 
 
 def _composer_define_container_state(f):
@@ -101,45 +77,5 @@ def _composer_define_container_state(f):
 
         container = next(c for c in pod_containers if c["container"] == self.base_container_name)
         return container["state"].lower()
-
-    return wrapper
-
-
-def _composer_kubernetes_hook_get_conn(f):
-    @functools.wraps(f)
-    def wrapper(self, *args, **kwargs):
-        from kubernetes import client, config
-
-        from airflow.providers.cncf.kubernetes.hooks.kubernetes import (
-            LOADING_KUBE_CONFIG_FILE_RESOURCE,
-            _get_bool,
-        )
-        from airflow.providers.cncf.kubernetes.kube_client import _disable_verify_ssl, _enable_tcp_keepalive
-
-        # use original get_conn
-        if not self.config_dict:
-            return f(self, *args, **kwargs)
-
-        cluster_context = self._coalesce_param(self.cluster_context, self._get_field("cluster_context"))
-        disable_verify_ssl = self._coalesce_param(
-            self.disable_verify_ssl, _get_bool(self._get_field("disable_verify_ssl"))
-        )
-        disable_tcp_keepalive = self._coalesce_param(
-            self.disable_tcp_keepalive, _get_bool(self._get_field("disable_tcp_keepalive"))
-        )
-
-        if disable_verify_ssl is True:
-            _disable_verify_ssl()
-        if disable_tcp_keepalive is not True:
-            _enable_tcp_keepalive()
-
-        self.log.info(LOADING_KUBE_CONFIG_FILE_RESOURCE.format("config dictionary"))
-        self._is_in_cluster = False
-        config.load_kube_config_from_dict(
-            config_dict=self.config_dict,
-            client_configuration=self.client_configuration,
-            context=cluster_context,
-        )
-        return client.ApiClient()
 
     return wrapper

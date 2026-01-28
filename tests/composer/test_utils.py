@@ -194,12 +194,10 @@ class TestUtils:
         ],
     )
     @mock.patch("sys.argv", ["/opt/python3.11/bin/airflow", "triggerer"])
-    @mock.patch("airflow.composer.kubernetes.trigger.patch_kubernetes_hook")
     @mock.patch("airflow.composer.kubernetes.trigger.patch_define_container_state")
     def test_is_kpo_deferrable_patched(
         self,
         mock_container_state,
-        kubernetes_hook_patch_mock,
         composer_version,
         patch_function_expected_calls_count,
     ):
@@ -207,4 +205,3 @@ class TestUtils:
             initialize()
 
         assert mock_container_state.call_count == patch_function_expected_calls_count
-        assert kubernetes_hook_patch_mock.call_count == patch_function_expected_calls_count

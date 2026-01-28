@@ -102,13 +102,10 @@ def initialize():
         aiodebug.log_slow_callbacks.enable(0.05)
 
         if is_serverless_composer():
-            # TODO: delete patch_kubernetes_hook when community changes got released https://github.com/apache/airflow/pull/53126
             from airflow.composer.kubernetes.trigger import (
                 patch_define_container_state,
-                patch_kubernetes_hook,
             )
 
-            patch_kubernetes_hook()
             patch_define_container_state()
 
 
