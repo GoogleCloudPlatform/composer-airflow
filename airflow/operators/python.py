@@ -857,6 +857,15 @@ class PythonVirtualenvOperator(_BasePythonVirtualenvOperator):
             self.log.info("New Python virtual environment created in %s", venv_path)
             return venv_path
 
+    def _cleanup_python_pycache_dir(self, cache_dir_path: Path) -> None:
+        try:
+            shutil.rmtree(cache_dir_path)
+            self.log.debug("The directory %s has been deleted.", cache_dir_path)
+        except FileNotFoundError:
+            self.log.warning("Fail to delete %s. The directory does not exist.", cache_dir_path)
+        except PermissionError:
+            self.log.warning("Permission denied to delete the directory %s.", cache_dir_path)
+
     def execute_callable(self):
         if self.venv_cache_path:
             venv_path = self._ensure_venv_cache_exists(Path(self.venv_cache_path))
@@ -865,9 +874,13 @@ class PythonVirtualenvOperator(_BasePythonVirtualenvOperator):
 
         with TemporaryDirectory(prefix="venv") as tmp_dir:
             tmp_path = Path(tmp_dir)
+            custom_pycache_prefix = Path(sys.pycache_prefix or "")
+            r_path = tmp_path.relative_to(tmp_path.anchor)
+            venv_python_cache_dir = Path.cwd() / custom_pycache_prefix / r_path
             self._prepare_venv(tmp_path)
             python_path = tmp_path / "bin" / "python"
             result = self._execute_python_callable_in_subprocess(python_path)
+            self._cleanup_python_pycache_dir(venv_python_cache_dir)
             return result
 
     def _iter_serializable_context_keys(self):
