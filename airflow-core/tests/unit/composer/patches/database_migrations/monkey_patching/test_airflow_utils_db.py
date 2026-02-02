@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from unittest import mock
 
-from sqlalchemy import Index
+from sqlalchemy import Index, text
 from sqlalchemy.engine.reflection import Inspector
 
 from airflow.composer.patches.database_migrations.monkey_patching.airflow_utils_db import (
@@ -81,8 +81,8 @@ class TestAirflowUtilsDb:
             return -1
 
         # Alter columns.
-        session.execute("ALTER TABLE job ALTER COLUMN hostname TYPE VARCHAR(1);")
-        session.execute("ALTER TABLE task_instance ALTER COLUMN hostname TYPE VARCHAR(1);")
+        session.execute(text("ALTER TABLE job ALTER COLUMN hostname TYPE VARCHAR(1);"))
+        session.execute(text("ALTER TABLE task_instance ALTER COLUMN hostname TYPE VARCHAR(1);"))
         session.commit()
         assert _length_of_column("job", "hostname") == 1
         assert _length_of_column("task_instance", "hostname") == 1

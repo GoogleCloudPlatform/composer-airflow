@@ -24,6 +24,7 @@ from tenacity import retry, retry_if_result, stop_after_attempt
 
 from airflow.api_fastapi.app import get_auth_manager
 from airflow.configuration import conf
+from airflow.providers.fab.auth_manager.security_manager.override import FabException
 
 JWT_PUBLIC_KEYS_URL = conf.get("webserver", "jwt_public_keys_url", fallback="")
 INVERTING_PROXY_BACKEND_ID_REQUEST_HEADER = "X-Inverting-Proxy-Backend-ID"
@@ -104,13 +105,18 @@ def get_or_register_user(username, email):
             if not update_result:
                 return None
         else:
-            user = appbuilder.sm.add_user(
-                username=username,
-                first_name=email,
-                last_name="-",
-                email=email,
-                role=appbuilder.sm.find_role(RBAC_USER_REGISTRATION_ROLE),
-            )
+            try:
+                user = appbuilder.sm.add_user(
+                    username=username,
+                    first_name=email,
+                    last_name="-",
+                    email=email,
+                    role=appbuilder.sm.find_role(RBAC_USER_REGISTRATION_ROLE),
+                )
+            except FabException:
+                # In apache-airflow-providers-fab 3.2.0+ versions add_user method raises FabException in case
+                # of failing to add user.
+                user = None
             # Adding a user can fail for example because of another user with the same email but different
             # username.
             if not user:
