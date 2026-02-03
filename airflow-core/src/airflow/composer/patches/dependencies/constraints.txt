@@ -36,7 +36,8 @@ pygments>2.15.0  # SV
 pytest!=8.4.0,<9.0.0  # https://github.com/pytest-dev/pytest/issues/13477
 setuptools>=78.1.1  # SV
 sqlalchemy-spanner!=1.12.0  # https://github.com/googleapis/python-spanner-sqlalchemy/issues/682
-structlog<25.5.0  # 25.5.0 is incompatible with Airflow
+# TODO: remove constraint for structlog in Airflow 3.1.7+
+structlog<25.5.0
 tensorflow>=2.20.0
 # TODO: try to remove constraint for universal-pathlib in Airflow 3.1.7+, when the sdk and tests should be compatible
 universal-pathlib<=0.3.8
