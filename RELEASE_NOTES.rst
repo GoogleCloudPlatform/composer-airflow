@@ -31,6 +31,7 @@ No significant changes.
 
 Bug Fixes
 ^^^^^^^^^
+- Fix JWT token generation with unset issuer/audience config (#61331)
 - Fix callback files losing priority during queue resort (#61232) (#61243)
 - Fix Dag callback for versioned bundles in the processor (#60734) (#61230)
 - Add 404 handling for non-existent Dag (#61131) (#61225)
