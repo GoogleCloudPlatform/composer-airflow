@@ -14,13 +14,19 @@
 # limitations under the License.
 from __future__ import annotations
 
+import logging
+
 from flask_appbuilder.const import AUTH_REMOTE_USER
+from sqlalchemy import func, select
 
 from airflow.composer.patches.core.configuration import ALL_RBAC_ROLES_EXTRA_PERMISSIONS
 from airflow.composer.patches.rbac.composer_auth_remote_user_view import ComposerAuthRemoteUserView
 from airflow.composer.patches.rbac.per_folder_roles_autoregistration import RBAC_AUTOREGISTER_PER_FOLDER_ROLES
 from airflow.providers.fab.auth_manager.security_manager.override import FabAirflowSecurityManagerOverride
 from airflow.providers.fab.www.security import permissions
+from airflow.utils.session import provide_session
+
+log = logging.getLogger(__name__)
 
 
 class ComposerAirflowSecurityManager(FabAirflowSecurityManagerOverride):
@@ -59,3 +65,17 @@ class ComposerAirflowSecurityManager(FabAirflowSecurityManagerOverride):
             for role in all_roles:
                 self.add_permission_to_role(role, permission)
         self.session.commit()
+
+    @provide_session
+    def find_user_by_username(self, username, session=None):
+        """
+        Find user by username.
+
+        We use this custom method instead of find_user method of parent class, because parent class method
+        sometimes may return stale User object.
+        Note, that here we use session from provide_session decorator, not self.session - exactly in order to
+        resolve the issue of returning stale object.
+        """
+        return session.scalars(
+            select(self.user_model).where(func.lower(self.user_model.username) == func.lower(username))
+        ).one_or_none()

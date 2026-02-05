@@ -89,3 +89,26 @@ class TestComposerAirflowSecurityManager:
 
         assert _has_permission(app.appbuilder.sm, "Admin")
         assert _has_permission(app.appbuilder.sm, custom_role)
+
+    @conf_vars(
+        {("core", "auth_manager"): "airflow.composer.patches.rbac.composer_auth_manager.ComposerAuthManager"}
+    )
+    def test_find_user_by_username(self):
+        app = create_app(enable_plugins=False)
+        username = "".join(random.choice(string.ascii_uppercase) for _ in range(6))
+        email = f"{username}@gmail.com"
+        app.appbuilder.sm.add_user(
+            username=username,
+            first_name="first name",
+            last_name="last name",
+            email=email,
+        )
+
+        actual_user = app.appbuilder.sm.find_user_by_username(username)
+        actual_user2 = app.appbuilder.sm.find_user_by_username(username.lower())
+
+        assert actual_user.username == username
+        assert actual_user.first_name == "first name"
+        assert actual_user.last_name == "last name"
+        assert actual_user.email == email
+        assert actual_user2.id == actual_user.id

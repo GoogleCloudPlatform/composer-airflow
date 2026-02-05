@@ -83,7 +83,7 @@ def decode_inverting_proxy_jwt(inverting_proxy_jwt):
 def get_or_register_user(username, email):
     """Return user by given username and email. If user is not yet registered, register and return it."""
     appbuilder = get_auth_manager().appbuilder
-    user = appbuilder.sm.find_user(username=username)
+    user = appbuilder.sm.find_user_by_username(username=username)
 
     if user is None:
         # Admin can preregister a user by setting user's email address as the username. When the
@@ -92,7 +92,7 @@ def get_or_register_user(username, email):
         # (email address) is bound to the user account it represents at the time of user's first login.
         # See the following section about differences between Google identities and user accounts:
         # https://cloud.google.com/architecture/identity/overview-google-authentication#google_identities
-        preregistered_user = appbuilder.sm.find_user(username=email)
+        preregistered_user = appbuilder.sm.find_user_by_username(username=email)
 
         if preregistered_user:
             # User has been preregistered with email address as the username, update the record to set the
