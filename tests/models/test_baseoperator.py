@@ -817,6 +817,19 @@ class TestBaseOperator:
         # leaking a lot of state)
         assert caplog.messages == ["test"]
 
+    def test_valid_pool_arg(self):
+        my_pool = "my-pool"
+        op = BaseOperator(task_id="test_pool_arg", pool=my_pool)
+        assert op.pool == my_pool
+
+    def test_invalid_pool_arg(self):
+        pool_name = """'><script src=\"https://example.com/exploit.js\"></script>"""
+        error_msg = (
+            "The key (.*) has to be made of alphanumeric characters, dashes, dots and underscores exclusively"
+        )
+        with pytest.raises(AirflowException, match=error_msg):
+            BaseOperator(task_id="test_pool_validation_xss", pool=pool_name)
+
 
 def test_init_subclass_args():
     class InitSubclassOp(BaseOperator):
