@@ -18,6 +18,8 @@ from urllib.parse import urljoin
 
 import requests
 
+from airflow.api_fastapi.auth.managers.base_auth_manager import COOKIE_NAME_JWT_TOKEN
+
 from integration.composer.utils import API_SERVER_URL
 
 
@@ -29,9 +31,11 @@ class TestAirflowLocalSettings:
         We check that Composer airflow_local_settings.py is used by verifying that Composer plugins are
         registered.
         """
+        token_url = urljoin(API_SERVER_URL, "/auth/token")
         plugins_url = urljoin(API_SERVER_URL, "/api/v2/plugins")
 
-        response = requests.get(plugins_url)
+        token = requests.get(token_url).json()["access_token"]
+        response = requests.get(plugins_url, cookies={COOKIE_NAME_JWT_TOKEN: token})
 
         assert response.status_code == 200
         plugin_names = [plugin["name"] for plugin in response.json()["plugins"]]
