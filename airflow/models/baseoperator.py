@@ -1010,6 +1010,9 @@ class BaseOperator(AbstractOperator, metaclass=BaseOperatorMeta):
         self.run_as_user = run_as_user
         self.retries = parse_retries(retries)
         self.queue = queue
+
+        if pool is not None and pool != Pool.DEFAULT_POOL_NAME:
+            validate_key(pool)
         self.pool = Pool.DEFAULT_POOL_NAME if pool is None else pool
         self.pool_slots = pool_slots
         if self.pool_slots < 1:
