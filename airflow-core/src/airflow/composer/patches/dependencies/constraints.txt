@@ -19,6 +19,7 @@ apache-beam>=2.70.0
 dbt-adapters>=1.22.5
 dbt-bigquery>=1.11.0
 dbt-core>=1.11.2
+fastapi<=0.128.1
 Flask-AppBuilder>=4.6.3
 firebase-admin>=7.0.0
 flower>=2.0.0  # SV
