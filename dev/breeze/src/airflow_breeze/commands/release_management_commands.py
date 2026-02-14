@@ -2767,7 +2767,7 @@ FILES_TO_COPY_TO_CLIENT_REPO = [
     ".openapi-generator-ignore",
     "CHANGELOG.md",
     "README.md",
-    "INSTALL",
+    "INSTALLING.md",
     "LICENSE",
     "NOTICE",
     "pyproject.toml",

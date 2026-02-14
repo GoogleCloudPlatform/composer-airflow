@@ -22,20 +22,21 @@ PROJECT BY THE `generate-pypi-readme` PRE-COMMIT. YOUR CHANGES HERE WILL BE AUTO
 
 # Apache Airflow
 
-[![PyPI version](https://badge.fury.io/py/apache-airflow.svg)](https://badge.fury.io/py/apache-airflow)
-[![GitHub Build](https://github.com/apache/airflow/actions/workflows/ci.yml/badge.svg?branch=v2-10-test)](https://github.com/apache/airflow/actions/workflows/ci.yml?query=branch%3Av2-10-test)
-[![Coverage Status](https://codecov.io/gh/apache/airflow/graph/badge.svg?token=WdLKlKHOAU)](https://codecov.io/gh/apache/airflow)
-[![License](https://img.shields.io/:license-Apache%202-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0.txt)
-[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/apache-airflow.svg)](https://pypi.org/project/apache-airflow/)
-[![Docker Pulls](https://img.shields.io/docker/pulls/apache/airflow.svg)](https://hub.docker.com/r/apache/airflow)
-[![Docker Stars](https://img.shields.io/docker/stars/apache/airflow.svg)](https://hub.docker.com/r/apache/airflow)
-[![PyPI - Downloads](https://img.shields.io/pypi/dm/apache-airflow)](https://pypi.org/project/apache-airflow/)
-[![Artifact HUB](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/apache-airflow)](https://artifacthub.io/packages/search?repo=apache-airflow)
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
-[![Twitter Follow](https://img.shields.io/twitter/follow/ApacheAirflow.svg?style=social&label=Follow)](https://twitter.com/ApacheAirflow)
-[![Slack Status](https://img.shields.io/badge/slack-join_chat-white.svg?logo=slack&style=social)](https://s.apache.org/airflow-slack)
-[![Contributors](https://img.shields.io/github/contributors/apache/airflow)](https://github.com/apache/airflow/graphs/contributors)
-[![OSSRank](https://shields.io/endpoint?url=https://ossrank.com/shield/6)](https://ossrank.com/p/6)
+| Category   | Badges                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+|------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| License    | [![License](https://img.shields.io/:license-Apache%202-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0.txt)                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| PyPI       | [![PyPI version](https://badge.fury.io/py/apache-airflow.svg)](https://badge.fury.io/py/apache-airflow) [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/apache-airflow.svg)](https://pypi.org/project/apache-airflow/) [![PyPI - Downloads](https://img.shields.io/pypi/dm/apache-airflow)](https://pypi.org/project/apache-airflow/)                                                                                                                                                                               |
+| Containers | [![Docker Pulls](https://img.shields.io/docker/pulls/apache/airflow.svg)](https://hub.docker.com/r/apache/airflow) [![Docker Stars](https://img.shields.io/docker/stars/apache/airflow.svg)](https://hub.docker.com/r/apache/airflow) [![Artifact HUB](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/apache-airflow)](https://artifacthub.io/packages/search?repo=apache-airflow)                                                                                                                      |
+| Community  | [![Contributors](https://img.shields.io/github/contributors/apache/airflow)](https://github.com/apache/airflow/graphs/contributors) [![Slack Status](https://img.shields.io/badge/slack-join_chat-white.svg?logo=slack&style=social)](https://s.apache.org/airflow-slack) ![Commit Activity](https://img.shields.io/github/commit-activity/m/apache/airflow) [![LFX Health Score](https://insights.linuxfoundation.org/api/badge/health-score?project=apache-airflow)](https://insights.linuxfoundation.org/project/apache-airflow)  |
+| Dev tools  | [![prek](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/j178/prek/master/docs/assets/badge-v0.json)](https://github.com/j178/prek)                                                                                                                                                                                                                                                                                                                                                                            |
+
+| Version | Build Status                                                                                                                                                    |
+|---------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Main    | [![GitHub Build main](https://github.com/apache/airflow/actions/workflows/ci-amd-arm.yml/badge.svg)](https://github.com/apache/airflow/actions)                 |
+| 3.x     | [![GitHub Build 3.1](https://github.com/apache/airflow/actions/workflows/ci-amd-arm.yml/badge.svg?branch=v3-1-test)](https://github.com/apache/airflow/actions) |
+| 2.x     | [![GitHub Build 2.11](https://github.com/apache/airflow/actions/workflows/ci.yml/badge.svg?branch=v2-11-test)](https://github.com/apache/airflow/actions)       |
+
+
 
 <picture width="500">
   <img
@@ -48,20 +49,20 @@ PROJECT BY THE `generate-pypi-readme` PRE-COMMIT. YOUR CHANGES HERE WILL BE AUTO
 
 When workflows are defined as code, they become more maintainable, versionable, testable, and collaborative.
 
-Use Airflow to author workflows as directed acyclic graphs (DAGs) of tasks. The Airflow scheduler executes your tasks on an array of workers while following the specified dependencies. Rich command line utilities make performing complex surgeries on DAGs a snap. The rich user interface makes it easy to visualize pipelines running in production, monitor progress, and troubleshoot issues when needed.
+Use Airflow to author workflows (Dags) that orchestrate tasks. The Airflow scheduler executes your tasks on an array of workers while following the specified dependencies. Rich command line utilities make performing complex surgeries on Dags a snap. The rich user interface makes it easy to visualize pipelines running in production, monitor progress, and troubleshoot issues when needed.
 
 ## Requirements
 
 Apache Airflow is tested with:
 
-|            | Main version (dev)           | Stable version (2.11.0)      |
-|------------|------------------------------|------------------------------|
-| Python     | 3.9, 3.10, 3.11, 3.12        | 3.9, 3.10, 3.11, 3.12        |
-| Platform   | AMD64/ARM64(\*)              | AMD64/ARM64(\*)              |
-| Kubernetes | 1.26, 1.27, 1.28, 1.29, 1.30 | 1.26, 1.27, 1.28, 1.29, 1.30 |
-| PostgreSQL | 12, 13, 14, 15, 16           | 12, 13, 14, 15, 16           |
-| MySQL      | 8.0, 8.4, Innovation         | 8.0, Innovation              |
-| SQLite     | 3.15.0+                      | 3.15.0+                      |
+|            | Main version (dev)                 | Stable version (3.1.7) | Stable version (2.11.1)      |
+|------------|------------------------------------|------------------------|------------------------------|
+| Python     | 3.10, 3.11, 3.12, 3.13             | 3.10, 3.11, 3.12, 3.13 | 3.10, 3.11, 3.12             |
+| Platform   | AMD64/ARM64                        | AMD64/ARM64            | AMD64/ARM64(\*)              |
+| Kubernetes | 1.30, 1.31, 1.32, 1.33, 1.34, 1.35 | 1.30, 1.31, 1.32, 1.33 | 1.26, 1.27, 1.28, 1.29, 1.30 |
+| PostgreSQL | 14, 15, 16, 17, 18                 | 13, 14, 15, 16, 17     | 12, 13, 14, 15, 16           |
+| MySQL      | 8.0, 8.4, Innovation               | 8.0, 8.4, Innovation   | 8.0, Innovation              |
+| SQLite     | 3.15.0+                            | 3.15.0+                | 3.15.0+                      |
 
 \* Experimental
 
@@ -108,7 +109,6 @@ constraints files separately per major/minor Python version.
 You can use them as constraint files when installing Airflow from PyPI. Note that you have to specify
 correct Airflow tag/version/branch and Python versions in the URL.
 
-
 1. Installing just Airflow:
 
 > Note: Only `pip` installation is currently officially supported.
@@ -117,11 +117,6 @@ While it is possible to install Airflow with tools like [Poetry](https://python-
 [pip-tools](https://pypi.org/project/pip-tools), they do not share the same workflow as
 `pip` - especially when it comes to constraint vs. requirements management.
 Installing via `Poetry` or `pip-tools` is not currently supported.
-
-There are known issues with ``bazel`` that might lead to circular dependencies when using it to install
-Airflow. Please switch to ``pip`` if you encounter such problems. ``Bazel`` community works on fixing
-the problem in `this PR <https://github.com/bazelbuild/rules_python/pull/1166>`_ so it might be that
-newer versions of ``bazel`` will handle it.
 
 If you wish to install Airflow using those tools, you should use the constraint files and convert
 them to the appropriate format and workflow that your tool requires.
@@ -159,7 +154,9 @@ release provided they have access to the appropriate platform and tools.
 
 ## Contributing
 
-Want to help build Apache Airflow? Check out our [contributing documentation](https://github.com/apache/airflow/blob/main/contributing-docs/README.rst).
+Want to help build Apache Airflow? Check out our [contributors' guide](https://github.com/apache/airflow/blob/main/contributing-docs/README.rst) for a comprehensive overview of how to contribute, including setup instructions, coding standards, and pull request guidelines.
+
+If you can't wait to contribute, and want to get started asap, check out the [contribution quickstart](https://github.com/apache/airflow/blob/main/contributing-docs/03a_contributors_quick_start_beginners.rst) here!
 
 Official Docker (container) images for Apache Airflow are described in [images](https://github.com/apache/airflow/blob/main/dev/breeze/doc/ci/02_images.md).
 

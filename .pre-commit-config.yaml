@@ -34,8 +34,16 @@ repos:
     hooks:
       - id: doctoc
         name: Add TOC for Markdown and RST files
-        files:
-          ^README\.md$|^UPDATING.*\.md$|^chart/UPDATING.*\.md$|^dev/.*\.md$|^dev/.*\.rst$|^.github/.*\.md|^tests/system/README.md$
+        files: |
+          (?x)
+          ^README\.md$|
+          ^UPDATING.*\.md$|
+          ^chart/UPDATING.*\.md$|
+          ^dev/.*\.md$|
+          ^dev/.*\.rst$|
+          ^.github/.*\.md|
+          ^tests/system/README.md$|
+          ^INSTALLING.md$
         args:
           - "--maxlevel"
           - "2"
@@ -556,7 +564,8 @@ repos:
           ^contributing-docs/03_contributors_quick_start.rst$|
           ^.*\.(png|gif|jp[e]?g|tgz|lock)$|
           git|
-          ^newsfragments/43349\.significant\.rst$
+          ^newsfragments/43349\.significant\.rst$|
+          README.md$
       - id: check-template-context-variable-in-sync
         name: Sync template context variable refs
         language: python

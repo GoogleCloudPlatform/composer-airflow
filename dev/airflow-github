@@ -143,7 +143,7 @@ def is_core_commit(files: list[str]) -> bool:
         "COMMITTERS.rst",
         "contributing_docs/",
         "INTHEWILD.md",
-        "INSTALL",
+        "INSTALLING.md",
         "README.md",
         "images/",
         "codecov.yml",

@@ -89,7 +89,7 @@ artifacts = [
 ]
 include = [
     "version.txt",
-    "INSTALL",
+    "INSTALLING.md",
     "README.md",
 ]
 
