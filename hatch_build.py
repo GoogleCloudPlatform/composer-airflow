@@ -43,7 +43,7 @@ PRE_INSTALLED_PROVIDERS = [
     "common.compat",
     "common.io",
     "common.sql",
-    "fab>=1.5.4,<2.0",
+    "fab>=1.5.4rc0,<2.0",
     "ftp",
     "http",
     "imap",
@@ -576,13 +576,15 @@ def get_provider_requirement(provider_spec: str) -> str:
 
         current_airflow_version = Version(airflow_version_match.group(1))
         provider_id, min_version = provider_spec.split(">=")
-        min_version = min_version.split(",")[0]
+        version_split = min_version.split(",")
+        min_version = version_split[0]
         provider_version = Version(min_version)
         if provider_version.is_prerelease and not current_airflow_version.is_prerelease:
             # strip pre-release version from the pre-installed provider's version when we are preparing
             # the official package
             min_version = str(provider_version.base_version)
-        return f"apache-airflow-providers-{provider_id.replace('.', '-')}>={min_version}"
+        extra_version = "" if len(version_split) == 1 else "," + ",".join(version_split[1:])
+        return f"apache-airflow-providers-{provider_id.replace('.', '-')}>={min_version}{extra_version}"
     else:
         return f"apache-airflow-providers-{provider_spec.replace('.', '-')}"
 
