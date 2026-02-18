@@ -249,6 +249,10 @@ class TestUtils:
         + [
             # Tests for CPU.
             (
+                k8s.V1ResourceRequirements(requests={"cpu": 1}, limits={"cpu": 2}),
+                "e2-custom-2-8192",
+            ),
+            (
                 k8s.V1ResourceRequirements(requests={"cpu": "1"}, limits={"cpu": "2"}),
                 "e2-custom-2-8192",
             ),
