@@ -263,10 +263,18 @@ def _get_desired_cpu_amount(resources: k8s.V1ResourceRequirements) -> float:
     limits_cpu = None
     if resources and resources.requests and resources.requests.get("cpu"):
         requests_cpu = resources.requests["cpu"]
-        requests_cpu = float(requests_cpu[:-1]) / 1000 if requests_cpu.endswith("m") else float(requests_cpu)
+        requests_cpu = (
+            float(requests_cpu[:-1]) / 1000
+            if isinstance(requests_cpu, str) and requests_cpu.endswith("m")
+            else float(requests_cpu)
+        )
     if resources and resources.limits and resources.limits.get("cpu"):
         limits_cpu = resources.limits["cpu"]
-        limits_cpu = float(limits_cpu[:-1]) / 1000 if limits_cpu.endswith("m") else float(limits_cpu)
+        limits_cpu = (
+            float(limits_cpu[:-1]) / 1000
+            if isinstance(limits_cpu, str) and limits_cpu.endswith("m")
+            else float(limits_cpu)
+        )
 
     if (requests_cpu is not None) and (limits_cpu is not None):
         return max(requests_cpu, limits_cpu)
