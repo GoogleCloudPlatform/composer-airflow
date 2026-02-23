@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import logging
 
+from flask import current_app
 from flask_appbuilder.const import AUTH_REMOTE_USER
 from sqlalchemy import func, select
 
@@ -35,8 +36,7 @@ class ComposerAirflowSecurityManager(FabAirflowSecurityManagerOverride):
     authremoteuserview = ComposerAuthRemoteUserView
 
     def _init_config(self):
-        app = self.appbuilder.get_app
-        app.config["AUTH_TYPE"] = AUTH_REMOTE_USER
+        current_app.config["AUTH_TYPE"] = AUTH_REMOTE_USER
 
         if RBAC_AUTOREGISTER_PER_FOLDER_ROLES:
             # Add a role with permissions like in the User role except for permissions to any DAGs. This role
