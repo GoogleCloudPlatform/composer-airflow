@@ -36,6 +36,10 @@ class ComposerAuthManager(FabAuthManager):
         # corresponding "/auth/token" endpoint.
         login_router.routes = [r for r in login_router.routes if r.path != "/token"]
 
+        # Remove FAB route for "/logout" path. Custom "/logout" endpoint is implemented in
+        # ComposerAuthRemoteUserView.
+        login_router.routes = [r for r in login_router.routes if r.path != "/logout"]
+
         return super().init()
 
     @cached_property

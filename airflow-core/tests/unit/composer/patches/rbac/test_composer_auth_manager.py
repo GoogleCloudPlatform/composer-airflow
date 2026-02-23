@@ -36,10 +36,12 @@ class TestComposerAuthManager:
         create_app(enable_plugins=False)
         am = get_auth_manager()
         assert "/token" in [r.path for r in login_router.routes]
+        assert "/logout" in [r.path for r in login_router.routes]
 
         am.init()
 
         assert "/token" not in [r.path for r in login_router.routes]
+        assert "/logout" not in [r.path for r in login_router.routes]
 
     @conf_vars(
         {("core", "auth_manager"): "airflow.composer.patches.rbac.composer_auth_manager.ComposerAuthManager"}
