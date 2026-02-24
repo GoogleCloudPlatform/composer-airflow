@@ -32,16 +32,11 @@ class TestAirflowSdkExecutionTimeTaskRunner:
     @mock.patch(
         f"{AIRFLOW_SDK_EXECUTION_TIME_TASK_RUNNER_PATCH_PATH}._composer_task_runner_run",
     )
-    @mock.patch(
-        f"{AIRFLOW_SDK_EXECUTION_TIME_TASK_RUNNER_PATCH_PATH}._composer_task_runner_handle_current_task_failed",
-    )
-    def test_patch(self, composer_task_runner_handle_current_task_failed_mock, composer_task_runner_run_mock):
-        composer_task_runner_handle_current_task_failed_mock.assert_not_called()
+    def test_patch(self, composer_task_runner_run_mock):
         composer_task_runner_run_mock.assert_not_called()
 
         patch()
 
-        composer_task_runner_handle_current_task_failed_mock.assert_called_once()
         composer_task_runner_run_mock.assert_called_once()
 
     @mock.patch(
@@ -65,25 +60,3 @@ class TestAirflowSdkExecutionTimeTaskRunner:
 
         assert res == ("mocked-state", "mocked-msg", "mocked-error")
         emit_metrics_on_task_instance_finished_mock.assert_called_once_with(ti, "mocked-state", "mocked-msg")
-
-    @mock.patch(
-        "airflow.sdk.execution_time.task_runner._handle_current_task_failed",
-        return_value=("mocked-task-state", "mocked-ti-state"),
-    )
-    @mock.patch(
-        f"{AIRFLOW_SDK_EXECUTION_TIME_TASK_RUNNER_PATCH_PATH}.emit_metrics_on_task_failed",
-        autospec=True,
-    )
-    def test_emit_metrics_on_task_failed(self, emit_metrics_on_task_failed_mock, _):
-        patch()
-        run_id = "".join(random.choice(string.ascii_uppercase) for _ in range(6))
-        ti = TaskInstance(
-            task=BaseOperator(task_id="test-task-id"),
-            dag_version_id="test-version",
-            run_id=run_id,
-        )
-
-        res = task_runner._handle_current_task_failed(ti)
-
-        assert res == ("mocked-task-state", "mocked-ti-state")
-        emit_metrics_on_task_failed_mock.assert_called_once_with(ti)
