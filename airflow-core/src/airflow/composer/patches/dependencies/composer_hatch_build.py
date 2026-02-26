@@ -23,6 +23,7 @@ if TYPE_CHECKING:
     from hatchling.builders.hooks.plugin.interface import BuildHookInterface
 
 COMPOSER_DEPENDENCIES = [
+    "apache-airflow-client",
     "apache-airflow-providers-apache-beam",
     "apache-airflow-providers-celery",
     "apache-airflow-providers-cncf-kubernetes",
