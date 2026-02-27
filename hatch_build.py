@@ -522,8 +522,6 @@ COMPOSER_DEPENDENCIES = [
     "dbt-core>=1.11.2",  # Composer dependency, constraint to help pip resolver
     "firebase-admin",
     "flask_limiter<=3.12",  # Only as a constraint
-    # TODO: remove once https://github.com/apache/airflow/issues/36897 is closed
-    "Flask-Session<0.6.0",
     # Due to security vulnerability Flower version >= 2.0.0 required.
     "flower>=2.0.0",
     "gcsfs",
