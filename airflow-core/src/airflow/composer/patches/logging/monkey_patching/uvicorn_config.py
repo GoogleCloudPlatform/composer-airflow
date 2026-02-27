@@ -24,3 +24,9 @@ def patch():
     # emitted by default handler to go to stdout and severity in Cloud Logging will be determined based on the
     # prefix (e.g. "INFO: ...") of the message.
     LOGGING_CONFIG["handlers"]["default"]["stream"] = "ext://sys.stdout"
+
+    # Adjust format of uvicorn logs.
+    # TODO: add ip address to the uvicorn "access" log messages (in a format required by composer-telemtry).
+    #  We can get it from client_addr attribute of a log record by stripping port.
+    LOGGING_CONFIG["formatters"]["default"]["fmt"] = "%(message)s"
+    LOGGING_CONFIG["formatters"]["access"]["fmt"] = '"%(request_line)s" %(status_code)s'

@@ -22,7 +22,14 @@ from airflow.composer.patches.logging.monkey_patching.uvicorn_config import patc
 class TestUvicornConfig:
     def test_patch(self):
         assert LOGGING_CONFIG["handlers"]["default"]["stream"] == "ext://sys.stderr"
+        assert LOGGING_CONFIG["formatters"]["default"]["fmt"] == "%(levelprefix)s %(message)s"
+        assert (
+            LOGGING_CONFIG["formatters"]["access"]["fmt"]
+            == '%(levelprefix)s %(client_addr)s - "%(request_line)s" %(status_code)s'
+        )
 
         patch()
 
         assert LOGGING_CONFIG["handlers"]["default"]["stream"] == "ext://sys.stdout"
+        assert LOGGING_CONFIG["formatters"]["default"]["fmt"] == "%(message)s"
+        assert LOGGING_CONFIG["formatters"]["access"]["fmt"] == '"%(request_line)s" %(status_code)s'
