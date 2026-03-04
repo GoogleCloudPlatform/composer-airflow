@@ -26,13 +26,20 @@ from airflow.api_fastapi.app import get_auth_manager
 from airflow.configuration import conf
 from airflow.providers.fab.auth_manager.security_manager.override import FabException
 
-JWT_PUBLIC_KEYS_URL = conf.get("webserver", "jwt_public_keys_url", fallback="")
-INVERTING_PROXY_BACKEND_ID_REQUEST_HEADER = "X-Inverting-Proxy-Backend-ID"
-INVERTING_PROXY_BACKEND_ID = conf.get("webserver", "inverting_proxy_backend_id", fallback="")
-INVERTING_PROXY_USER_ID_REQUEST_HEADER = "X-Inverting-Proxy-User-ID"
-RBAC_USER_REGISTRATION_ROLE = conf.get("webserver", "rbac_user_registration_role", fallback="")
-
 log = logging.getLogger(__name__)
+
+JWT_PUBLIC_KEYS_URL = conf.get("api", "jwt_public_keys_url", fallback="")
+INVERTING_PROXY_BACKEND_ID_REQUEST_HEADER = "X-Inverting-Proxy-Backend-ID"
+INVERTING_PROXY_BACKEND_ID = conf.get("api", "inverting_proxy_backend_id", fallback="")
+INVERTING_PROXY_USER_ID_REQUEST_HEADER = "X-Inverting-Proxy-User-ID"
+if conf.has_option("webserver", "rbac_user_registration_role"):
+    RBAC_USER_REGISTRATION_ROLE = conf.get("webserver", "rbac_user_registration_role")
+    log.warning(
+        "Configuration 'rbac_user_registration_role' in 'webserver' section is deprecated. "
+        "Please move it to 'api' section instead."
+    )
+else:
+    RBAC_USER_REGISTRATION_ROLE = conf.get("api", "rbac_user_registration_role", fallback="")
 
 # Cached list of public keys to decode Inverting Proxy JWT.
 JWT_PUBLIC_KEYS = None
