@@ -394,6 +394,22 @@ class TestComposerLoggingHandlerTask:
         ] == logs
         assert [{"end_of_log": True}] == metadata
 
+    @mock.patch("airflow.composer.composer_task_handler.get_credentials_and_project_id")
+    @mock.patch("airflow.composer.composer_task_handler.LoggingServiceV2Client")
+    def test_should_return_not_supported_when_regional_endpoints_restricted(
+        self, mock_client, mock_get_creds_and_project_id
+    ):
+        self.composerTaskHandler.USE_REGIONAL_ENDPOINTS = True
+        self.composerTaskHandler.LOGGING_GLOBAL_ENDPOINT_RESTRICTED = True
+
+        logs, metadatas = self.composerTaskHandler.read(self.ti, 1)
+
+        messages = (
+            "*** Reading remote logs when global Cloud Logging endpoint is restricted, is not supported.\n"
+        )
+        assert logs == [((self.composerTaskHandler.task_instance_hostname, messages),)]
+        assert metadatas == [{"end_of_log": "true"}]
+
     def test_should_write_logs_to_stream(self):
         captured_output = io.StringIO(newline=None)
         composer_task_handler2 = ComposerTaskHandler(stream=captured_output)
@@ -420,6 +436,26 @@ class TestComposerLoggingHandlerTask:
             ' "map-index": "-1",'
             ' "try-number": "1"}\n'
         ) == captured_output.getvalue()
+
+    @mock.patch("airflow.composer.composer_task_handler.get_credentials_and_project_id")
+    @mock.patch("airflow.composer.composer_task_handler.LoggingServiceV2Client")
+    @mock.patch("airflow.composer.composer_task_handler.ClientOptions")
+    def test_should_use_regional_endpoints_when_configured(
+        self, mock_client_options, mock_client, mock_get_creds_and_project_id
+    ):
+        mock_get_creds_and_project_id.return_value = ("creds", "project_id")
+        self.composerTaskHandler.USE_REGIONAL_ENDPOINTS = True
+        self.composerTaskHandler.LOGGING_GLOBAL_ENDPOINT_RESTRICTED = True
+        self.composerTaskHandler.ENVIRONMENT_LOCATION = "us-central1"
+
+        _ = self.composerTaskHandler._logging_service_client
+
+        mock_client_options.assert_called_once_with(api_endpoint="logging.us-central1.rep.googleapis.com")
+        mock_client.assert_called_once_with(
+            credentials="creds",
+            client_info=mock.ANY,
+            client_options=mock_client_options.return_value,
+        )
 
     def test_task_instance_to_labels(self):
         ti = mock.Mock(
