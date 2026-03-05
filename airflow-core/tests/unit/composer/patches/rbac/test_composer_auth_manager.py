@@ -22,7 +22,7 @@ from fastapi import HTTPException, status
 
 from airflow.api_fastapi.app import get_auth_manager
 from airflow.composer.patches.rbac.composer_airflow_security_manager import ComposerAirflowSecurityManager
-from airflow.providers.fab.auth_manager.api_fastapi.routes.login import login_router
+from airflow.providers.fab.auth_manager.api_fastapi.routes import login
 from airflow.providers.fab.www.app import create_app
 
 from tests_common.test_utils.config import conf_vars
@@ -35,13 +35,13 @@ class TestComposerAuthManager:
     def test_init(self):
         create_app(enable_plugins=False)
         am = get_auth_manager()
-        assert "/token" in [r.path for r in login_router.routes]
-        assert "/logout" in [r.path for r in login_router.routes]
+        assert hasattr(login, "create_token")
+        assert hasattr(login, "logout")
 
         am.init()
 
-        assert "/token" not in [r.path for r in login_router.routes]
-        assert "/logout" not in [r.path for r in login_router.routes]
+        assert not hasattr(login, "create_token")
+        assert not hasattr(login, "logout")
 
     @conf_vars(
         {("core", "auth_manager"): "airflow.composer.patches.rbac.composer_auth_manager.ComposerAuthManager"}
