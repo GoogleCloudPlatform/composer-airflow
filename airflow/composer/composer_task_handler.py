@@ -23,6 +23,7 @@ from functools import cached_property
 from typing import TYPE_CHECKING, Any, Collection
 
 import grpc
+from google.api_core.client_options import ClientOptions
 from google.api_core.exceptions import GoogleAPICallError
 from google.api_core.gapic_v1.client_info import ClientInfo
 from google.cloud.logging_v2.services.logging_service_v2 import LoggingServiceV2Client
@@ -71,6 +72,10 @@ class ComposerTaskHandler(StreamTaskHandler, LoggingMixin):
     ENVIRONMENT_NAME = os.environ.get("COMPOSER_ENVIRONMENT")
     ENVIRONMENT_LOCATION = os.environ.get("COMPOSER_LOCATION")
     END_TIME_FILTER_OFFSET = timedelta(minutes=5)
+    USE_REGIONAL_ENDPOINTS = os.environ.get("USE_REGIONAL_ENDPOINTS", "false").lower() == "true"
+    LOGGING_GLOBAL_ENDPOINT_RESTRICTED = (
+        os.environ.get("LOGGING_GLOBAL_ENDPOINT_RESTRICTED", "false").lower() == "true"
+    )
 
     def __init__(
         self,
@@ -98,9 +103,17 @@ class ComposerTaskHandler(StreamTaskHandler, LoggingMixin):
     def _logging_service_client(self) -> LoggingServiceV2Client:
         """The Cloud logging service v2 client."""
         credentials, _ = self._credentials_and_project_id
+
+        client_options = None
+        if self.USE_REGIONAL_ENDPOINTS and self.LOGGING_GLOBAL_ENDPOINT_RESTRICTED:
+            logging_regional_endpoint = f"logging.{self.ENVIRONMENT_LOCATION}.rep.googleapis.com"
+            client_options = ClientOptions(api_endpoint=logging_regional_endpoint)
+            self.log.debug("Using logging regional endpoint: %s", logging_regional_endpoint)
+
         client = LoggingServiceV2Client(
             credentials=credentials,
             client_info=ClientInfo(client_library_version="airflow_v" + version.version),
+            client_options=client_options,
         )
         return client
 
@@ -126,6 +139,15 @@ class ComposerTaskHandler(StreamTaskHandler, LoggingMixin):
 
         if not metadata:
             metadata = {}
+
+        # Logs are currently stored in global bucket,
+        # we cannot read them when global Cloud Logging endpoint is restricted.
+        if self.USE_REGIONAL_ENDPOINTS and self.LOGGING_GLOBAL_ENDPOINT_RESTRICTED:
+            messages = (
+                "*** Reading remote logs when global Cloud Logging endpoint"
+                " is restricted, is not supported.\n"
+            )
+            return [((self.task_instance_hostname, messages),)], [{"end_of_log": "true"}]
 
         log_filter = self._prepare_filter(task_instance, try_number)
         self.log.debug("Log filter is %s", log_filter)
