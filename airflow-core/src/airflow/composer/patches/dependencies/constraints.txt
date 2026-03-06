@@ -12,6 +12,8 @@ aiohttp>=3.8.5  # SV
 apache-airflow-providers-common-compat>=1.8.0  # unit tests failing for versions prior to 1.8.0
 apache-airflow-providers-fab>=3.2.0
 apache-beam>=2.70.0
+# requests==2.32.5 throws dependency warning message in case of using chardet 6+
+chardet<6.0.0
 dbt-adapters>=1.22.5
 dbt-bigquery>=1.11.0
 dbt-core>=1.11.2
