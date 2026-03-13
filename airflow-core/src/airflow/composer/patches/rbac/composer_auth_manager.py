@@ -23,7 +23,7 @@ from airflow.composer.patches.rbac.utils import (
     decode_inverting_proxy_jwt,
     get_or_register_user,
 )
-from airflow.providers.fab.auth_manager.api_fastapi.routes import login
+from airflow.providers.fab.auth_manager.api_fastapi.routes.login import auth_router
 from airflow.providers.fab.auth_manager.fab_auth_manager import FabAuthManager
 
 
@@ -34,11 +34,11 @@ class ComposerAuthManager(FabAuthManager):
         # Remove FAB route for "/token" path. Accessing Public API in Composer requires Google application
         # credentials only. Client doesn't need to generate JWT token via Airflow API, thus we do not need
         # corresponding "/auth/token" endpoint.
-        del login.create_token
+        auth_router.routes = [r for r in auth_router.routes if r.path != "/token"]
 
         # Remove FAB route for "/logout" path. Custom "/logout" endpoint is implemented in
         # ComposerAuthRemoteUserView.
-        del login.logout
+        auth_router.routes = [r for r in auth_router.routes if r.path != "/logout"]
 
         return super().init()
 
