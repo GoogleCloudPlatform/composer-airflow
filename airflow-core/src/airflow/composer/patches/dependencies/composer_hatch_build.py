@@ -24,6 +24,7 @@ if TYPE_CHECKING:
 
 COMPOSER_DEPENDENCIES = [
     "apache-airflow-client",
+    "apache-airflow-ctl",
     "apache-airflow-providers-apache-beam",
     "apache-airflow-providers-celery",
     "apache-airflow-providers-cncf-kubernetes",
