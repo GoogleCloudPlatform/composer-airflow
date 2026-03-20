@@ -40,4 +40,5 @@ tensorflow>=2.20.0
 universal-pathlib<=0.3.8
 urllib3>=2.6.0 # SV
 virtualenv>=20.24.0  # SV
-werkzeug>=2.2.3  # SV
+# werkzeug >= 3.0.0 breaks TestComposerAuthRemoteUserView due to app.test_client() method incompatibility with the lib version
+werkzeug>=2.2.3,<3.0.0  # SV
