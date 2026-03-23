@@ -454,8 +454,9 @@ DEPENDENCIES = [
     "marshmallow-oneofschema>=2.0.1",
     "mdit-py-plugins>=0.3.0",
     "methodtools>=0.4.7",
-    "opentelemetry-api>=1.24.0",
-    "opentelemetry-exporter-otlp>=1.24.0",
+    # TODO: Internal bug - Remove once the bug is fixed
+    "opentelemetry-api==1.36.0",
+    "opentelemetry-exporter-otlp==1.36.0",
     "packaging>=23.0",
     "pathspec>=0.9.0",
     "pem>=23.1.0",
@@ -563,6 +564,14 @@ COMPOSER_DEPENDENCIES = [
     "werkzeug>=2.2.3",
     # TODO: remove when https://github.com/apache/airflow/issues/43228 is fixed
     "wtforms>=3.1.0,<3.2.0",
+    # TODO: Internal bug - Remove once the bug is fixed
+    "opentelemetry-exporter-otlp-proto-common==1.36.0",
+    "opentelemetry-exporter-otlp-proto-grpc==1.36.0",
+    "opentelemetry-exporter-otlp-proto-http==1.36.0",
+    "opentelemetry-proto==1.36.0",
+    "opentelemetry-sdk==1.36.0",
+    "opentelemetry-semantic-conventions==0.57b0",
+    "opentelemetry-exporter-prometheus==0.57b0",
 ]
 
 COMPOSER_EXTRAS_DEPENDENCIES = [
