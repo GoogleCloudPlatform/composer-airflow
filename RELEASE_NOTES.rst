@@ -24,226 +24,338 @@
 
 .. towncrier release notes start
 
-Airflow 3.2.0b1 (2026-03-03)
+Airflow 3.2.0b2 (2026-03-23)
 ----------------------------
 
 Significant Changes
 ^^^^^^^^^^^^^^^^^^^
 
-- Move task-level exception imports into the Task SDK
+Asset Partitioning
+""""""""""""""""""
 
-  Airflow now sources task-facing exceptions (``AirflowSkipException``, ``TaskDeferred``, etc.) from
-  ``airflow.sdk.exceptions``. ``airflow.exceptions`` still exposes the same exceptions, but they are
-  proxies that emit ``DeprecatedImportWarning`` so Dag authors can migrate before the shim is removed.
+The headline feature of Airflow 3.2.0 is asset partitioning — a major evolution of data-aware
+scheduling. Instead of triggering DAGs based on an entire asset, you can now schedule downstream
+processing based on specific partitions of data. Only the relevant slice of data triggers downstream
+work, making pipeline orchestration far more efficient and precise.
 
-  **What changed:**
+This matters when working with partitioned data lakes — date-partitioned S3 paths, Hive table
+partitions, BigQuery table partitions, or any other partitioned data store. Previously, any update
+to an asset triggered all downstream DAGs regardless of which partition changed. Now only the right
+work gets triggered at the right time.
 
-  - Runtime code now consistently raises the SDK versions of task-level exceptions.
-  - The Task SDK redefines these classes so workers no longer depend on ``airflow-core`` at runtime.
-  - ``airflow.providers.common.compat.sdk`` centralizes compatibility imports for providers.
+Synchronous callback support for Deadline Alerts
+""""""""""""""""""""""""""""""""""""""""""""""""
 
-  **Behaviour changes:**
+Deadline Alerts now support synchronous callbacks via ``SyncCallback`` in addition to the existing
+asynchronous ``AsyncCallback``. Synchronous callbacks are executed by the executor (rather than
+the triggerer), and can optionally target a specific executor via the ``executor`` parameter.
 
-  - Sensors and other helpers that validate user input now raise ``ValueError`` (instead of
-    ``AirflowException``) when ``poke_interval``/ ``timeout`` arguments are invalid.
-  - Importing deprecated exception names from ``airflow.exceptions`` logs a warning directing users to
-    the SDK import path.
+A DAG can also define multiple Deadline Alerts by passing a list to the ``deadline`` parameter,
+and each alert can use either callback type.
 
-  **Exceptions now provided by ``airflow.sdk.exceptions``:**
+Multi-Team Deployments
+""""""""""""""""""""""
 
-  - ``AirflowException`` and ``AirflowNotFoundException``
-  - ``AirflowRescheduleException`` and ``AirflowSensorTimeout``
-  - ``AirflowSkipException``, ``AirflowFailException``, ``AirflowTaskTimeout``, ``AirflowTaskTerminated``
-  - ``TaskDeferred``, ``TaskDeferralTimeout``, ``TaskDeferralError``
-  - ``DagRunTriggerException`` and ``DownstreamTasksSkipped``
-  - ``AirflowDagCycleException`` and ``AirflowInactiveAssetInInletOrOutletException``
-  - ``ParamValidationError``, ``DuplicateTaskIdFound``, ``TaskAlreadyInTaskGroup``, ``TaskNotFound``, ``XComNotFound``
-  - ``AirflowOptionalProviderFeatureException``
+Airflow 3.2 introduces multi-team support, allowing organizations to run multiple isolated teams within a single Airflow deployment.
+Each team can have its own Dags, connections, variables, pools, and executors— enabling true resource and permission isolation without requiring separate Airflow instances per team.
 
-  **Backward compatibility:**
+This is particularly valuable for platform teams that serve multiple data engineering or data science teams from shared infrastructure, while maintaining strong boundaries between teams' resources and access.
 
-  - Existing Dags/operators that still import from ``airflow.exceptions`` continue to work, though
-    they log warnings.
-  - Providers can rely on ``airflow.providers.common.compat.sdk`` to keep one import path that works
-    across supported Airflow versions.
 
-  **Migration:**
+UI Enhancements & Performance
+"""""""""""""""""""""""""""""
 
-  - Update custom operators, sensors, and extensions to import exception classes from
-    ``airflow.sdk.exceptions`` (or from the provider compat shim).
-  - Adjust custom validation code to expect ``ValueError`` for invalid sensor arguments if it
-    previously caught ``AirflowException``.
+- Grid View Virtualization:
+  The Grid view now uses virtualization — only visible rows are rendered to the DOM. This dramatically improves performance when viewing Dags with large numbers of task runs, reducing render time and memory usage for complex Dags. (#60241)
 
-- Support numeric multiplier values for retry_exponential_backoff parameter
+- XCom Management in the UI:
+  You can now add, edit, and delete XCom values directly from the Airflow UI. This makes it much easier to debug and manage XCom state during development and day-to-day operations without needing CLI commands. (#58921)
 
-  The ``retry_exponential_backoff`` parameter now accepts numeric values to specify custom exponential backoff multipliers for task retries. Previously, this parameter only accepted boolean values (``True`` or ``False``), with ``True`` using a hardcoded multiplier of ``2.0``.
+- HITL Detail History:
+  The Human-in-the-Loop approval interface now includes a full history view, letting operators and reviewers see the complete audit trail of approvals and rejections for any task. (#56760, #55952)
 
-  **New behavior:**
+- Gantt Chart Improvements
+  - All task tries displayed: Gantt chart now shows every attempt, not just the latest
+  - Task display names in Gantt: task_display_name shown for better readability (#61438)
+  - ISO dates in Gantt: Cross-browser consistent date format (#61250)
+  - Fixed null datetime crash: Gantt chart no longer crashes on tasks with null datetime fields
 
-  - Numeric values (e.g., ``2.0``, ``3.5``) directly specify the exponential backoff multiplier
-  - ``retry_exponential_backoff=2.0`` doubles the delay between each retry attempt
-  - ``retry_exponential_backoff=0`` or ``False`` disables exponential backoff (uses fixed ``retry_delay``)
+Airflow scheduler CLI command have a new ``--only-idle`` flag to only count runs when the scheduler is idle
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+It will help users to run the scheduler once and process all the triggered DAGs and all the queued tasks.
+It requires and complements the ``--num-runs`` flag so one can set a small value to it instead of gessing how many times the scheduler will run.
 
-  **Backwards compatibility:**
+Replace per-run TI summary requests with a single NDJSON stream
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
-  Existing DAGs using boolean values continue to work:
+The grid, graph, gantt, and task-detail views now fetch task-instance
+summaries through a single streaming HTTP request
+(``GET /ui/grid/ti_summaries/{dag_id}?run_ids=...``) instead of one request
+per run.  The server emits one JSON line per run as soon as that run's task
+instances are ready, so columns appear progressively rather than all at once.
 
-  - ``retry_exponential_backoff=True`` → converted to ``2.0`` (maintains original behavior)
-  - ``retry_exponential_backoff=False`` → converted to ``0.0`` (no exponential backoff)
+**What changed:**
 
-  **API changes:**
+- ``GET /ui/grid/ti_summaries/{dag_id}?run_ids=...`` is now the sole endpoint
+  for TI summaries, returning an ``application/x-ndjson`` stream where each
+  line is a serialized ``GridTISummaries`` object for one run.
+- The old single-run endpoint ``GET /ui/grid/ti_summaries/{dag_id}/{run_id}``
+  has been removed.
+- The serialized Dag structure is loaded once and shared across all runs that
+  share the same ``dag_version_id``, avoiding redundant deserialization.
+- All UI views (grid, graph, gantt, task instance, mapped task instance, group
+  task instance) use the stream endpoint, passing one or more ``run_ids``.
 
-  The REST API schema for ``retry_exponential_backoff`` has changed from ``type: boolean`` to ``type: number``. API clients must use numeric values (boolean values will be rejected).
+Structured JSON logging for all API server output
+"""""""""""""""""""""""""""""""""""""""""""""""""
 
-  **Migration:**
+The new ``json_logs`` option under the ``[logging]`` section makes Airflow
+produce all its output as newline-delimited JSON (structured logs) instead of
+human-readable formatted logs. This covers the API server (gunicorn/uvicorn),
+including access logs, warnings, and unhandled exceptions.
 
-  While boolean values in Python DAGs are automatically converted for backwards compatibility, we recommend updating to explicit numeric values for clarity:
+Not all components support this yet — notably ``airflow celery worker`` but
+any non-JSON output when ``json_logs`` is enabled will be treated as a bug. (#63365)
 
-  - Change ``retry_exponential_backoff=True`` → ``retry_exponential_backoff=2.0``
-  - Change ``retry_exponential_backoff=False`` → ``retry_exponential_backoff=0``
+Remove legacy OTel Trace metaclass and shared tracer wrappers
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
-- Move serialization/deserialization (serde) logic into Task SDK
+The interfaces and functions located in ``airflow.traces`` were
+internal code that provided a standard way to manage spans in
+internal Airflow code. They were not intended as user-facing code
+and were never documented. They are no longer needed so we
+remove them in 3.2. (#63452)
 
-  Airflow now sources serde logic from ``airflow.sdk.serde`` instead of
-  ``airflow.serialization.serde``. Serializer modules have moved from ``airflow.serialization.serializers.*``
-  to ``airflow.sdk.serde.serializers.*``. The old import paths still work but emit ``DeprecatedImportWarning``
-  to guide migration. The backward compatibility layer will be removed in Airflow 4.
+Move task-level exception imports into the Task SDK
+"""""""""""""""""""""""""""""""""""""""""""""""""""
 
-  **What changed:**
+Airflow now sources task-facing exceptions (``AirflowSkipException``, ``TaskDeferred``, etc.) from
+``airflow.sdk.exceptions``. ``airflow.exceptions`` still exposes the same exceptions, but they are
+proxies that emit ``DeprecatedImportWarning`` so Dag authors can migrate before the shim is removed.
 
-  - Serialization/deserialization code moved from ``airflow-core`` to ``task-sdk`` package
-  - Serializer modules moved from ``airflow.serialization.serializers.*`` to ``airflow.sdk.serde.serializers.*``
-  - New serializers should be added to ``airflow.sdk.serde.serializers.*`` namespace
+**What changed:**
 
-  **Code interface changes:**
+- Runtime code now consistently raises the SDK versions of task-level exceptions.
+- The Task SDK redefines these classes so workers no longer depend on ``airflow-core`` at runtime.
+- ``airflow.providers.common.compat.sdk`` centralizes compatibility imports for providers.
 
-  - Import serializers from ``airflow.sdk.serde.serializers.*`` instead of ``airflow.serialization.serializers.*``
-  - Import serialization functions from ``airflow.sdk.serde`` instead of ``airflow.serialization.serde``
+**Behaviour changes:**
 
-  **Backward compatibility:**
+- Sensors and other helpers that validate user input now raise ``ValueError`` (instead of
+  ``AirflowException``) when ``poke_interval``/ ``timeout`` arguments are invalid.
+- Importing deprecated exception names from ``airflow.exceptions`` logs a warning directing users to
+  the SDK import path.
 
-  - Existing serializers importing from ``airflow.serialization.serializers.*`` continue to work with deprecation warnings
-  - All existing serializers (builtin, datetime, pandas, numpy, etc.) are available at the new location
+**Exceptions now provided by ``airflow.sdk.exceptions``:**
 
-  **Migration:**
+- ``AirflowException`` and ``AirflowNotFoundException``
+- ``AirflowRescheduleException`` and ``AirflowSensorTimeout``
+- ``AirflowSkipException``, ``AirflowFailException``, ``AirflowTaskTimeout``, ``AirflowTaskTerminated``
+- ``TaskDeferred``, ``TaskDeferralTimeout``, ``TaskDeferralError``
+- ``DagRunTriggerException`` and ``DownstreamTasksSkipped``
+- ``AirflowDagCycleException`` and ``AirflowInactiveAssetInInletOrOutletException``
+- ``ParamValidationError``, ``DuplicateTaskIdFound``, ``TaskAlreadyInTaskGroup``, ``TaskNotFound``, ``XComNotFound``
+- ``AirflowOptionalProviderFeatureException``
 
-  - **For existing custom serializers**: Update imports to use ``airflow.sdk.serde.serializers.*``
-  - **For new serializers**: Add them to ``airflow.sdk.serde.serializers.*`` namespace (e.g., create ``task-sdk/src/airflow/sdk/serde/serializers/your_serializer.py``)
+**Backward compatibility:**
 
-- Methods removed from PriorityWeightStrategy and TaskInstance
+- Existing Dags/operators that still import from ``airflow.exceptions`` continue to work, though
+  they log warnings.
+- Providers can rely on ``airflow.providers.common.compat.sdk`` to keep one import path that works
+  across supported Airflow versions.
 
-  On (experimental) class ``PriorityWeightStrategy``, functions ``serialize()``
-  and ``deserialize()`` were never used anywhere, and have been removed. They
-  should not be relied on in user code.
+**Migration:**
 
-  On class ``TaskInstance``, functions ``run()``, ``render_templates()``, and
-  private members related to them have been removed. The class has been
-  considered internal since 3.0, and should not be relied on in user code. (#59780)
+- Update custom operators, sensors, and extensions to import exception classes from
+  ``airflow.sdk.exceptions`` (or from the provider compat shim).
+- Adjust custom validation code to expect ``ValueError`` for invalid sensor arguments if it
+  previously caught ``AirflowException``.
+
+Support numeric multiplier values for retry_exponential_backoff parameter
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+
+The ``retry_exponential_backoff`` parameter now accepts numeric values to specify custom exponential backoff multipliers for task retries. Previously, this parameter only accepted boolean values (``True`` or ``False``), with ``True`` using a hardcoded multiplier of ``2.0``.
+
+**New behavior:**
+
+- Numeric values (e.g., ``2.0``, ``3.5``) directly specify the exponential backoff multiplier
+- ``retry_exponential_backoff=2.0`` doubles the delay between each retry attempt
+- ``retry_exponential_backoff=0`` or ``False`` disables exponential backoff (uses fixed ``retry_delay``)
+
+**Backwards compatibility:**
+
+Existing DAGs using boolean values continue to work:
+
+- ``retry_exponential_backoff=True`` → converted to ``2.0`` (maintains original behavior)
+- ``retry_exponential_backoff=False`` → converted to ``0.0`` (no exponential backoff)
+
+**API changes:**
+
+The REST API schema for ``retry_exponential_backoff`` has changed from ``type: boolean`` to ``type: number``. API clients must use numeric values (boolean values will be rejected).
+
+**Migration:**
+
+While boolean values in Python DAGs are automatically converted for backwards compatibility, we recommend updating to explicit numeric values for clarity:
+
+- Change ``retry_exponential_backoff=True`` → ``retry_exponential_backoff=2.0``
+- Change ``retry_exponential_backoff=False`` → ``retry_exponential_backoff=0``
+
+Move serialization/deserialization (serde) logic into Task SDK
+""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+
+Airflow now sources serde logic from ``airflow.sdk.serde`` instead of
+``airflow.serialization.serde``. Serializer modules have moved from ``airflow.serialization.serializers.*``
+to ``airflow.sdk.serde.serializers.*``. The old import paths still work but emit ``DeprecatedImportWarning``
+to guide migration. The backward compatibility layer will be removed in Airflow 4.
+
+**What changed:**
+
+- Serialization/deserialization code moved from ``airflow-core`` to ``task-sdk`` package
+- Serializer modules moved from ``airflow.serialization.serializers.*`` to ``airflow.sdk.serde.serializers.*``
+- New serializers should be added to ``airflow.sdk.serde.serializers.*`` namespace
+
+**Code interface changes:**
+
+- Import serializers from ``airflow.sdk.serde.serializers.*`` instead of ``airflow.serialization.serializers.*``
+- Import serialization functions from ``airflow.sdk.serde`` instead of ``airflow.serialization.serde``
+
+**Backward compatibility:**
+
+- Existing serializers importing from ``airflow.serialization.serializers.*`` continue to work with deprecation warnings
+- All existing serializers (builtin, datetime, pandas, numpy, etc.) are available at the new location
+
+**Migration:**
+
+- **For existing custom serializers**: Update imports to use ``airflow.sdk.serde.serializers.*``
+- **For new serializers**: Add them to ``airflow.sdk.serde.serializers.*`` namespace (e.g., create ``task-sdk/src/airflow/sdk/serde/serializers/your_serializer.py``)
+
+Methods removed from PriorityWeightStrategy and TaskInstance
+""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+
+On (experimental) class ``PriorityWeightStrategy``, functions ``serialize()``
+and ``deserialize()`` were never used anywhere, and have been removed. They
+should not be relied on in user code.
+
+On class ``TaskInstance``, functions ``run()``, ``render_templates()``, and
+private members related to them have been removed. The class has been
+considered internal since 3.0, and should not be relied on in user code. (#59780)
 - Modify the information returned by ``DagBag``
 
-  **New behavior:**
-  - ``DagBag`` now uses ``Path.relative_to`` for consistent cross-platform behavior.
-  - ``FileLoadStat`` now has two additional nullable fields: ``bundle_path`` and ``bundle_name``.
+**New behavior:**
+- ``DagBag`` now uses ``Path.relative_to`` for consistent cross-platform behavior.
+- ``FileLoadStat`` now has two additional nullable fields: ``bundle_path`` and ``bundle_name``.
 
-  **Backward compatibility:**
-  ``FileLoadStat`` will no longer produce paths beginning with ``/`` with the meaning of "relative to the dags folder".
-  This is a breaking change for any custom code that performs string-based path manipulations relying on this behavior.
-  Users are advised to update such code to use ``pathlib.Path``. (#59785)
+**Backward compatibility:**
+``FileLoadStat`` will no longer produce paths beginning with ``/`` with the meaning of "relative to the dags folder".
+This is a breaking change for any custom code that performs string-based path manipulations relying on this behavior.
+Users are advised to update such code to use ``pathlib.Path``. (#59785)
 - Methods removed from TaskInstance
 
-  On class ``TaskInstance``, functions ``run()``, ``render_templates()``,
-  ``get_template_context()``, and private members related to them have been
-  removed. The class has been considered internal since 3.0, and should not be
-  relied on in user code. (#59835)
+On class ``TaskInstance``, functions ``run()``, ``render_templates()``,
+``get_template_context()``, and private members related to them have been
+removed. The class has been considered internal since 3.0, and should not be
+relied on in user code. (#59835)
 - Removed the redundant ``--conn-id`` option from the ``airflow connections list`` CLI command. Use ``airflow connections get`` instead. (#59855)
 - Add operator-level ``render_template_as_native_obj`` override
 
-  Operators can now override the DAG-level ``render_template_as_native_obj`` setting,
-  enabling fine-grained control over whether templates are rendered as native Python
-  types or strings on a per-task basis. Set ``render_template_as_native_obj=True`` or
-  ``False`` on any operator to override the DAG setting, or leave as ``None`` (default)
-  to inherit from the DAG.
+Operators can now override the DAG-level ``render_template_as_native_obj`` setting,
+enabling fine-grained control over whether templates are rendered as native Python
+types or strings on a per-task basis. Set ``render_template_as_native_obj=True`` or
+``False`` on any operator to override the DAG setting, or leave as ``None`` (default)
+to inherit from the DAG.
 
-- Add gunicorn support for API server with zero-downtime worker recycling
+Add gunicorn support for API server with zero-downtime worker recycling
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
-  The API server now supports gunicorn as an alternative server with rolling worker restarts
-  to prevent memory accumulation in long-running processes.
+The API server now supports gunicorn as an alternative server with rolling worker restarts
+to prevent memory accumulation in long-running processes.
 
-  **Key Benefits:**
+**Key Benefits:**
 
-  * **Rolling worker restarts**: New workers spawn and pass health checks before old workers
-    are killed, ensuring zero downtime during worker recycling.
+* **Rolling worker restarts**: New workers spawn and pass health checks before old workers
+  are killed, ensuring zero downtime during worker recycling.
 
-  * **Memory sharing**: Gunicorn uses preload + fork, so workers share memory via
-    copy-on-write. This significantly reduces total memory usage compared to uvicorn's
-    multiprocess mode where each worker loads everything independently.
+* **Memory sharing**: Gunicorn uses preload + fork, so workers share memory via
+  copy-on-write. This significantly reduces total memory usage compared to uvicorn's
+  multiprocess mode where each worker loads everything independently.
 
-  * **Correct FIFO signal handling**: Gunicorn's SIGTTOU kills the oldest worker (FIFO),
-    not the newest (LIFO), which is correct for rolling restarts.
+* **Correct FIFO signal handling**: Gunicorn's SIGTTOU kills the oldest worker (FIFO),
+  not the newest (LIFO), which is correct for rolling restarts.
 
-  **Configuration:**
+**Configuration:**
 
-  .. code-block:: ini
+.. code-block:: ini
 
-      [api]
-      # Use gunicorn instead of uvicorn
-      server_type = gunicorn
+    [api]
+    # Use gunicorn instead of uvicorn
+    server_type = gunicorn
 
-      # Enable rolling worker restarts every 12 hours
-      worker_refresh_interval = 43200
+    # Enable rolling worker restarts every 12 hours
+    worker_refresh_interval = 43200
 
-      # Restart workers one at a time
-      worker_refresh_batch_size = 1
+    # Restart workers one at a time
+    worker_refresh_batch_size = 1
 
-  Or via environment variables:
+Or via environment variables:
 
-  .. code-block:: bash
+.. code-block:: bash
 
-      export AIRFLOW__API__SERVER_TYPE=gunicorn
-      export AIRFLOW__API__WORKER_REFRESH_INTERVAL=43200
+    export AIRFLOW__API__SERVER_TYPE=gunicorn
+    export AIRFLOW__API__WORKER_REFRESH_INTERVAL=43200
 
-  **Requirements:**
+**Requirements:**
 
-  Install the gunicorn extra: ``pip install 'apache-airflow-core[gunicorn]'``
+Install the gunicorn extra: ``pip install 'apache-airflow-core[gunicorn]'``
 
-  **Note on uvicorn (default):**
+**Note on uvicorn (default):**
 
-  The default uvicorn mode does not support rolling worker restarts because:
+The default uvicorn mode does not support rolling worker restarts because:
 
-  1. With workers=1, there is no master process to send signals to
-  2. uvicorn's SIGTTOU kills the newest worker (LIFO), defeating rolling restart purposes
-  3. Each uvicorn worker loads everything independently with no memory sharing
+1. With workers=1, there is no master process to send signals to
+2. uvicorn's SIGTTOU kills the newest worker (LIFO), defeating rolling restart purposes
+3. Each uvicorn worker loads everything independently with no memory sharing
 
-  If you need worker recycling or memory-efficient multi-worker deployment, use gunicorn. (#60921)
-- Improved performance of rendered task instance fields cleanup for DAGs with many mapped tasks (~42x faster).
+If you need worker recycling or memory-efficient multi-worker deployment, use gunicorn. (#60921)
 
-  The config ``max_num_rendered_ti_fields_per_task`` is renamed to ``num_dag_runs_to_retain_rendered_fields``
-  (old name still works with deprecation warning).
+Improved performance of rendered task instance fields cleanup for DAGs with many mapped tasks (~42x faster)
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
-  Retention is now based on the N most recent dag runs rather than N most recent task executions,
-  which may result in fewer records retained for conditional/sparse tasks. (#60951)
-- AuthManager Backfill permissions are now handled by the ``requires_access_dag`` on the ``DagAccessEntity.Run``
+The config ``max_num_rendered_ti_fields_per_task`` is renamed to ``num_dag_runs_to_retain_rendered_fields``
+(old name still works with deprecation warning).
 
-  ``is_authorized_backfill`` of the ``BaseAuthManager`` interface has been removed. Core will no longer call this method and their
-  provider counterpart implementation will be marked as deprecated.
-  Permissions for backfill operations are now checked against the ``DagAccessEntity.Run`` permission using the existing
-  ``requires_access_dag`` decorator. In other words, if a user has permission to run a DAG, they can perform backfill operations on it.
+Retention is now based on the N most recent dag runs rather than N most recent task executions,
+which may result in fewer records retained for conditional/sparse tasks. (#60951)
 
-  Please update your security policies to ensure that users who need to perform backfill operations have the appropriate ``DagAccessEntity.Run`` permissions. (Users
-  having the Backfill permissions without having the DagRun ones will no longer be able to perform backfill operations without any update)
+AuthManager Backfill permissions are now handled by the ``requires_access_dag`` on the ``DagAccessEntity.Run``
+""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
+``is_authorized_backfill`` of the ``BaseAuthManager`` interface has been removed. Core will no longer call this method and their
+provider counterpart implementation will be marked as deprecated.
+Permissions for backfill operations are now checked against the ``DagAccessEntity.Run`` permission using the existing
+``requires_access_dag`` decorator. In other words, if a user has permission to run a DAG, they can perform backfill operations on it.
+
+Please update your security policies to ensure that users who need to perform backfill operations have the appropriate ``DagAccessEntity.Run`` permissions. (Users
+having the Backfill permissions without having the DagRun ones will no longer be able to perform backfill operations without any update)
+
+Python 3.14 support added
+"""""""""""""""""""""""""
+Support for Python 3.14 has been added
 
 Features
 ^^^^^^^^
 
 - Enable FIPS Support by making Python LTO configurable via ``PYTHON_LTO`` build argument (#58337)
 - Support for task queue-based Trigger assignment to specific Triggerer hosts via the new ``--queues`` CLI option for the ``trigger`` command. (#59239)
+- CLI ``connections list`` and ``variables list`` now hide sensitive values by default. Use ``--show-values`` to display full details and ``--hide-sensitive`` to mask passwords, URIs, and extras. (#62344)
+- Allow individual secrets backend kwargs to be set via ``AIRFLOW__SECRETS__BACKEND_KWARG__<KEY>`` environment variables (#63312)
 
 
 Improvements
 ^^^^^^^^^^^^
 
 - The ``PythonOperator`` parameter ``python_callable`` now also supports async callables in Airflow 3.2, allowing users to run async def functions without manually managing an event loop. (#60268)
+- The ``schedule="@continuous"`` parameter now works without requiring a ``start_date``, and any DAGs with this schedule will begin running immediately when unpaused. (continuous-optional-start-date)
+- Improve Dag callback relevancy by passing a context-relevant task instance based on the Dag's final state (e.g., the last failed, timed out, or successful task) instead of an arbitrary lexicographical selection. (#61274)
 
 
 Bug Fixes
@@ -251,6 +363,10 @@ Bug Fixes
 
 - Always mask sensitive configuration values in public config APIs and treat the deprecated ``non-sensitive-only`` value as ``True``. (#59880)
 - Pool names with invalid characters for stats reporting are now automatically normalized (invalid characters replaced with underscores) when emitting metrics, preventing ``InvalidStatsNameException``. A warning is logged when normalization occurs, suggesting the pool be renamed. (#59938)
+- Prevent JWT tokens from appearing in task logs by excluding the token field from workload object representations. (#62964)
+- Fix security iframe navigation when AIRFLOW__API__BASE_URL basename is configured (#63141)
+- Fix grid view URL for dynamic task groups producing 404 by not appending ``/mapped`` to group URLs. (#63205)
+- Fix ``ti_skip_downstream`` overwriting RUNNING tasks to SKIPPED in HA deployments. (#63266)
 
 
 Airflow 3.1.8 (2026-03-11)
