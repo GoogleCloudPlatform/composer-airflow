@@ -40,12 +40,11 @@ from kubernetes.client import models as k8s
 from uuid6 import uuid7
 
 from airflow._shared.timezones import timezone
-from airflow.configuration import conf
 from airflow.executors import workloads
 from airflow.executors.workloads.task import TaskInstanceDTO
 from airflow.models.dag import DAG
 from airflow.models.taskinstance import TaskInstance
-from airflow.providers.common.compat.sdk import AirflowException, AirflowTaskTimeout, TaskInstanceKey
+from airflow.providers.common.compat.sdk import AirflowException, AirflowTaskTimeout, TaskInstanceKey, conf
 from airflow.providers.standard.operators.bash import BashOperator
 from airflow.sdk import BaseOperator
 from airflow.utils.state import State
