@@ -22,7 +22,7 @@ COMPOSER_MENU_PLUGIN_PERMISSIONS = [
     (permissions.ACTION_CAN_ACCESS_MENU, RESOURCE_COMPOSER_DOCS),
 ]
 
-MENU_CATEGORY_NAME = "Composer"
+MENU_CATEGORY_NAME = "Google Managed Airflow"
 
 # No url encoding needed for COMPOSER_ENVIRONMENT. From Composer docs:
 #   'The name must start with a lowercase letter followed by up to 62 lowercase letters,
@@ -70,7 +70,7 @@ ENV_LOGS_APPBUILDER_MITEM = {
 }
 COMP_DOCS_APPBUILDER_MITEM = {
     "name": RESOURCE_COMPOSER_DOCS,
-    "label": "Composer Documentation",
+    "label": "Google Managed Airflow Documentation",
     "href": COMPOSER_DOCS_LINK,
     "category": RESOURCE_COMPOSER_MENU,
     "category_label": MENU_CATEGORY_NAME,
