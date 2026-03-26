@@ -61,7 +61,7 @@ class TestComposerMenuPlugin:
                     "/logs?project=test-project"
                 ),
             ),
-            ("Composer Documentation", "https://cloud.google.com/composer/docs"),
+            ("Google Managed Airflow Documentation", "https://cloud.google.com/composer/docs"),
         ],
     )
     def test_menu_links(self, expected_label, expected_href):
@@ -74,7 +74,7 @@ class TestComposerMenuPlugin:
 
     def test_menu_items_under_same_category(self):
         for menu_item in composer_menu_plugin.ComposerMenuPlugin().appbuilder_menu_items:
-            assert menu_item["category_label"] == "Composer"
+            assert menu_item["category_label"] == "Google Managed Airflow"
 
     def test_composer_menu_visible(self):
         test_user = {
@@ -103,7 +103,7 @@ class TestComposerMenuPlugin:
             "DAGs in Cloud Storage",
             "Environment Monitoring",
             "Environment Logs",
-            "Composer Documentation",
+            "Google Managed Airflow Documentation",
         ]
         for text in expected_link_texts:
             check_content_in_response(text, resp)
