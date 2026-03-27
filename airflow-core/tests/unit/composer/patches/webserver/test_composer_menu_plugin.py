@@ -66,7 +66,7 @@ class TestComposerMenuPlugin:
                     "/logs?project=test-project"
                 ),
             ),
-            ("Composer Documentation", "https://cloud.google.com/composer/docs"),
+            ("Managed Airflow Documentation", "https://cloud.google.com/composer/docs"),
         ],
     )
     def test_menu_links(self, expected_name, expected_href):
@@ -80,7 +80,7 @@ class TestComposerMenuPlugin:
     def test_menu_items_under_same_category(self):
         for menu_item in composer_menu_plugin.ComposerMenuPlugin().external_views:
             assert menu_item["destination"] == "nav"
-            assert menu_item["category"] == "Composer"
+            assert menu_item["category"] == "Managed Airflow"
 
     @mock.patch("airflow.composer.patches.webserver.composer_menu_plugin.register_plugin", autospec=True)
     def test_register_composer_menu_plugin(self, register_plugin_mock):

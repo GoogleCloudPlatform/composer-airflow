@@ -23,7 +23,7 @@ from airflow.plugins_manager import (
     register_plugin,
 )
 
-MENU_CATEGORY_NAME = "Composer"
+MENU_CATEGORY_NAME = "Managed Airflow"
 
 # Links.
 ENVIRONMENT_DETAILS_LINK = (
@@ -68,7 +68,7 @@ ENV_LOGS_EXTERNAL_VIEW = {
     "category": MENU_CATEGORY_NAME,
 }
 COMP_DOCS_EXTERNAL_VIEW = {
-    "name": "Composer Documentation",
+    "name": "Managed Airflow Documentation",
     "href": COMPOSER_DOCS_LINK,
     "destination": "nav",
     "category": MENU_CATEGORY_NAME,
