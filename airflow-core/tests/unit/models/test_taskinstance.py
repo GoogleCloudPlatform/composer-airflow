@@ -2750,6 +2750,44 @@ def test_defer_task_with_trigger_timeout(create_task_instance):
     assert abs((ti.trigger_timeout - expected_timeout).total_seconds()) < 5
 
 
+@pytest.mark.parametrize(
+    ("initial_state", "initial_try_number", "expected_try_number", "msg"),
+    [
+        (TaskInstanceState.DEFERRED, 1, 2, "try_number should increment if state is not UP_FOR_RESCHEDULE"),
+        (
+            TaskInstanceState.UP_FOR_RESCHEDULE,
+            5,
+            5,
+            "try_number should NOT increment if state is UP_FOR_RESCHEDULE",
+        ),
+    ],
+)
+def test_defer_task_try_number_increment_on_state(
+    create_task_instance, initial_state, initial_try_number, expected_try_number, msg
+):
+    """
+    Test that defer_task increments try_number only if the pre-deferral state is not UP_FOR_RESCHEDULE.
+    """
+    from airflow.triggers.base import StartTriggerArgs
+
+    session = mock.MagicMock()
+
+    ti = create_task_instance(
+        dag_id="test_defer_task_try_number",
+        task_id="test_defer_task_try_number_op",
+        start_from_trigger=True,
+        start_trigger_args=StartTriggerArgs(
+            trigger_cls="trigger_cls",
+            next_method="next_method",
+            trigger_kwargs={},
+        ),
+    )
+    ti.state = initial_state
+    ti.try_number = initial_try_number
+    ti.defer_task(session=session)
+    assert ti.try_number == expected_try_number, msg
+
+
 class TestTaskInstanceRelationships:
     @pytest.mark.parametrize(
         "attr",
