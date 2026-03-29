@@ -55,6 +55,7 @@ export default defineConfig({
   forbidOnly: process.env.CI !== undefined && process.env.CI !== "",
   fullyParallel: true,
   globalSetup: "./tests/e2e/global-setup.ts",
+  globalTeardown: "./tests/e2e/global-teardown.ts",
   projects: [
     {
       name: "chromium",
