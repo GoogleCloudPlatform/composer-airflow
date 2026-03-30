@@ -59,6 +59,7 @@ COMPOSER_DEPENDENCIES = [
     "google-cloud-firestore",
     "google-cloud-pubsublite",
     "keyrings.google-artifactregistry-auth",
+    "orchestration-pipelines",
     "pem",
     "pipdeptree",
     "pyOpenSSL",
