@@ -526,6 +526,8 @@ COMPOSER_DEPENDENCIES = [
     # Due to security vulnerability Flower version >= 2.0.0 required.
     "flower>=2.0.0",
     "gcsfs",
+    # TODO: Due to performance issue see: Internal bug, remove once bug is fixed
+    "google-api-core<=2.27.0",
     "google-apitools",
     "google-cloud-aiplatform[evaluation]",
     "google-cloud-asset",
