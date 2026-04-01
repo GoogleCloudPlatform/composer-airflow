@@ -734,8 +734,6 @@ class TriageTUI:
                 llm_text = "[red]error[/]"
             elif entry.llm_status == "disabled":
                 llm_text = "[dim]disabled[/]"
-            elif entry.llm_status == "pending":
-                llm_text = "[dim]queued[/]"
             else:
                 llm_text = "[dim]—[/]"
 
