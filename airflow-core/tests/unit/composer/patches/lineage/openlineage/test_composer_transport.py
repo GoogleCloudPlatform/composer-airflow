@@ -404,3 +404,57 @@ class TestComposerTransport:
             transport._patch_bigquery_external_query_if_needed(event)
 
             assert event.run.facets.get("externalQuery") == expected_external_query
+
+    @mock.patch.dict("os.environ", {"COMPOSER_ENVIRONMENT": "composer-env-name"})
+    @mock.patch.dict("os.environ", {"COMPOSER_VERSION": "composer-version"})
+    @mock.patch.dict("os.environ", {"COMPOSER_LOCATION": "composer-location"})
+    @mock.patch.dict("os.environ", {"USE_REGIONAL_ENDPOINTS": "true"})
+    @mock.patch.dict("os.environ", {"LINEAGE_GLOBAL_ENDPOINT_RESTRICTED": "true"})
+    def test_regional_endpoint_emit(self):
+        import airflow.composer.patches.lineage.openlineage.composer_transport
+
+        # Reload the transport module to reevaluate environment variables use in module level constants.
+        reload(airflow.composer.patches.lineage.openlineage.composer_transport)
+
+        with mock.patch(
+            "airflow.composer.patches.lineage.openlineage.composer_transport.SyncLineageClient", autospec=True
+        ) as mock_sync_lineage_client:
+            ComposerTransport(ComposerTransportConfig())
+
+            assert (
+                mock_sync_lineage_client.call_args_list[0][1]["options"].api_endpoint
+                == "datalineage.composer-location.rep.googleapis.com"
+            )
+
+    @mock.patch.dict("os.environ", {"COMPOSER_ENVIRONMENT": "composer-env-name"})
+    @mock.patch.dict("os.environ", {"COMPOSER_VERSION": "composer-version"})
+    @mock.patch.dict("os.environ", {"COMPOSER_LOCATION": "composer-location"})
+    @mock.patch.dict("os.environ", {"USE_REGIONAL_ENDPOINTS": "true"})
+    @mock.patch.dict("os.environ", {"LINEAGE_GLOBAL_ENDPOINT_RESTRICTED": "false"})
+    def test_global_endpoint_emit(self):
+        import airflow.composer.patches.lineage.openlineage.composer_transport
+
+        # Reload the transport module to reevaluate environment variables use in module level constants.
+        reload(airflow.composer.patches.lineage.openlineage.composer_transport)
+
+        with mock.patch(
+            "airflow.composer.patches.lineage.openlineage.composer_transport.SyncLineageClient", autospec=True
+        ) as mock_sync_lineage_client:
+            ComposerTransport(ComposerTransportConfig())
+            assert mock_sync_lineage_client.call_args_list[0][1]["options"] is None
+
+    @mock.patch.dict("os.environ", {"COMPOSER_ENVIRONMENT": "composer-env-name"})
+    @mock.patch.dict("os.environ", {"COMPOSER_VERSION": "composer-version"})
+    @mock.patch.dict("os.environ", {"COMPOSER_LOCATION": "composer-location"})
+    @mock.patch.dict("os.environ", {"USE_REGIONAL_ENDPOINTS": "false"})
+    def test_locational_regional_emit_false(self):
+        import airflow.composer.patches.lineage.openlineage.composer_transport
+
+        # Reload the transport module to reevaluate environment variables use in module level constants.
+        reload(airflow.composer.patches.lineage.openlineage.composer_transport)
+
+        with mock.patch(
+            "airflow.composer.patches.lineage.openlineage.composer_transport.SyncLineageClient", autospec=True
+        ) as mock_sync_lineage_client:
+            ComposerTransport(ComposerTransportConfig())
+            assert mock_sync_lineage_client.call_args_list[0][1]["options"] is None

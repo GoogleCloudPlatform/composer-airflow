@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING
 
 import structlog
 from google.api_core.retry import Retry
-from google.cloud.datacatalog.lineage.producer_client.v1 import SyncLineageClient
+from google.cloud.datacatalog.lineage.producer_client.v1 import SyncLineageClient, SyncLineageClientOptions
 from google.cloud.datacatalog_lineage_v1 import ProcessOpenLineageRunEventRequest
 from openlineage.client.serde import Serde
 from openlineage.client.transport.transport import Config, Transport
@@ -46,8 +46,16 @@ SIDECHANNEL_VALUES = {
 UNKNOWN_TYPE_SIDECHANNEL_VALUE = b"\n\x08COMPOSER\x12\x07UNKNOWN"
 
 COMPOSER_ENVIRONMENT_NAME = os.environ.get("COMPOSER_ENVIRONMENT")
-LOCATION_PATH = f"projects/{os.environ.get('GCP_PROJECT')}/locations/{os.environ.get('COMPOSER_LOCATION')}"
+COMPOSER_LOCATION = os.environ.get("COMPOSER_LOCATION")
+LOCATION_PATH = f"projects/{os.environ.get('GCP_PROJECT')}/locations/{COMPOSER_LOCATION}"
 COMPOSER_VERSION = os.environ.get("COMPOSER_VERSION")
+
+USE_REGIONAL_ENDPOINTS = os.environ.get("USE_REGIONAL_ENDPOINTS", "false").lower() == "true"
+# Whether or not lineage global endpoint is restricted for this project.
+# This can be done using constraints/gcp.restrictEndpointUsage.
+LINEAGE_GLOBAL_ENDPOINT_RESTRICTED = (
+    os.environ.get("LINEAGE_GLOBAL_ENDPOINT_RESTRICTED", "false").lower() == "true"
+)
 
 log = structlog.get_logger(logger_name=__name__, composer_extra_info={"log-type": "data_lineage"})
 
@@ -69,7 +77,14 @@ class ComposerTransport(Transport):
     config_class = ComposerTransportConfig
 
     def __init__(self, config: ComposerTransportConfig) -> None:
-        self.client = SyncLineageClient()
+        client_options = None
+
+        if USE_REGIONAL_ENDPOINTS and LINEAGE_GLOBAL_ENDPOINT_RESTRICTED:
+            lineage_regional_endpoint = f"datalineage.{COMPOSER_LOCATION}.rep.googleapis.com"
+            client_options = SyncLineageClientOptions(api_endpoint=lineage_regional_endpoint)
+            log.debug("Using datalineage regional endpoint: %s", lineage_regional_endpoint)
+
+        self.client = SyncLineageClient(options=client_options)
 
     def emit(self, event: Event) -> None:
         try:
