@@ -613,7 +613,7 @@ class TriggerRunner(threading.Thread, LoggingMixin):
             # We allow a generous amount of buffer room for now, since it might
             # be a busy event loop.
             time_elapsed = time.monotonic() - self.last_watchdog_run
-            if time_elapsed > 0.2:
+            if time_elapsed > 0.5:
                 self.log.info(
                     "Triggerer's async thread was blocked for %.2f seconds, "
                     "likely due to the highly utilized environment. In case of "
