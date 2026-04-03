@@ -24,7 +24,7 @@
 
 .. towncrier release notes start
 
-Airflow 3.2.0 (2026-04-02)
+Airflow 3.2.0 (2026-04-07)
 --------------------------
 
 Significant Changes
@@ -461,6 +461,7 @@ New Features
 - UI: Add icon support for theme customization (#62172)
 - UI: Add Monaco editor for all JSON editing fields (#62708)
 - UI: Add run type legend tooltip to grid view (#62946)
+- UI: Allow customizing gray, black, and white color tokens in ``AIRFLOW__API__THEME`` in addition to brand (#64232)
 
 Bug Fixes
 ^^^^^^^^^
@@ -555,6 +556,10 @@ Bug Fixes
 - Fix ``enable_swagger_ui`` config not respected in API server (#64376)
 - Fix: add check for xcom permission when result is specified for DagRun wait endpoint (#64415)
 - Fix ``conf.has_option`` not respects default provider metadata (#64209)
+- Fix teardown scope causing unnecessary database writes during task scheduling (#64558)
+- Fix live task log output not visible in stdout when using Elasticsearch log forwarding (#64067)
+- Fix ``TaskInstance`` crash when refreshing task weight for non-serialized operators (#64557)
+- Fix Variables secrets backend conflict check exiting early when multiple backends are configured (#64062)
 - UI: Fix Dag run accessor key on clear task instance page (#64072)
 - UI: Fix searchable dropdown not working for Dag params enum fields (#63895)
 - UI: Fix newline rendering in Dag warning alert (#63588)
@@ -577,6 +582,8 @@ Bug Fixes
 - UI: Fix ``TISummaries`` not refreshing when ``gridRuns`` are invalidated (#64113)
 - UI: Fix guard against null/undefined dates in Gantt chart to prevent RangeError (#64031)
 - UI: Block polling requests to endpoints that returned 403 Forbidden (#64333)
+- UI: Fix Gantt view still visible when time range is outside ``DagRun`` window (#64179)
+- UI: Fix Human-in-the-Loop (HITL) operator options not displaying when exactly 4 choices are configured (#64453)
 
 
 Miscellaneous
@@ -630,6 +637,7 @@ Miscellaneous
 - Improve temporal mapper to be timezone aware for asset partitioning (#62709)
 - Improve dag version inflation checker logic and fix false-positive detection (#61345)
 - Rename ``ToXXXMapper`` to ``StartOfXXXMapper`` in partition-mapper for clarity (#64160)
+- Run DB check only for core components in prod entrypoint (#63413)
 - Fix partitioned asset events incorrectly triggering non-partition-aware Dags (#63848)
 - Improve partitioned DagRun sorting by ``partition_date`` (#62866)
 - Allow gray, black, and white color tokens in ``AIRFLOW__API__THEME`` config (#64232)
@@ -641,7 +649,7 @@ Miscellaneous
 - UI: Persist tag filter selection in Dag grid view (#63273)
 - UI: Show HITL review tab only for review-enabled task instances (#63477)
 - UI: Updated button styles for adding Connections, Variables, and Pools (#62607)
-- UI: Add clear permission toast for 403 errors on user actions (#61588).
+- UI: Add clear permission toast for 403 errors on user actions (#61588)
 
 
 Doc Only Changes
