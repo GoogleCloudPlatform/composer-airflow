@@ -103,6 +103,12 @@
     "notFound": "找不到頁面",
     "title": "錯誤"
   },
+  "errors": {
+    "forbidden": {
+      "description": "您沒有執行此操作的權限。",
+      "title": "存取被拒"
+    }
+  },
   "expand": {
     "collapse": "收合",
     "expand": "展開",
@@ -128,6 +134,7 @@
     "selectDateRange": "選擇日期範圍",
     "startTime": "起始時間"
   },
+  "generateToken": "產生權杖",
   "logicalDate": "邏輯日期",
   "logout": "登出",
   "logoutConfirmation": "確定要登出嗎？",
@@ -171,6 +178,7 @@
   "reset": "重置",
   "runId": "執行 ID",
   "runTypes": {
+    "asset_materialization": "資源實體化",
     "asset_triggered": "資源觸發",
     "backfill": "回填",
     "manual": "手動觸發",
@@ -326,6 +334,18 @@
         "title": "已提交更新 {{resourceName}} 請求"
       }
     }
+  },
+  "tokenGeneration": {
+    "apiToken": "API 權杖",
+    "cliToken": "CLI 權杖",
+    "errorDescription": "產生權杖時發生錯誤，請再試一次。",
+    "errorTitle": "權杖產生失敗",
+    "generate": "產生",
+    "selectType": "選擇要產生的權杖類型。",
+    "title": "產生權杖",
+    "tokenExpiresIn": "此權杖將在 {{duration}} 後過期。",
+    "tokenGenerated": "您的權杖已產生。",
+    "tokenShownOnce": "此權杖僅會顯示一次，請立即複製。"
   },
   "total": "總計 {{state}}",
   "triggered": "已觸發",
