@@ -488,7 +488,7 @@ DEPENDENCIES = [
     "termcolor>=1.1.0",
     # https://github.com/apache/airflow/issues/56369 , rework universal-pathlib usage
     "universal-pathlib>=0.2.6,<0.3.0",
-    "werkzeug>=3.1.3,<4",
+    "werkzeug>=3.1.3,<3.1.7,<4",
 ]
 
 COMPOSER_DEPENDENCIES = [
