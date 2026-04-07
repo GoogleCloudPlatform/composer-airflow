@@ -488,7 +488,7 @@ DEPENDENCIES = [
     "termcolor>=1.1.0",
     # https://github.com/apache/airflow/issues/56369 , rework universal-pathlib usage
     "universal-pathlib>=0.2.6,<0.3.0",
-    "werkzeug>=3.1.3,<3.1.7,<4",
+    "werkzeug>=3.1.3,<4",
 ]
 
 COMPOSER_DEPENDENCIES = [
@@ -563,7 +563,8 @@ COMPOSER_DEPENDENCIES = [
     "virtualenv>=20.24.0",
     "websockets",
     # Versions < 2.2.3 contain security vulnerabilities.
-    "werkzeug>=2.2.3",
+    # Version 3.1.7 is incompatible with Airflow Webserver
+    "werkzeug>=2.2.3,<3.1.7",
     # TODO: remove when https://github.com/apache/airflow/issues/43228 is fixed
     "wtforms>=3.1.0,<3.2.0",
     # TODO: Internal bug - Remove once the bug is fixed
