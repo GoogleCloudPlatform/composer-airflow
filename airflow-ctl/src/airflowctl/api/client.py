@@ -236,11 +236,17 @@ class Credentials:
                     debug_creds_path = os.path.join(
                         default_config_dir, f"debug_creds_{self.input_cli_config_file}"
                     )
-                    with open(debug_creds_path) as df:
-                        debug_credentials = json.load(df)
-                        self.api_token = debug_credentials.get(
-                            self.token_key_for_environment(self.api_environment)
-                        )
+                    try:
+                        with open(debug_creds_path) as df:
+                            debug_credentials = json.load(df)
+                            self.api_token = debug_credentials.get(self.token_key_for_environment(self.api_environment))
+                    except FileNotFoundError as e:
+                        if self.client_kind == ClientKind.CLI:
+                            raise AirflowCtlCredentialNotFoundException(
+                                f"Debug credentials file not found: {debug_creds_path}. "
+                                "Set AIRFLOW_CLI_DEBUG_MODE=false or log in with debug mode enabled first."
+                            ) from e
+                        self.api_token = None
                 else:
                     try:
                         self.api_token = keyring.get_password(
