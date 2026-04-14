@@ -19,7 +19,6 @@ import logging
 from typing import TYPE_CHECKING
 
 from structlog import BytesLogger, get_config
-from structlog.processors import CallsiteParameter, CallsiteParameterAdder
 
 if TYPE_CHECKING:
     from airflow.executors.workloads import TaskInstance
@@ -51,14 +50,6 @@ _LOG_SEPARATOR = "@-@"
 # of text, splitting them at 4096 should be fine.
 _LOG_LINE_SPLIT_LENGTH = 4096
 
-_SUPERVISOR_CONTEXT_DATA_CALLSITE_PARAMETER_ADDER = CallsiteParameterAdder(
-    [
-        CallsiteParameter.FILENAME,
-        CallsiteParameter.FUNC_NAME,
-        CallsiteParameter.LINENO,
-    ]
-)
-
 
 def get_task_logs_contextvars(ti: TaskInstance):
     """Return task logs context variables that will be used in supervisor_log_processor."""
@@ -85,14 +76,8 @@ def patch_supervisor_log_processors():
     # Remove the last processor which is rendering the message.
     processors.pop()
 
-    # Add Composer context data processor and processor which will render message with custom format.
-    processors.append(supervisor_context_data_processor)
+    # Add Composer processor which will render message with custom format.
     processors.append(supervisor_log_processor)
-
-
-def supervisor_context_data_processor(logger, method_name, event_dict):
-    """Add context data required to render log message."""
-    return _SUPERVISOR_CONTEXT_DATA_CALLSITE_PARAMETER_ADDER(logger, method_name, event_dict)
 
 
 def supervisor_log_processor(logger, method_name, event_dict):
@@ -117,13 +102,16 @@ def supervisor_log_processor(logger, method_name, event_dict):
         lines_to_format = [""]
 
     # Format lines as "[2025-03-17 12:40:03.007123] {subprocess.py:93} INFO - message", parseable by fluentd.
-    formatted_lines = map(
-        lambda line: (
-            f"[{event_dict['timestamp']}] {{{event_dict['filename']}:{event_dict['lineno']}}} "
-            f"{event_dict['level'].upper()} - {line}"
-        ),
-        lines_to_format,
-    )
+    formatted_lines = []
+    for line in lines_to_format:
+        # Consider that "filename"/"lineno" can be absent, e.g. in case of logs produced by print statements.
+        if "filename" in event_dict and "lineno" in event_dict:
+            process = f"{event_dict['filename']}:{event_dict['lineno']}"
+        else:
+            process = ""
+        formatted_lines.append(
+            f"[{event_dict['timestamp']}] {{{process}}} {event_dict['level'].upper()} - {line}"
+        )
 
     # New lines are mostly translated into new log entries in Cloud Logging.
     # But for some patterns this does not apply as GKE logging processor can
@@ -137,7 +125,7 @@ def supervisor_log_processor(logger, method_name, event_dict):
     )
 
     # Annotate lines with Composer log labels.
-    annotation_dict = {"function": event_dict["func_name"]}
+    annotation_dict = {"function": event_dict.get("func_name")}
     annotation_dict.update(event_dict.get("composer_ti_info", {}))
     annotation_dict.update(event_dict.get("composer_extra_info", {}))
     annotation = _LOG_SEPARATOR + json.dumps(annotation_dict)

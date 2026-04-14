@@ -23,7 +23,6 @@ from airflow.composer.patches.logging.supervisor_logs import (
     get_task_logs_contextvars,
     patch_supervisor_log_processors,
     patch_supervisor_stdlib_logging_configuration,
-    supervisor_context_data_processor,
     supervisor_log_processor,
 )
 
@@ -51,17 +50,8 @@ class TestSupervisorLogs:
 
         patch_supervisor_log_processors()
 
-        assert len(processors) == 2
-        assert processors[0] is supervisor_context_data_processor
-        assert processors[1] is supervisor_log_processor
-
-    def test_supervisor_context_data_processor(self):
-        actual = supervisor_context_data_processor("logger", "method-name", {})
-
-        assert list(sorted(actual.keys())) == ["filename", "func_name", "lineno"]
-        assert actual["filename"] == "supervisor_logs.py"
-        assert actual["func_name"] == "supervisor_context_data_processor"
-        # Skipping to check "lineno" value here as it may change easily and make this test broken.
+        assert len(processors) == 1
+        assert processors[0] is supervisor_log_processor
 
     def test_supervisor_log_processor_composer_ti_info(self):
         actual = supervisor_log_processor(
@@ -246,6 +236,19 @@ class TestSupervisorLogs:
             actual
             == "[2023-01-03 22:34:56,123] {module.py:123} INFO - {'key': 'value'}@-@{\"function\": \"execute_task\"}"
         )
+
+    def test_supervisor_log_processor_no_filename_lineno_func_name(self):
+        actual = supervisor_log_processor(
+            "logger",
+            "method-name",
+            {
+                "event": "",
+                "timestamp": "2023-01-03 22:34:56,123",
+                "level": "info",
+            },
+        )
+
+        assert actual == ('[2023-01-03 22:34:56,123] {} INFO - @-@{"function": null}')
 
     @mock.patch("logging.root", autospec=True)
     def test_patch_supervisor_stdlib_logging_configuration(self, root_mock):
