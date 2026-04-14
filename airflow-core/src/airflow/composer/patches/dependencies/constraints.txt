@@ -12,7 +12,8 @@ aiohttp>=3.8.5  # SV
 apache-airflow-ctl>=0.1.3  # previous versions require a keyring
 apache-airflow-providers-common-compat>=1.8.0  # unit tests failing for versions prior to 1.8.0
 apache-airflow-providers-cncf-kubernetes==10.14.0 # to avoid bumping version in RRC1
-apache-airflow-providers-fab>=3.2.0
+# TODO: apache-airflow-providers-fab >=3.6.0 is supported only by Airflow >=3.2.0. Remove constraint in Airflow 3.2.0.
+apache-airflow-providers-fab>=3.2.0,<3.6.0
 apache-airflow-providers-google==20.0.0 # to avoid bumping version in RRC1
 apache-beam>=2.70.0
 # requests==2.32.5 throws dependency warning message in case of using chardet 6+
@@ -23,6 +24,7 @@ dbt-core>=1.11.2
 Flask-AppBuilder>=4.6.3
 firebase-admin>=7.0.0
 flower>=2.0.0  # SV
+google-api-core>=2.30.3  # previous versions till 2.27.0 cause performance degradation
 google-cloud-aiplatform>=1.132.0
 google-cloud-asset>=4.1.0
 google-cloud-bigquery-storage>=2.36.0
