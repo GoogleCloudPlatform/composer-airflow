@@ -133,4 +133,25 @@ describe("Task log grouping", () => {
 
     await waitFor(() => expect(screen.queryByText(/Marking task as SUCCESS/iu)).not.toBeVisible());
   }, 10_000);
+
+  it("skips group markers when assigning line numbers", async () => {
+    render(
+      <AppWrapper initialEntries={["/dags/log_grouping/runs/manual__2025-02-18T12:19/tasks/generate"]} />,
+    );
+
+    await waitForLogs();
+
+    const logContainer = screen.getByTestId("virtual-scroll-container");
+    const lineNumbers = [...logContainer.querySelectorAll<HTMLAnchorElement>("a[id]")]
+      .map((el) => parseInt(el.id, 10))
+      .filter((num) => !isNaN(num))
+      .sort((numA, numB) => numA - numB);
+
+    expect(lineNumbers.length).toBeGreaterThan(0);
+    expect(lineNumbers[0]).toBe(0);
+    expect(new Set(lineNumbers).size).toBe(lineNumbers.length);
+    lineNumbers.forEach((num, idx) => {
+      expect(num).toBe(idx);
+    });
+  }, 10_000);
 });
