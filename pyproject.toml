@@ -56,11 +56,11 @@ classifiers = [
 ]
 
 # Version is defined in src/airflow/__init__.py and it is automatically synchronized by prek
-version = "3.2.0"
+version = "3.2.1"
 
 dependencies = [
-    "apache-airflow-task-sdk==1.2.0",
-    "apache-airflow-core==3.2.0",
+    "apache-airflow-task-sdk==1.2.1",
+    "apache-airflow-core==3.2.1",
 ]
 
 packages = []

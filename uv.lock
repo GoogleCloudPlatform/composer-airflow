@@ -12,7 +12,7 @@ resolution-markers = [
 ]
 
 [options]
-exclude-newer = "2026-04-02T19:44:45.502210462Z"
+exclude-newer = "2026-04-11T14:31:52.415464Z"
 exclude-newer-span = "P4D"
 
 [options.exclude-newer-package]
@@ -91,9 +91,9 @@ apache-airflow-providers-mongo = false
 apache-airflow-providers-apprise = false
 apache-airflow-providers-apache-impala = false
 apache-airflow-ctl = false
-apache-airflow-providers-zendesk = false
 apache-airflow-providers-github = false
 apache-airflow-providers-snowflake = false
+apache-airflow-providers-zendesk = false
 apache-airflow-providers-presto = false
 apache-airflow-providers-airbyte = false
 apache-airflow-providers-apache-hive = false
@@ -861,7 +861,7 @@ wheels = [
 
 [[package]]
 name = "apache-airflow"
-version = "3.2.0"
+version = "3.2.1"
 source = { editable = "." }
 dependencies = [
     { name = "apache-airflow-core" },
@@ -1718,7 +1718,7 @@ requires-dist = [
 
 [[package]]
 name = "apache-airflow-core"
-version = "3.2.0"
+version = "3.2.1"
 source = { editable = "airflow-core" }
 dependencies = [
     { name = "a2wsgi" },
@@ -2400,8 +2400,8 @@ requires-dist = [
     { name = "jmespath", specifier = ">=0.7.0" },
     { name = "kgb", specifier = ">=7.2.0" },
     { name = "mypy", marker = "extra == 'mypy'", specifier = "==1.20.0" },
-    { name = "pagefind", marker = "extra == 'docs'", specifier = ">=1.5.0a3" },
-    { name = "pagefind-bin", marker = "extra == 'docs'", specifier = ">=1.5.0a3" },
+    { name = "pagefind", marker = "extra == 'docs'", specifier = ">=1.5.0" },
+    { name = "pagefind-bin", marker = "extra == 'docs'", specifier = ">=1.5.0" },
     { name = "pdbr", marker = "extra == 'debuggers'", specifier = ">=0.8.9" },
     { name = "pipdeptree", marker = "extra == 'devscripts'", specifier = ">=2.13.1" },
     { name = "pygithub", marker = "extra == 'devscripts'", specifier = ">=2.1.1" },
