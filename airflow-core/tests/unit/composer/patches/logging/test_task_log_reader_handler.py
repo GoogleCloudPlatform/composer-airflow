@@ -245,6 +245,7 @@ class TestTaskLogReaderHandler:
                                         timestamp=datetime.datetime(2010, 1, 1),
                                         severity=log_severity_pb2.LogSeverity.INFO,
                                         text_payload="text-payload",
+                                        labels={},
                                     )
                                 ],
                                 next_page_token="page token 123",
@@ -255,6 +256,7 @@ class TestTaskLogReaderHandler:
                                         timestamp=datetime.datetime(2010, 1, 1),
                                         severity=log_severity_pb2.LogSeverity.INFO,
                                         text_payload="text-payload2",
+                                        labels={"process": "test_process.py:123"},
                                     )
                                 ],
                                 next_page_token="page token 124",
@@ -290,7 +292,10 @@ class TestTaskLogReaderHandler:
             ),
             StructuredLogMessage(timestamp=datetime.datetime(2010, 1, 1), level="INFO", event="text-payload"),
             StructuredLogMessage(
-                timestamp=datetime.datetime(2010, 1, 1), level="INFO", event="text-payload2"
+                timestamp=datetime.datetime(2010, 1, 1),
+                level="INFO",
+                event="text-payload2",
+                loc="test_process.py:123",
             ),
         ]
 

@@ -184,10 +184,15 @@ class TaskLogReaderHandler(LoggingMixin):
             for page in response.pages:
                 for entry in page.entries:
                     logs_count += 1
+                    extra_attrs = {}
+                    if loc := entry.labels.get("process"):
+                        extra_attrs["loc"] = loc
+
                     yield StructuredLogMessage(
                         timestamp=entry.timestamp,
                         level=log_severity_pb2.LogSeverity.Name(entry.severity),
                         event=entry.text_payload,
+                        **extra_attrs,
                     )
         except GoogleAPICallError as e:
             if e.grpc_status_code == grpc.StatusCode.PERMISSION_DENIED:
