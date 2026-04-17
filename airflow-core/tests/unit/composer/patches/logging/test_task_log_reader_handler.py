@@ -386,3 +386,103 @@ class TestTaskLogReaderHandler:
                 ),
             ),
         ]
+
+    def test_should_return_not_supported_when_regional_endpoints_restricted(self):
+        with (
+            mock.patch(
+                "airflow.composer.patches.logging.task_log_reader_handler.USE_REGIONAL_ENDPOINTS", True
+            ),
+            mock.patch(
+                "airflow.composer.patches.logging.task_log_reader_handler.LOGGING_GLOBAL_ENDPOINT_RESTRICTED",
+                True,
+            ),
+        ):
+            logs, metadatas = self.handler.read(task_instance=mock.Mock(), try_number=1, metadata=None)
+
+            assert len(logs) == 1
+            log_message = logs[0]
+            assert log_message.level == "warning"
+            assert log_message.event == (
+                "Reading remote logs is not supported when global Cloud Logging endpoint is restricted."
+            )
+            assert metadatas == {"end_of_log": "true"}
+
+    @mock.patch(
+        "airflow.composer.patches.logging.task_log_reader_handler.LoggingServiceV2Client", autospec=True
+    )
+    @mock.patch("airflow.composer.patches.logging.task_log_reader_handler.ClientOptions", autospec=True)
+    def test_should_use_regional_endpoints_when_configured(
+        self,
+        mock_client_options,
+        mock_client,
+    ):
+        with (
+            mock.patch(
+                "airflow.composer.patches.logging.task_log_reader_handler.USE_REGIONAL_ENDPOINTS", True
+            ),
+            mock.patch(
+                "airflow.composer.patches.logging.task_log_reader_handler.LOGGING_GLOBAL_ENDPOINT_RESTRICTED",
+                True,
+            ),
+        ):
+            _ = self.handler._client
+
+            mock_client_options.assert_called_once_with(
+                api_endpoint="logging.test-location.rep.googleapis.com"
+            )
+            mock_client.assert_called_once_with(
+                client_info=mock.ANY,
+                client_options=mock_client_options.return_value,
+            )
+
+    @mock.patch(
+        "airflow.composer.patches.logging.task_log_reader_handler.LoggingServiceV2Client", autospec=True
+    )
+    @mock.patch("airflow.composer.patches.logging.task_log_reader_handler.ClientOptions", autospec=True)
+    def test_should_use_global_endpoint_when_exp_disabled(
+        self,
+        mock_client_options,
+        mock_client,
+    ):
+        with (
+            mock.patch(
+                "airflow.composer.patches.logging.task_log_reader_handler.USE_REGIONAL_ENDPOINTS", False
+            ),
+            mock.patch(
+                "airflow.composer.patches.logging.task_log_reader_handler.LOGGING_GLOBAL_ENDPOINT_RESTRICTED",
+                True,
+            ),
+        ):
+            _ = self.handler._client
+
+            mock_client_options.assert_not_called()
+            mock_client.assert_called_once_with(
+                client_info=mock.ANY,
+                client_options=None,
+            )
+
+    @mock.patch(
+        "airflow.composer.patches.logging.task_log_reader_handler.LoggingServiceV2Client", autospec=True
+    )
+    @mock.patch("airflow.composer.patches.logging.task_log_reader_handler.ClientOptions", autospec=True)
+    def test_should_use_global_endpoint_when_not_restricted(
+        self,
+        mock_client_options,
+        mock_client,
+    ):
+        with (
+            mock.patch(
+                "airflow.composer.patches.logging.task_log_reader_handler.USE_REGIONAL_ENDPOINTS", True
+            ),
+            mock.patch(
+                "airflow.composer.patches.logging.task_log_reader_handler.LOGGING_GLOBAL_ENDPOINT_RESTRICTED",
+                False,
+            ),
+        ):
+            _ = self.handler._client
+
+            mock_client_options.assert_not_called()
+            mock_client.assert_called_once_with(
+                client_info=mock.ANY,
+                client_options=None,
+            )

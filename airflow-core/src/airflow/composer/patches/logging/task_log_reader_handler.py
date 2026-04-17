@@ -21,6 +21,7 @@ from itertools import chain
 from typing import TYPE_CHECKING
 
 import grpc
+from google.api_core.client_options import ClientOptions
 from google.api_core.exceptions import GoogleAPICallError
 from google.api_core.gapic_v1.client_info import ClientInfo
 from google.cloud.logging_v2.services.logging_service_v2 import LoggingServiceV2Client
@@ -46,6 +47,10 @@ ENVIRONMENT_LOCATION = os.environ["COMPOSER_LOCATION"]
 ENVIRONMENT_NAME = os.environ["COMPOSER_ENVIRONMENT"]
 CLOUD_LOGGING_LOGS_PAGE_SIZE = 1000  # maximum that Cloud Logging allows.
 TI_START_DATE_FILTER_OFFSET = datetime.timedelta(minutes=5)
+USE_REGIONAL_ENDPOINTS = os.environ.get("USE_REGIONAL_ENDPOINTS", "false").lower() == "true"
+LOGGING_GLOBAL_ENDPOINT_RESTRICTED = (
+    os.environ.get("LOGGING_GLOBAL_ENDPOINT_RESTRICTED", "false").lower() == "true"
+)
 
 
 class TaskLogReaderHandler(LoggingMixin):
@@ -55,6 +60,20 @@ class TaskLogReaderHandler(LoggingMixin):
         self, task_instance: TaskInstance, try_number: int | None, metadata: dict | None
     ) -> tuple[LogMessages, LogMetadata]:
         """Read logs of the given task instance from Cloud Logging."""
+        # Logs are currently stored in global bucket,
+        # we cannot read them when global Cloud Logging endpoint is restricted.
+        if USE_REGIONAL_ENDPOINTS and LOGGING_GLOBAL_ENDPOINT_RESTRICTED:
+            messages = [
+                StructuredLogMessage(
+                    timestamp=utcnow(),
+                    level="warning",
+                    event=(
+                        "Reading remote logs is not supported when global Cloud Logging endpoint is restricted."
+                    ),
+                )
+            ]
+            return messages, {"end_of_log": "true"}
+
         if try_number is None:
             try_number = task_instance.try_number
 
@@ -79,8 +98,15 @@ class TaskLogReaderHandler(LoggingMixin):
 
     @cached_property
     def _client(self) -> LoggingServiceV2Client:
+        client_options = None
+        if USE_REGIONAL_ENDPOINTS and LOGGING_GLOBAL_ENDPOINT_RESTRICTED:
+            logging_regional_endpoint = f"logging.{ENVIRONMENT_LOCATION}.rep.googleapis.com"
+            client_options = ClientOptions(api_endpoint=logging_regional_endpoint)
+            self.log.debug("Using Cloud Logging regional endpoint: %s", logging_regional_endpoint)
+
         client = LoggingServiceV2Client(
             client_info=ClientInfo(client_library_version=f"airflow_v{version.version}"),
+            client_options=client_options,
         )
         return client
 
