@@ -42,6 +42,7 @@ Improvements
 Bug Fixes
 ^^^^^^^^^
 
+- Fix ``DEFAULT_LOGGING_CONFIG`` to use right ``kwargs`` (#65412) (#65424)
 - Fix zip DAG import errors being cleared during bundle refresh (#63617) (#65296)
 - Fix ``dispose_orm()`` not disposing async engine on shutdown (#65274) (#65284)
 - Fix ``get_team_name_dep`` creating wasted async sessions when ``multi_team=False`` (#65275) (#65282)
@@ -94,6 +95,8 @@ Doc-only Changes
 - Add FAQ entry for API server memory growth with gunicorn worker recycling (#65036) (#65037)
 - Remove outdated reference to Dag Dependencies view (#64787) (#64911)
 - Add JWT authentication docs and strengthen security model (#64760) (#64849)
+- Add missing Catalan translations to reach 100% coverage (#65078) (#65389)
+- Add missing German translations to close translation gaps (#65332)
 
 
 Airflow 3.2.0 (2026-04-07)
