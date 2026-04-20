@@ -24,7 +24,7 @@
 
 .. towncrier release notes start
 
-Airflow 3.2.1 (2026-04-18)
+Airflow 3.2.1 (2026-04-21)
 --------------------------
 
 Significant Changes
@@ -80,6 +80,8 @@ Bug Fixes
 - Fix OTel metrics lost in forked task processes (#64703) (#64720)
 - Fix ``start_date`` in example DAGs to avoid timezone conversion overflow (#63882) (#64758)
 - Fix ``AirflowPlugin`` not re-exported, causing mypy errors in plugins (#65132) (#65163)
+- Fix ``apache-airflow-providers-fab`` minimum version to prevent ``connexion`` import error on Python 3.13 (#65523) (#65524)
+- UI: Fix graph view not auto-refreshing task states during DAG run (#65518) (#65522)
 
 Miscellaneous
 ^^^^^^^^^^^^^
