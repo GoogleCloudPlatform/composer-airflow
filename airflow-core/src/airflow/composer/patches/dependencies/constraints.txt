@@ -15,6 +15,7 @@ apache-airflow-providers-cncf-kubernetes==10.14.0 # to avoid bumping version in 
 # TODO: apache-airflow-providers-fab >=3.6.0 is supported only by Airflow >=3.2.0. Remove constraint in Airflow 3.2.0.
 apache-airflow-providers-fab>=3.2.0,<3.6.0
 apache-airflow-providers-google==20.0.0 # to avoid bumping version in RRC1
+apache-airflow-client<3.2.0 # apache-airflow-client 3.2.0 is not compatible with Airflow 3.1.7.
 apache-beam>=2.70.0
 # requests==2.32.5 throws dependency warning message in case of using chardet 6+
 chardet<6.0.0
