@@ -49,6 +49,7 @@ class TestComposerAuthRemoteUserView:
         decode_inverting_proxy_jwt_mock.return_value = {
             "username": "test-username",
             "email": "test-email",
+            "display_username": "test-display_username",
         }
         user_mock = mock.Mock(is_active=True)
         get_or_register_user_mock.return_value = user_mock
@@ -59,6 +60,7 @@ class TestComposerAuthRemoteUserView:
         get_or_register_user_mock.assert_called_once_with(
             username="test-username",
             email="test-email",
+            display_username="test-display_username",
         )
         login_user_mock.assert_called_once_with(user_mock)
         get_flashed_messages_mock.assert_called_once_with()

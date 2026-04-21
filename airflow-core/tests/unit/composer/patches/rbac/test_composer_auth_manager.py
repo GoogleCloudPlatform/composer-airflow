@@ -64,13 +64,16 @@ class TestComposerAuthManager:
         decode_inverting_proxy_jwt_mock.return_value = {
             "username": "test-username",
             "email": "test-email",
+            "display_username": "test-display_username",
         }
         get_or_register_user_mock.return_value = user_mock
 
         actual_user = asyncio.run(am.get_user_from_token("test-token"))
 
         decode_inverting_proxy_jwt_mock.assert_called_once_with("test-token")
-        get_or_register_user_mock.assert_called_once_with(username="test-username", email="test-email")
+        get_or_register_user_mock.assert_called_once_with(
+            username="test-username", email="test-email", display_username="test-display_username"
+        )
         assert actual_user == user_mock
 
     @conf_vars(
@@ -101,6 +104,7 @@ class TestComposerAuthManager:
         decode_inverting_proxy_jwt_mock.return_value = {
             "username": "test-username",
             "email": "test-email",
+            "display_username": None,
         }
         get_or_register_user_mock.return_value = None
 
@@ -121,6 +125,7 @@ class TestComposerAuthManager:
         decode_inverting_proxy_jwt_mock.return_value = {
             "username": "test-username",
             "email": "test-email",
+            "display_username": None,
         }
         get_or_register_user_mock.return_value = mock.Mock(is_active=False)
 

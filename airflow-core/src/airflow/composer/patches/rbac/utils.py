@@ -87,7 +87,7 @@ def decode_inverting_proxy_jwt(inverting_proxy_jwt):
     # Return result of the method instead of raising RetryError exception after two attempts.
     retry_error_callback=lambda retry_state: retry_state.outcome.result(),
 )
-def get_or_register_user(username, email):
+def get_or_register_user(username, email, display_username):
     """Return user by given username and email. If user is not yet registered, register and return it."""
     appbuilder = get_auth_manager().appbuilder
     user = appbuilder.sm.find_user_by_username(username=username)
@@ -113,10 +113,11 @@ def get_or_register_user(username, email):
                 return None
         else:
             try:
+                first_name, last_name = _get_first_and_last_names(display_username, email)
                 user = appbuilder.sm.add_user(
                     username=username,
-                    first_name=email,
-                    last_name="-",
+                    first_name=first_name,
+                    last_name=last_name,
                     email=email,
                     role=appbuilder.sm.find_role(RBAC_USER_REGISTRATION_ROLE),
                 )
@@ -132,6 +133,32 @@ def get_or_register_user(username, email):
         appbuilder.sm.update_user_auth_stat(user)
 
     return user
+
+
+def _get_first_and_last_names(display_username, email):
+    """
+    Return the first_name and last_name for a user.
+
+    Args:
+        display_username: for BYOID users, display_username is of the form:
+          'Subject (Workforce Pool name)'. None otherwise.
+        email: email of the user.
+
+    Returns:
+        subject as first_name and workforce pool name as last_name for
+        BYOID users; email as first_name and `-` as last_name for
+        first party users.
+    """
+    if not display_username:
+        return email, "-"
+
+    idx = display_username.rfind(" (")
+    if idx == -1:
+        # Unexpected value in display_username, return it as is for
+        # first_name and "-" for last_name.
+        return display_username, "-"
+
+    return display_username[:idx], display_username[idx + 1 :]
 
 
 def _decode_inverting_proxy_jwt_with_public_keys(inverting_proxy_jwt, public_keys):
@@ -161,4 +188,5 @@ def _decode_inverting_proxy_jwt_with_public_keys(inverting_proxy_jwt, public_key
     return {
         "username": decoded_jwt["sub"],
         "email": decoded_jwt["email"] if "email" in decoded_jwt else decoded_jwt["principal"],
+        "display_username": decoded_jwt.get("display_username"),
     }

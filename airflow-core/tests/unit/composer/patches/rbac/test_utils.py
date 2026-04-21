@@ -266,7 +266,7 @@ DSGFOd9s7iFXBW5rlqywzGHrvT5i1beYKQIDAQAB
         email = f"{username}@google.com"
 
         with app.app_context():
-            actual_user = get_or_register_user(username=username, email=email)
+            actual_user = get_or_register_user(username=username, email=email, display_username=None)
 
         update_user_auth_stat_mock.assert_called_once_with(get_auth_manager().appbuilder.sm, actual_user)
 
@@ -288,9 +288,9 @@ DSGFOd9s7iFXBW5rlqywzGHrvT5i1beYKQIDAQAB
         email = f"{username}@google.com"
 
         with app.app_context():
-            get_or_register_user(username=username, email=email)
+            get_or_register_user(username=username, email=email, display_username=None)
             # Try to register second time with same username and email.
-            actual_user = get_or_register_user(username=username, email=email)
+            actual_user = get_or_register_user(username=username, email=email, display_username=None)
 
         assert actual_user.username == username
 
@@ -304,10 +304,10 @@ DSGFOd9s7iFXBW5rlqywzGHrvT5i1beYKQIDAQAB
         email = f"{username}@google.com"
 
         with app.app_context():
-            get_or_register_user(username=username, email=email)
+            get_or_register_user(username=username, email=email, display_username=None)
             # Try to register second time with different username but same email. sm.add_user method should return
             # None in this case.
-            actual_user = get_or_register_user(username=username + "2", email=email)
+            actual_user = get_or_register_user(username=username + "2", email=email, display_username=None)
 
         assert actual_user is None
 
@@ -330,7 +330,7 @@ DSGFOd9s7iFXBW5rlqywzGHrvT5i1beYKQIDAQAB
         email = f"{username}@google.com"
 
         with app.app_context():
-            actual_user = get_or_register_user(username=username, email=email)
+            actual_user = get_or_register_user(username=username, email=email, display_username=None)
 
         assert actual_user == user_mock
 
@@ -352,7 +352,7 @@ DSGFOd9s7iFXBW5rlqywzGHrvT5i1beYKQIDAQAB
         email = f"{username}@google.com"
 
         with app.app_context():
-            actual_user = get_or_register_user(username=username, email=email)
+            actual_user = get_or_register_user(username=username, email=email, display_username=None)
 
         assert actual_user is None
 
@@ -374,11 +374,11 @@ DSGFOd9s7iFXBW5rlqywzGHrvT5i1beYKQIDAQAB
         email = f"{username}@google.com"
         # Preregister user with username=email.
         with app.app_context():
-            preregistered_user = get_or_register_user(username=email, email=email)
+            preregistered_user = get_or_register_user(username=email, email=email, display_username=None)
         preregistered_user_id = preregistered_user.id
 
         with app.app_context():
-            actual_user = get_or_register_user(username=username, email=email)
+            actual_user = get_or_register_user(username=username, email=email, display_username=None)
 
         update_user_mock.assert_called_with(get_auth_manager().appbuilder.sm, actual_user)
         update_user_auth_stat_mock.assert_called_with(get_auth_manager().appbuilder.sm, actual_user)
@@ -401,13 +401,51 @@ DSGFOd9s7iFXBW5rlqywzGHrvT5i1beYKQIDAQAB
         email = f"{username}@google.com"
         # Preregister user with username=email.
         with app.app_context():
-            get_or_register_user(username=email, email=email)
+            get_or_register_user(username=email, email=email, display_username=None)
         update_user_mock.return_value = False
 
         with app.app_context():
-            actual_user = get_or_register_user(username=username, email=email)
+            actual_user = get_or_register_user(username=username, email=email, display_username=None)
 
         assert actual_user is None
+
+    @conf_vars(
+        {("core", "auth_manager"): "airflow.composer.patches.rbac.composer_auth_manager.ComposerAuthManager"}
+    )
+    def test_get_or_register_user_with_display_username(self):
+        app = create_app(enable_plugins=False)
+        username = "".join(random.choice(string.ascii_uppercase) for _ in range(6))
+        email = f"{username}@google.com"
+
+        with app.app_context():
+            actual_user = get_or_register_user(
+                username=username, email=email, display_username="test-subject (test workforce pool)"
+            )
+
+        assert isinstance(actual_user, User)
+        assert actual_user.username == username
+        assert actual_user.first_name == "test-subject"
+        assert actual_user.last_name == "(test workforce pool)"
+        assert actual_user.email == email
+
+    @conf_vars(
+        {("core", "auth_manager"): "airflow.composer.patches.rbac.composer_auth_manager.ComposerAuthManager"}
+    )
+    def test_get_or_register_user_with_uexpected_display_username(self):
+        app = create_app(enable_plugins=False)
+        username = "".join(random.choice(string.ascii_uppercase) for _ in range(6))
+        email = f"{username}@google.com"
+
+        with app.app_context():
+            actual_user = get_or_register_user(
+                username=username, email=email, display_username="test-subject-unexpected"
+            )
+
+        assert isinstance(actual_user, User)
+        assert actual_user.username == username
+        assert actual_user.first_name == "test-subject-unexpected"
+        assert actual_user.last_name == "-"
+        assert actual_user.email == email
 
     def test_decode_inverting_proxy_jwt_with_public_keys(self):
         inverting_proxy_jwt = (
@@ -436,6 +474,37 @@ AgMBAAE=
         assert actual_result == {
             "username": "test-username",
             "email": "test-email",
+            "display_username": None,
+        }
+
+    def test_decode_inverting_proxy_jwt_with_public_keys_non_empty_display_username(self):
+        inverting_proxy_jwt = (
+            "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0LXVzZXJuYW1lIiwiZW1haWwiOiJ0ZXN0LWVtYWlsIiw"
+            "iZGlzcGxheV91c2VybmFtZSI6InRlc3QtZGlzcGxheV91c2VybmFtZSJ9.Dc5Hh6f1NAyHJaBv7rgA8A9I0x2Ni08LBcYP5C"
+            "3HBJwBFsFfG1cYISquun91Gp2IjQ24s00mjwREVvrfJSqhgyfHgmPfn-Nuz3U4PnwHye91n5fZEwWjudxymuiaCbx-Vo9ZUy"
+            "bbJlRCjuHPUS9hEhbIKhLAL1LjouseLZ6xmaJ1LY7fBhmskdWnxjQLoBVhopG0QfUko236yeBmQ4kFAaSxh2vJL1KxCOJbWp"
+            "deGjw6gmbPYHX1BaGQjf2ddez9FwslUWvon5MgILkcrEkhpJB7YweTj5CGhqwmecyTuYEU2LU0OTBodajz8S2CLyygkVGyiN"
+            "-EOB15kiXQ-Isd1Q"
+        )
+        public_keys = [
+            """-----BEGIN PUBLIC KEY-----
+MIIBITANBgkqhkiG9w0BAQEFAAOCAQ4AMIIBCQKCAQBFS07s5fq4x0xFooSb9spu
+8PRBFhT1lTQo9+PBLznUVTdyPDO04eHMftgbCwAiCSWZ1COb9rTwFRkWL+TfXc2t
+Upxk/l8Mb9jkJtBQ/JOFJ9jk3lZ6T0mCl7Kann+9dVC18JhIQNbke08dJWTdxxqX
+8WcC++GGtBaQOrShWwQ6vnxItUeVSs/QFjKqr1KGemNhRdLqphcMoZ3UfoggYZ8p
+sxusuBu42fUEP9F0rRpbV81xEmK1Ib5tdZ65mW+Dy9jjIh2nzojgXTKiXjB56vDk
+N03Krbc3a4Rf9cxnGgo4gHEvY3bTb6ikqWQKJMaAtFJhz5gvXDzDHt1qso/okZE5
+AgMBAAE=
+-----END PUBLIC KEY-----
+""",
+        ]
+
+        actual_result = _decode_inverting_proxy_jwt_with_public_keys(inverting_proxy_jwt, public_keys)
+
+        assert actual_result == {
+            "username": "test-username",
+            "email": "test-email",
+            "display_username": "test-display_username",
         }
 
     def test_decode_inverting_proxy_jwt_with_public_keys_incorrect_public_keys(self):
