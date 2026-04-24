@@ -50,6 +50,11 @@ SLEEP_BEFORE_PEER_VM_LOGS_STREAMING = 10
 # and last attempt to read logs.
 SLEEP_BETWEEN_PEER_VM_LOGS_STREAMING_ITERATIONS = 1
 
+# The number of iterations to continue fetching logs after the base container has terminated.
+# This accounts for the potential delay between the container's termination and its logs
+# becoming available due to Fluent Bit log collection delays on the Peer VM.
+FETCH_LOGS_ITERATIONS_AFTER_TERMINATION = 10
+
 
 def patch():
     PodManager.fetch_container_logs = _composer_pod_manager_fetch_container_logs(
@@ -116,17 +121,21 @@ def _stream_peer_vm_logs(self, pod, container_name, peer_vm_endpoint, after_time
     """
     time.sleep(SLEEP_BEFORE_PEER_VM_LOGS_STREAMING)
 
+    is_terminated = False
+    post_termination_iterations = 0
+
     while True:
-        try:
-            is_last_iteration = is_kubernetes_pod_operator_base_container_terminated(self, pod=pod)
-        except PeerVmPlaceholderPodContainerNotFoundException:
-            self.log.debug(
-                "KubernetesPodOperator pod container is not found. Looks like it was terminated already."
-            )
-            is_last_iteration = True
-        except PeerVmPlaceholderPodShutDownException:
-            self.log.debug("KubernetesPodOperator pod is shut down.")
-            is_last_iteration = True
+        if not is_terminated:
+            try:
+                is_terminated = is_kubernetes_pod_operator_base_container_terminated(self, pod=pod)
+            except PeerVmPlaceholderPodContainerNotFoundException:
+                self.log.debug(
+                    "KubernetesPodOperator pod container is not found. Looks like it was terminated already."
+                )
+                is_terminated = True
+            except PeerVmPlaceholderPodShutDownException:
+                self.log.debug("KubernetesPodOperator pod is shut down.")
+                is_terminated = True
 
         time.sleep(SLEEP_BETWEEN_PEER_VM_LOGS_STREAMING_ITERATIONS)
 
@@ -150,8 +159,10 @@ def _stream_peer_vm_logs(self, pod, container_name, peer_vm_endpoint, after_time
                     after_timestamp, _, _, msg = log.split(" ", 3)
                     self.log.info(msg)
 
-        if is_last_iteration:
-            break
+        if is_terminated:
+            post_termination_iterations += 1
+            if post_termination_iterations >= FETCH_LOGS_ITERATIONS_AFTER_TERMINATION:
+                break
 
 
 def _composer_pod_manager_get_container_names(f):

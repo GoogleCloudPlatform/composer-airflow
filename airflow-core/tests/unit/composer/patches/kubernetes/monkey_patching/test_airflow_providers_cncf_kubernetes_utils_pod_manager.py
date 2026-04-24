@@ -206,7 +206,8 @@ class TestAirflowProvidersCncfKubernetesUtilsPodManager:
 
         def requests_get_side_effect(url, params=None):
             requests_get_side_effect.call_counter += 1
-            assert requests_get_side_effect.call_counter <= 5
+            # 3 calls before termination + 10 calls after termination = 13 calls in total.
+            assert requests_get_side_effect.call_counter <= 13
             if requests_get_side_effect.call_counter == 1:
                 assert url == "http://10.5.0.1:9080/logs"
                 assert params == {
@@ -258,8 +259,28 @@ class TestAirflowProvidersCncfKubernetesUtilsPodManager:
                     "after_timestamp": "2023-05-02T10:11:15.5Z",
                     "max_log_lines": 1000,
                 }
-                return mock.Mock(status_code=200, json=mock.Mock(return_value={"logs": None}))
+                return mock.Mock(
+                    status_code=200,
+                    json=mock.Mock(return_value={"logs": []}),
+                )
             if requests_get_side_effect.call_counter == 5:
+                assert url == "http://10.5.0.1:9080/logs"
+                assert params == {
+                    "container_name": "base",
+                    "after_timestamp": "2023-05-02T10:11:15.5Z",
+                    "max_log_lines": 1000,
+                }
+                return mock.Mock(
+                    status_code=200,
+                    json=mock.Mock(
+                        return_value={
+                            "logs": [
+                                "2023-05-02T10:11:16.6Z stdout F E",
+                            ]
+                        }
+                    ),
+                )
+            if requests_get_side_effect.call_counter >= 6:
                 raise Exception("Connection refused")
 
         requests_get_side_effect.call_counter = 0
@@ -273,21 +294,14 @@ class TestAirflowProvidersCncfKubernetesUtilsPodManager:
             after_timestamp="2023-05-02T10:11:12.0Z",
         )
 
-        time_sleep_mock.assert_has_calls(
-            [
-                mock.call(10),
-                mock.call(1),
-                mock.call(1),
-                mock.call(1),
-                mock.call(1),
-                mock.call(1),
-            ]
-        )
+        # 3 calls before termination + 10 calls after termination.
+        time_sleep_mock.assert_has_calls([mock.call(10)] + [mock.call(1)] * 13)
         assert self_mock.log.info.call_args_list == [
             mock.call("A"),
             mock.call("B"),
             mock.call("C"),
             mock.call("D"),
+            mock.call("E"),
         ]
 
     @mock.patch(
@@ -332,7 +346,8 @@ class TestAirflowProvidersCncfKubernetesUtilsPodManager:
             after_timestamp="2023-05-02T10:11:12.0Z",
         )
 
-        time_sleep_mock.assert_has_calls([mock.call(10)] + [mock.call(1)] * (num_iterations + 1))
+        # Additional 10 iterations after termination.
+        time_sleep_mock.assert_has_calls([mock.call(10)] + [mock.call(1)] * (num_iterations + 10))
 
     @pytest.mark.parametrize(
         "exception, error",
@@ -362,19 +377,24 @@ class TestAirflowProvidersCncfKubernetesUtilsPodManager:
         is_base_container_terminated_mock.side_effect = exception(error)
 
         def requests_get_side_effect(url, params=None):
-            return mock.Mock(
-                status_code=200,
-                json=mock.Mock(
-                    return_value={
-                        "logs": [
-                            "2023-05-02T10:11:12.0Z stdout F X",
-                            "2023-05-02T10:11:12.1Z stdout F Y",
-                            "2023-05-02T10:11:12.2Z stdout F Z",
-                        ]
-                    }
-                ),
-            )
+            requests_get_side_effect.call_counter += 1
+            assert requests_get_side_effect.call_counter <= 10
+            if requests_get_side_effect.call_counter == 1:
+                return mock.Mock(
+                    status_code=200,
+                    json=mock.Mock(
+                        return_value={
+                            "logs": [
+                                "2023-05-02T10:11:12.0Z stdout F X",
+                                "2023-05-02T10:11:12.1Z stdout F Y",
+                                "2023-05-02T10:11:12.2Z stdout F Z",
+                            ]
+                        }
+                    ),
+                )
+            return mock.Mock(status_code=500)
 
+        requests_get_side_effect.call_counter = 0
         requests_mock.get = mock.Mock(side_effect=requests_get_side_effect)
 
         _stream_peer_vm_logs(
@@ -385,7 +405,8 @@ class TestAirflowProvidersCncfKubernetesUtilsPodManager:
             after_timestamp="2023-05-02T10:11:12.0Z",
         )
 
-        assert time_sleep_mock.call_args_list == [mock.call(10), mock.call(1)]
+        # 10 calls after termination.
+        assert time_sleep_mock.call_args_list == [mock.call(10)] + [mock.call(1)] * 10
         assert self_mock.log.info.call_args_list == [
             mock.call("X"),
             mock.call("Y"),
