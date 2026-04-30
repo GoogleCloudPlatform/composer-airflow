@@ -89,6 +89,7 @@ apache-airflow-providers-http = false
 apache-airflow-providers-slack = false
 apache-airflow-providers-vespa = false
 apache-airflow-providers-databricks = false
+apache-airflow-shared-state = false
 apache-airflow-providers-sqlite = false
 apache-airflow-shared-module-loading = false
 apache-airflow-providers-yandex = false
@@ -281,6 +282,7 @@ members = [
     "apache-airflow-shared-secrets-backend",
     "apache-airflow-shared-secrets-masker",
     "apache-airflow-shared-serialization",
+    "apache-airflow-shared-state",
     "apache-airflow-shared-template-rendering",
     "apache-airflow-shared-timezones",
     "apache-airflow-task-sdk",
@@ -1435,6 +1437,7 @@ dev = [
     { name = "apache-airflow-shared-secrets-backend" },
     { name = "apache-airflow-shared-secrets-masker" },
     { name = "apache-airflow-shared-serialization" },
+    { name = "apache-airflow-shared-state" },
     { name = "apache-airflow-shared-template-rendering" },
     { name = "apache-airflow-shared-timezones" },
     { name = "apache-airflow-task-sdk", extra = ["all"] },
@@ -1707,6 +1710,7 @@ dev = [
     { name = "apache-airflow-shared-secrets-backend", editable = "shared/secrets_backend" },
     { name = "apache-airflow-shared-secrets-masker", editable = "shared/secrets_masker" },
     { name = "apache-airflow-shared-serialization", editable = "shared/serialization" },
+    { name = "apache-airflow-shared-state", editable = "shared/state" },
     { name = "apache-airflow-shared-template-rendering", editable = "shared/template_rendering" },
     { name = "apache-airflow-shared-timezones", editable = "shared/timezones" },
     { name = "apache-airflow-task-sdk", extras = ["all"], editable = "task-sdk" },
@@ -8345,6 +8349,25 @@ mypy = [{ name = "apache-airflow-devel-common", extras = ["mypy"], editable = "d
 name = "apache-airflow-shared-serialization"
 version = "0.0"
 source = { editable = "shared/serialization" }
+
+[package.dev-dependencies]
+dev = [
+    { name = "apache-airflow-devel-common" },
+]
+mypy = [
+    { name = "apache-airflow-devel-common", extra = ["mypy"] },
+]
+
+[package.metadata]
+
+[package.metadata.requires-dev]
+dev = [{ name = "apache-airflow-devel-common", editable = "devel-common" }]
+mypy = [{ name = "apache-airflow-devel-common", extras = ["mypy"], editable = "devel-common" }]
+
+[[package]]
+name = "apache-airflow-shared-state"
+version = "0.0"
+source = { editable = "shared/state" }
 
 [package.dev-dependencies]
 dev = [
