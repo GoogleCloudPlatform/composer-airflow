@@ -19,6 +19,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from airflow.providers.amazon.aws.operators.s3_tables import (
+    S3TablesCreateTableBucketOperator,
     S3TablesCreateTableOperator,
     S3TablesDeleteTableOperator,
 )
@@ -63,14 +64,6 @@ with DAG(
     table_name = f"{env_id}_tbl"
 
     @task
-    def create_table_bucket(name: str) -> str:
-        """Create an S3 Tables bucket and return its ARN."""
-        import boto3
-
-        client = boto3.client("s3tables")
-        return client.create_table_bucket(name=name)["arn"]
-
-    @task
     def create_namespace(table_bucket_arn: str, namespace: str):
         """Create a namespace in the table bucket."""
         import boto3
@@ -99,13 +92,18 @@ with DAG(
         except client.exceptions.NotFoundException:
             pass
 
-    bucket_arn = create_table_bucket(name=bucket_name)
-    setup_namespace = create_namespace(table_bucket_arn=bucket_arn, namespace=namespace)
+    # [START howto_operator_s3tables_create_table_bucket]
+    create_table_bucket = S3TablesCreateTableBucketOperator(
+        task_id="create_table_bucket",
+        table_bucket_name=bucket_name,
+    )
+    # [END howto_operator_s3tables_create_table_bucket]
+    setup_namespace = create_namespace(table_bucket_arn=create_table_bucket.output, namespace=namespace)
 
     # [START howto_operator_s3tables_create_table]
     create_table = S3TablesCreateTableOperator(
         task_id="create_table",
-        table_bucket_arn=bucket_arn,
+        table_bucket_arn=create_table_bucket.output,
         namespace=namespace,
         table_name=table_name,
         metadata=SCHEMA,
@@ -115,7 +113,7 @@ with DAG(
     # [START howto_operator_s3tables_delete_table]
     delete_table = S3TablesDeleteTableOperator(
         task_id="delete_table",
-        table_bucket_arn=bucket_arn,
+        table_bucket_arn=create_table_bucket.output,
         namespace=namespace,
         table_name=table_name,
         trigger_rule=TriggerRule.ALL_DONE,
@@ -125,14 +123,14 @@ with DAG(
     chain(
         # TEST SETUP
         test_context,
-        bucket_arn,
+        create_table_bucket,
         setup_namespace,
         # TEST BODY
         create_table,
         # TEST TEARDOWN
         delete_table,
-        delete_namespace(table_bucket_arn=bucket_arn, namespace=namespace),
-        delete_table_bucket(table_bucket_arn=bucket_arn),
+        delete_namespace(table_bucket_arn=create_table_bucket.output, namespace=namespace),
+        delete_table_bucket(table_bucket_arn=create_table_bucket.output),
     )
 
     from tests_common.test_utils.watcher import watcher
