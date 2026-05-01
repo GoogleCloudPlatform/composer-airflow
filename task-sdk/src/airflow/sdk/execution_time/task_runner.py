@@ -776,14 +776,17 @@ def parse(what: StartupDetails, log: Logger) -> RuntimeTaskInstance:
     from airflow.dag_processing.dagbag import BundleDagBag
 
     bundle_info = what.bundle_info
+    bundle_prepare_start = time.monotonic()
     bundle_instance = DagBundlesManager().get_bundle(
         name=bundle_info.name,
         version=bundle_info.version,
     )
     bundle_instance.initialize()
     _verify_bundle_access(bundle_instance, log)
+    bundle_prepare_ms = int((time.monotonic() - bundle_prepare_start) * 1000)
 
     dag_absolute_path = os.fspath(Path(bundle_instance.path, what.dag_rel_path))
+    dag_file_parse_start = time.monotonic()
     bag = BundleDagBag(
         dag_folder=dag_absolute_path,
         safe_mode=False,
@@ -791,6 +794,7 @@ def parse(what: StartupDetails, log: Logger) -> RuntimeTaskInstance:
         bundle_path=bundle_instance.path,
         bundle_name=bundle_info.name,
     )
+    dag_file_parse_ms = int((time.monotonic() - dag_file_parse_start) * 1000)
     if TYPE_CHECKING:
         assert what.ti.dag_id
 
@@ -823,6 +827,20 @@ def parse(what: StartupDetails, log: Logger) -> RuntimeTaskInstance:
             f"task is of the wrong type, got {type(task)}, wanted {BaseOperator} or {MappedOperator}"
         )
 
+    # Surface the post-RUNNING startup breakdown so support engineers and DAG authors can
+    # attribute apparent slow startup to bundle prep (Airflow-side, e.g. git fetch) vs.
+    # DAG file parse (user code). Emitted before return so it lands in the task log.
+    # Under `run_as_user` impersonation, parse() runs once pre-sudo and again post-sudo,
+    # so this event fires twice for those tasks -- the two entries show impersonation overhead.
+    log.info(
+        "Worker startup parse complete",
+        bundle_name=bundle_info.name,
+        bundle_version=bundle_info.version,
+        dag_file=what.dag_rel_path,
+        dag_id=what.ti.dag_id,
+        bundle_prepare_ms=bundle_prepare_ms,
+        dag_file_parse_ms=dag_file_parse_ms,
+    )
     return RuntimeTaskInstance.model_construct(
         **what.ti.model_dump(exclude_unset=True),
         task=task,
