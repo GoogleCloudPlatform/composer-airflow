@@ -21,7 +21,7 @@ apache-beam>=2.70.0
 chardet<6.0.0
 dbt-adapters>=1.22.5
 dbt-bigquery>=1.11.0
-dbt-core>=1.10.20
+dbt-core>=1.11.2
 Flask-AppBuilder>=4.6.3
 firebase-admin>=7.0.0
 flower>=2.0.0  # SV
@@ -34,7 +34,6 @@ google-cloud-datastore>=2.21.0
 google-cloud-documentai>=3.7.0
 google-cloud-filestore>=1.14.0
 google-cloud-firestore>=2.23.0
-litellm>=1.83.7 # This is to deal with multiple CVEs
 pip==23.2.1
 pygments>2.15.0  # SV
 setuptools>=78.1.1  # SV
