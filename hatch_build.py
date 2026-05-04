@@ -530,7 +530,7 @@ COMPOSER_DEPENDENCIES = [
     "cryptography",
     "dbt-adapters>=1.22.5",  # Only as a constraint to help pip resolver
     "dbt-bigquery>=1.11.0",  # Composer dependency, constraint to help pip resolver
-    "dbt-core>=1.10.20",  # Composer dependency, constraint to help pip resolver
+    "dbt-core>=1.11.2",  # Composer dependency, constraint to help pip resolver
     "firebase-admin",
     "flask_limiter<=3.12",  # Only as a constraint
     # TODO: remove once https://github.com/apache/airflow/issues/36897 is closed
@@ -552,8 +552,6 @@ COMPOSER_DEPENDENCIES = [
     "google-cloud-firestore",
     "google-cloud-pubsublite<1.0.0",
     "keyrings.google-artifactregistry-auth",
-    # Only as constraint to deal with multiple CVEs
-    "litellm>=1.83.7",
     "numpy<2.0.0",  # Only as a constraint
     "orchestration-pipelines",
     "pandas<=2.1.4",  # Only as a constraint
