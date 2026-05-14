@@ -6392,8 +6392,8 @@ requires-dist = [
     { name = "apache-airflow-providers-common-compat", editable = "providers/common/compat" },
     { name = "apache-airflow-providers-common-sql", editable = "providers/common/sql" },
     { name = "attrs", specifier = ">=22.2" },
-    { name = "openlineage-integration-common", specifier = ">=1.46.0" },
-    { name = "openlineage-python", specifier = ">=1.46.0" },
+    { name = "openlineage-integration-common", specifier = ">=1.47.0" },
+    { name = "openlineage-python", specifier = ">=1.47.0" },
     { name = "sqlalchemy", marker = "extra == 'sqlalchemy'", specifier = ">=1.4.54" },
 ]
 provides-extras = ["sqlalchemy"]
