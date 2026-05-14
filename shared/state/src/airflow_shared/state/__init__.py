@@ -157,3 +157,12 @@ class BaseStateBackend(ABC):
         ``session`` is optional. If provided, implementations should use it directly.
         If ``None``, implementations manage their own async session internally.
         """
+
+    def cleanup(self) -> None:
+        """
+        Remove expired and orphaned state records.
+
+        This is a no-op by default. Custom backends override this to implement their own
+        retention policy. The backend is responsible for reading any relevant config (e.g.
+        ``[state_store] default_retention_days``) and deciding what to delete.
+        """
