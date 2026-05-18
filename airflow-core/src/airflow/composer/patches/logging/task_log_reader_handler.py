@@ -216,7 +216,7 @@ class TaskLogReaderHandler(LoggingMixin):
 
                     yield StructuredLogMessage(
                         timestamp=entry.timestamp,
-                        level=log_severity_pb2.LogSeverity.Name(entry.severity),
+                        level=log_severity_pb2.LogSeverity.Name(entry.severity).lower(),
                         event=entry.text_payload,
                         **extra_attrs,
                     )

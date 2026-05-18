@@ -290,10 +290,10 @@ class TestTaskLogReaderHandler:
                 level="debug",
                 event="Reading logs from Cloud Logging using the following filter:\nlogs-filter test",
             ),
-            StructuredLogMessage(timestamp=datetime.datetime(2010, 1, 1), level="INFO", event="text-payload"),
+            StructuredLogMessage(timestamp=datetime.datetime(2010, 1, 1), level="info", event="text-payload"),
             StructuredLogMessage(
                 timestamp=datetime.datetime(2010, 1, 1),
-                level="INFO",
+                level="info",
                 event="text-payload2",
                 loc="test_process.py:123",
             ),
