@@ -498,11 +498,9 @@ COMPOSER_DEPENDENCIES = [
     # TODO: Internal bug - Also Celery provider >3.10.0 breaks for Airflow <= 2.10.5
     "apache-airflow-providers-celery <=3.10.0,!=3.9.0",
     # v10.10.0 has a regression breaking XCom in deferrable K8s operators.
-    # TODO: Internal bug - Remove <=10.14.0 after freeze
-    "apache-airflow-providers-cncf-kubernetes!=10.10.0,<=10.14.0",
+    "apache-airflow-providers-cncf-kubernetes!=10.10.0",
     "apache-airflow-providers-dbt-cloud",
-    # TODO: Internal bug - Remove <=20.0.0 after freeze
-    "apache-airflow-providers-google<=20.0.0",
+    "apache-airflow-providers-google",
     "apache-airflow-providers-hashicorp",
     "apache-airflow-providers-http",
     "apache-airflow-providers-mysql",
