@@ -19,12 +19,16 @@ import logging
 from typing import TYPE_CHECKING
 
 from airflow.composer.patches.kubernetes.utils import (
+    PEER_VM_ENDPOINT_ANNOTATION,
     PEER_VM_PLACEHOLDER_CONTAINER,
     PeerVmPlaceholderPodContainerNotFoundException,
+    PeerVmPlaceholderPodShutDownException,
     await_pod_endpoint_creation,
     get_peer_vm_pod_container_statuses,
+    write_logs_from_peer_vm,
 )
 from airflow.providers.cncf.kubernetes.hooks.kubernetes import KubernetesHook
+from airflow.providers.cncf.kubernetes.operators.pod import KubernetesPodOperator
 from airflow.providers.cncf.kubernetes.triggers.pod import (
     ContainerState,
     KubernetesPodTrigger,
@@ -34,6 +38,7 @@ from airflow.providers.google.cloud.triggers.kubernetes_engine import GKEStartPo
 
 if TYPE_CHECKING:
     from kubernetes.client.models.v1_pod import V1Pod
+    from pendulum import DateTime
 
 
 log = logging.getLogger(__name__)
@@ -42,6 +47,9 @@ log = logging.getLogger(__name__)
 def patch():
     KubernetesPodTrigger.define_container_state = _composer_kubernetes_pod_trigger_define_container_state(
         KubernetesPodTrigger.define_container_state
+    )
+    KubernetesPodOperator._write_logs = _composer_kubernetes_pod_operator_write_logs(
+        KubernetesPodOperator._write_logs
     )
 
 
@@ -78,11 +86,34 @@ def _composer_kubernetes_pod_trigger_define_container_state(f):
                 "KubernetesPodOperator pod container is not found. Looks like it was terminated already."
             )
             return ContainerState.TERMINATED
+        except PeerVmPlaceholderPodShutDownException:
+            self.log.debug("KubernetesPodOperator pod is shut down.")
+            return ContainerState.TERMINATED
 
         if pod_containers is None:
             return ContainerState.UNDEFINED
 
         container = next(c for c in pod_containers if c["container"] == self.base_container_name)
         return container["state"].lower()
+
+    return wrapper
+
+
+def _composer_kubernetes_pod_operator_write_logs(f):
+    @functools.wraps(f)
+    def wrapper(self, pod: V1Pod, follow: bool = False, since_time: DateTime | None = None) -> None:
+        # self is an instance of KubernetesPodOperator
+
+        remote_pod = self.pod_manager.read_pod(pod)
+        if remote_pod.spec.containers[0].name != PEER_VM_PLACEHOLDER_CONTAINER:
+            # KPO pod is running as regular k8s pod, execute native implementation.
+            return f(self, pod, follow, since_time)
+
+        write_logs_from_peer_vm(
+            self.pod_manager,
+            container_name=self.base_container_name,
+            peer_vm_endpoint=remote_pod.metadata.annotations.get(PEER_VM_ENDPOINT_ANNOTATION),
+            after_timestamp=remote_pod.metadata.creation_timestamp.strftime("%Y-%m-%dT%H:%M:%S.0") + "Z",
+        )
 
     return wrapper
