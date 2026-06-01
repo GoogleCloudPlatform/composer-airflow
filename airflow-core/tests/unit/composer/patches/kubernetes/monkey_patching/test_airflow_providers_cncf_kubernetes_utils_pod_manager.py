@@ -41,6 +41,7 @@ from airflow.exceptions import AirflowException
 AIRFLOW_PROVIDERS_CNCF_KUBERNETES_UTILS_POD_MANAGER_MODULE_PATH = (
     "airflow.composer.patches.kubernetes.monkey_patching.airflow_providers_cncf_kubernetes_utils_pod_manager"
 )
+AIRFLOW_COMPOSER_PATCHES_KUBERNETES_UTILS_MODULE_PATH = "airflow.composer.patches.kubernetes.utils"
 
 
 class TestAirflowProvidersCncfKubernetesUtilsPodManager:
@@ -193,7 +194,7 @@ class TestAirflowProvidersCncfKubernetesUtilsPodManager:
     @mock.patch(
         f"{AIRFLOW_PROVIDERS_CNCF_KUBERNETES_UTILS_POD_MANAGER_MODULE_PATH}.time.sleep", autospec=True
     )
-    @mock.patch(f"{AIRFLOW_PROVIDERS_CNCF_KUBERNETES_UTILS_POD_MANAGER_MODULE_PATH}.requests", autospec=True)
+    @mock.patch(f"{AIRFLOW_COMPOSER_PATCHES_KUBERNETES_UTILS_MODULE_PATH}.requests", autospec=True)
     @mock.patch(
         f"{AIRFLOW_PROVIDERS_CNCF_KUBERNETES_UTILS_POD_MANAGER_MODULE_PATH}.is_kubernetes_pod_operator_base_container_terminated",
         autospec=True,
@@ -316,7 +317,7 @@ class TestAirflowProvidersCncfKubernetesUtilsPodManager:
     @mock.patch(
         f"{AIRFLOW_PROVIDERS_CNCF_KUBERNETES_UTILS_POD_MANAGER_MODULE_PATH}.time.sleep", autospec=True
     )
-    @mock.patch(f"{AIRFLOW_PROVIDERS_CNCF_KUBERNETES_UTILS_POD_MANAGER_MODULE_PATH}.requests", autospec=True)
+    @mock.patch(f"{AIRFLOW_COMPOSER_PATCHES_KUBERNETES_UTILS_MODULE_PATH}.requests", autospec=True)
     @mock.patch(
         f"{AIRFLOW_PROVIDERS_CNCF_KUBERNETES_UTILS_POD_MANAGER_MODULE_PATH}.is_kubernetes_pod_operator_base_container_terminated",
         autospec=True,
@@ -368,7 +369,7 @@ class TestAirflowProvidersCncfKubernetesUtilsPodManager:
     @mock.patch(
         f"{AIRFLOW_PROVIDERS_CNCF_KUBERNETES_UTILS_POD_MANAGER_MODULE_PATH}.time.sleep", autospec=True
     )
-    @mock.patch(f"{AIRFLOW_PROVIDERS_CNCF_KUBERNETES_UTILS_POD_MANAGER_MODULE_PATH}.requests", autospec=True)
+    @mock.patch(f"{AIRFLOW_COMPOSER_PATCHES_KUBERNETES_UTILS_MODULE_PATH}.requests", autospec=True)
     @mock.patch(
         f"{AIRFLOW_PROVIDERS_CNCF_KUBERNETES_UTILS_POD_MANAGER_MODULE_PATH}.is_kubernetes_pod_operator_base_container_terminated",
         autospec=True,

@@ -32,6 +32,7 @@ from airflow.composer.patches.kubernetes.utils import (
     get_peer_vm_pod_container_statuses,
     is_kubernetes_pod_operator_base_container_terminated,
     parse_payload_from_peer_vm_exec_response,
+    write_logs_from_peer_vm,
 )
 from airflow.exceptions import AirflowException
 
@@ -371,3 +372,42 @@ class TestUtils:
 
         time_sleep_mock.assert_has_calls([mock.call(5), mock.call(5)])
         assert result is None
+
+    @mock.patch("airflow.composer.patches.kubernetes.utils.requests", autospec=True)
+    def test_write_logs_from_peer_vm(self, requests_mock):
+        self_mock = mock.Mock()
+
+        def requests_get_side_effect(url, params=None):
+            assert url == "http://10.5.0.1:9080/logs"
+            assert params == {
+                "container_name": "base",
+                "after_timestamp": "2026-06-02T15:26:38.0Z",
+                "max_log_lines": 1000,
+            }
+            return mock.Mock(
+                status_code=200,
+                json=mock.Mock(
+                    return_value={
+                        "logs": [
+                            "2026-06-02T15:26:38.0Z stdout F A",
+                            "2026-06-02T15:26:38.1Z stdout F B",
+                            "2026-06-02T15:26:38.2Z stdout F C",
+                        ]
+                    }
+                ),
+            )
+
+        requests_mock.get = mock.Mock(side_effect=requests_get_side_effect)
+
+        write_logs_from_peer_vm(
+            self_mock,
+            container_name="base",
+            peer_vm_endpoint="10.5.0.1",
+            after_timestamp="2026-06-02T15:26:38.0Z",
+        )
+
+        assert self_mock.log.info.call_args_list == [
+            mock.call("A"),
+            mock.call("B"),
+            mock.call("C"),
+        ]

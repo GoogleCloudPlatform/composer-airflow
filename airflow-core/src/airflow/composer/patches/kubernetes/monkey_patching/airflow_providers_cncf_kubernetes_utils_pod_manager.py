@@ -20,7 +20,6 @@ import json
 import time
 from typing import TYPE_CHECKING
 
-import requests
 import tenacity
 
 from airflow.composer.patches.kubernetes.utils import (
@@ -33,6 +32,7 @@ from airflow.composer.patches.kubernetes.utils import (
     get_peer_vm_pod_container_statuses,
     is_kubernetes_pod_operator_base_container_terminated,
     parse_payload_from_peer_vm_exec_response,
+    write_logs_from_peer_vm,
 )
 from airflow.exceptions import AirflowException
 from airflow.providers.cncf.kubernetes.utils.pod_manager import EMPTY_XCOM_RESULT, PodManager
@@ -131,25 +131,7 @@ def _stream_peer_vm_logs(self, pod, container_name, peer_vm_endpoint, after_time
 
         time.sleep(SLEEP_BETWEEN_PEER_VM_LOGS_STREAMING_ITERATIONS)
 
-        url = f"http://{peer_vm_endpoint}:9080/logs"
-        params = {
-            "container_name": container_name,
-            "after_timestamp": after_timestamp,
-            "max_log_lines": 1000,
-        }
-        self.log.debug("Reading logs, url: %s, params: %s", url, params)
-        try:
-            response = requests.get(url, params=params)
-        except Exception as e:
-            self.log.debug("Exception occurred on request: %s", e)
-        else:
-            if response.status_code != 200:
-                self.log.debug("Got %s response, reason: %s", response.status_code, response.reason)
-            else:
-                for log in response.json()["logs"] or []:
-                    # Example of log: "2023-05-02T10:11:12.2Z stdout F Creating dataset"
-                    after_timestamp, _, _, msg = log.split(" ", 3)
-                    self.log.info(msg)
+        after_timestamp = write_logs_from_peer_vm(self, container_name, peer_vm_endpoint, after_timestamp)
 
         if is_terminated:
             post_termination_iterations += 1
