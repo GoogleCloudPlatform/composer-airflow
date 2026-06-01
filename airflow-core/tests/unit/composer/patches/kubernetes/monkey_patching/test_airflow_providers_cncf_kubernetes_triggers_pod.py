@@ -15,12 +15,14 @@
 
 from __future__ import annotations
 
+import datetime
 from unittest import mock
 
 import pytest
 from kubernetes.client import models as k8s
 
 from airflow.composer.patches.kubernetes.monkey_patching.airflow_providers_cncf_kubernetes_triggers_pod import (
+    _composer_kubernetes_pod_operator_write_logs,
     _composer_kubernetes_pod_trigger_define_container_state,
     patch,
 )
@@ -38,14 +40,23 @@ AIRFLOW_PROVIDERS_CNCF_KUBERNETES_TRIGGERS_POD_MODULE_PATH = (
 
 class TestAirflowProvidersCncfKubernetesTriggersPod:
     @mock.patch(
+        f"{AIRFLOW_PROVIDERS_CNCF_KUBERNETES_TRIGGERS_POD_MODULE_PATH}._composer_kubernetes_pod_operator_write_logs",
+    )
+    @mock.patch(
         f"{AIRFLOW_PROVIDERS_CNCF_KUBERNETES_TRIGGERS_POD_MODULE_PATH}._composer_kubernetes_pod_trigger_define_container_state",
     )
-    def test_patch(self, _composer_kubernetes_pod_trigger_define_container_state_mock):
+    def test_patch(
+        self,
+        _composer_kubernetes_pod_trigger_define_container_state_mock,
+        _composer_kubernetes_pod_operator_write_logs_mock,
+    ):
         _composer_kubernetes_pod_trigger_define_container_state_mock.assert_not_called()
+        _composer_kubernetes_pod_operator_write_logs_mock.assert_not_called()
 
         patch()
 
         _composer_kubernetes_pod_trigger_define_container_state_mock.assert_called_once()
+        _composer_kubernetes_pod_operator_write_logs_mock.assert_called_once()
 
     @pytest.mark.parametrize(
         ("container_statuses", "expected_state", "pod_phase"),
@@ -108,3 +119,39 @@ class TestAirflowProvidersCncfKubernetesTriggersPod:
         )
 
         assert expected_state == state_result
+
+    @mock.patch(
+        f"{AIRFLOW_PROVIDERS_CNCF_KUBERNETES_TRIGGERS_POD_MODULE_PATH}.PodManager",
+    )
+    @mock.patch(f"{AIRFLOW_PROVIDERS_CNCF_KUBERNETES_TRIGGERS_POD_MODULE_PATH}.write_logs_from_peer_vm")
+    def test_composer_kubernetes_pod_operator_write_logs(
+        self,
+        write_logs_from_peer_vm_mock,
+        pod_manager_mock,
+    ):
+        pod = k8s.V1Pod(
+            spec=k8s.V1PodSpec(containers=[k8s.V1Container(name=PEER_VM_PLACEHOLDER_CONTAINER)]),
+            metadata=k8s.V1ObjectMeta(
+                name="base",
+                namespace="default",
+                annotations={PEER_VM_ENDPOINT_ANNOTATION: "test_endpoint"},
+                creation_timestamp=datetime.datetime(2026, 6, 2, 15, 26, 38),
+            ),
+        )
+        pod_manager_mock.return_value.read_pod.return_value = pod
+
+        self_mock = mock.Mock(
+            base_container_name="base",
+            pod_manager=pod_manager_mock.return_value,
+        )
+        _composer_kubernetes_pod_operator_write_logs(mock.Mock())(
+            self_mock,
+            pod=pod,
+        )
+
+        write_logs_from_peer_vm_mock.assert_called_once_with(
+            pod_manager_mock.return_value,
+            container_name="base",
+            peer_vm_endpoint="test_endpoint",
+            after_timestamp="2026-06-02T15:26:38.0Z",
+        )
