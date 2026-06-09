@@ -17,11 +17,13 @@ from __future__ import annotations
 
 import base64
 import json
+import logging
 import time
 from contextlib import closing
 from typing import TYPE_CHECKING
 
 import requests
+import tenacity
 from kubernetes.client.exceptions import ApiException
 from kubernetes.stream import stream as kubernetes_stream
 from websockets.frames import Frame
@@ -40,6 +42,8 @@ if TYPE_CHECKING:
 PEER_VM_PLACEHOLDER_CONTAINER = "peervm-placeholder"
 PEER_VM_ENDPOINT_ANNOTATION = "node.gke.io/peer-vm-endpoint"
 
+log = logging.getLogger(__name__)
+
 
 class PeerVmPlaceholderPodShutDownException(Exception):
     """Exception raised when Peer VM placeholder pod exec returns 137 exit code."""
@@ -53,6 +57,17 @@ class PeerVmPlaceholderPodContainerNotFoundException(Exception):
     pass
 
 
+def before_log_custom_only_on_retries(retry_state: tenacity.RetryCallState):
+    if retry_state.attempt_number > 1:
+        log.warning("Retrying %s, attempt %s.", retry_state.fn.__name__, retry_state.attempt_number)
+
+
+@tenacity.retry(
+    stop=tenacity.stop_after_attempt(5),
+    wait=tenacity.wait_fixed(1),
+    before=before_log_custom_only_on_retries,
+    reraise=True,
+)
 def exec_on_placeholder_pod(self: PodManager, pod: V1Pod, command: list[str]):
     """
     Run exec command on Peer VM placeholder pod.
@@ -217,9 +232,10 @@ def await_pod_endpoint_creation(
     Returns:
         V1Pod or None.
     """
-    while remote_pod.status.phase == PodPhase.RUNNING and not remote_pod.metadata.annotations.get(
-        PEER_VM_ENDPOINT_ANNOTATION
-    ):
+    while remote_pod.status.phase in (
+        PodPhase.RUNNING,
+        PodPhase.PENDING,
+    ) and not remote_pod.metadata.annotations.get(PEER_VM_ENDPOINT_ANNOTATION):
         self.log.info("Awaiting for pod to start execution")
         time.sleep(5)
         remote_pod = self.read_pod(pod)
