@@ -196,6 +196,35 @@ class TestAirflowLocalSettings:
 
         assert patch_fetch_container_logs_mock.call_count == patch_fetch_container_logs_expected_calls_count
 
+    @pytest.mark.parametrize(
+        "composer_version, patch_read_pod_expected_calls_count",
+        [
+            ("2.1.10", 0),
+            ("3.0.1", 1),
+        ],
+    )
+    @mock.patch("airflow.composer.kubernetes.pod_manager.patch_read_pod", autospec=True)
+    @mock.patch("airflow.composer.utils.get_composer_gke_cluster_host", autospec=True)
+    @mock.patch("airflow.composer.kubernetes.utils.pod_mutation_hook_composer_serverless", autospec=True)
+    def test_pod_mutation_hook_patch_read_pod(
+        self,
+        pod_mutation_hook_composer_serverless_mock,
+        get_composer_gke_cluster_host_mock,
+        patch_read_pod_mock,
+        composer_version,
+        patch_read_pod_expected_calls_count,
+    ):
+        pod_mutation_hook_composer_serverless_mock.return_value = mock.Mock()
+        get_composer_gke_cluster_host_mock.return_value = mock.Mock()
+        pod = k8s.V1Pod(
+            metadata=k8s.V1ObjectMeta(namespace="n1"),
+            spec=k8s.V1PodSpec(containers=[k8s.V1Container(name="base")]),
+        )
+        with mock.patch.dict("os.environ", {"COMPOSER_VERSION": composer_version}):
+            pod_mutation_hook(pod=pod)
+
+        assert patch_read_pod_mock.call_count == patch_read_pod_expected_calls_count
+
     @mock.patch.dict("os.environ", {"COMPOSER_VERSION": "3.0.0"})
     @mock.patch(
         "airflow.composer.airflow_local_settings.sys.argv",

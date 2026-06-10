@@ -38,13 +38,14 @@ def dag_policy(dag):
 def pod_mutation_hook(pod: k8s.V1Pod):
     # Avoid circular imports by moving imports inside method.
     from airflow.composer.kubernetes.executor import get_task_run_command_from_args
-    from airflow.composer.kubernetes.pod_manager import patch_fetch_container_logs
+    from airflow.composer.kubernetes.pod_manager import patch_fetch_container_logs, patch_read_pod
     from airflow.composer.kubernetes.utils import pod_mutation_hook_composer_serverless
     from airflow.composer.utils import get_composer_gke_cluster_host, is_serverless_composer
     from airflow.providers.cncf.kubernetes.kubernetes_helper_functions import add_unique_suffix
 
     if is_serverless_composer():
         patch_fetch_container_logs()
+        patch_read_pod()
     # For Composer serverless in case of running pod by KPO or KubernetesExecutor we should adjust pod spec.
     # Refer to go/composer25-kpo-k8s-executor for details.
     # Note, that we check below if cluster host where pod will be deployed is a Composer GKE cluster host, to

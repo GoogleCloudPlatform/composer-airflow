@@ -495,9 +495,10 @@ def await_pod_endpoint_creation(
     Returns:
         V1Pod or None.
     """
-    while remote_pod.status.phase == PodPhase.RUNNING and not remote_pod.metadata.annotations.get(
-        PEER_VM_ENDPOINT_ANNOTATION
-    ):
+    while remote_pod.status.phase in (
+        PodPhase.RUNNING,
+        PodPhase.PENDING,
+    ) and not remote_pod.metadata.annotations.get(PEER_VM_ENDPOINT_ANNOTATION):
         self.log.info("Awaiting for pod to start execution")
         time.sleep(5)
         remote_pod = self.read_pod(pod)

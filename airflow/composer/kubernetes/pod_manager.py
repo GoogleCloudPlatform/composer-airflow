@@ -27,6 +27,13 @@ from typing import TYPE_CHECKING
 
 import requests
 import tenacity
+from kubernetes.client.models import (
+    V1ContainerState,
+    V1ContainerStateRunning,
+    V1ContainerStateTerminated,
+    V1ContainerStateWaiting,
+    V1ContainerStatus,
+)
 
 from airflow.composer.kubernetes.utils import (
     PEER_VM_ENDPOINT_ANNOTATION,
@@ -326,3 +333,79 @@ def _composer_await_container_completion(f):
             time.sleep(polling_time)
 
     return wrapper
+
+
+def patch_read_pod():
+    if not getattr(PodManager.read_pod, "_composer_patched", False):
+        PodManager.read_pod = _composer_read_pod(PodManager.read_pod)
+        setattr(PodManager.read_pod, "_composer_patched", True)
+
+
+def _composer_read_pod(f):
+    @functools.wraps(f)
+    def wrapper(self, pod: V1Pod) -> V1Pod:
+        remote_pod = f(self, pod)
+        if remote_pod.spec.containers[0].name != PEER_VM_PLACEHOLDER_CONTAINER:
+            return remote_pod
+
+        # For establishing connection and getting container statuses from PeerVM, placeholder Pod needs to have PeerVM host
+        # assigned. Because Peer VM host assignment and Peer VM annotation set happen around the same time, so we need to wait
+        # until annotation is available before establishing the connection.
+        await_pod_endpoint_creation(self, pod, remote_pod)
+
+        container_statuses: list[V1ContainerStatus] = []
+        try:
+            pod_container_statuses = get_peer_vm_pod_container_statuses(self, pod=pod)
+
+            for container_status in pod_container_statuses:
+                container_statuses.append(
+                    V1ContainerStatus(
+                        name=container_status["container"],
+                        state=_get_container_state_from_peer_vm_container_status(container_status["state"]),
+                        # TODO: these fields should be retrieved from the response of "container-statuses" command (PeerVM code),
+                        # PeerVM code should be updated.
+                        image="",
+                        image_id="",
+                        ready=False,
+                        restart_count=0,
+                    )
+                )
+        except (PeerVmPlaceholderPodContainerNotFoundException, PeerVmPlaceholderPodShutDownException) as e:
+            self.log.debug("Failed to inject container statuses for Peer VM: %s", e)
+            # In case when PeerVmPlaceholderPodContainerNotFoundException or PeerVmPlaceholderPodShutDownException we still
+            # need to return container status to the KPO for finished operator execution. Because we can not collect
+            # information about container from PeerVM we decided to return TERMINATED status for BASE container as compromise
+            # solution. Also, user can run XCOM container using `do_xcom_push` parameter. In Airflow we do not have a logic
+            # which check XCOM container status during `await_pod_completion`. In the KPO Pod counts as completed if BASE
+            # container complete. We have this logic because XCOM sidecar container, unlike BASE container, can not have
+            # ability to terminate itself and in the past we had situation when BASE container terminated,
+            # but XCOM runs infinitely and Airflow's task stuck.
+            container_statuses.append(
+                V1ContainerStatus(
+                    name="base",
+                    state=_get_container_state_from_peer_vm_container_status("TERMINATED"),
+                    image="",
+                    image_id="",
+                    ready=False,
+                    restart_count=0,
+                )
+            )
+        except Exception as e:
+            self.log.debug("Failed to inject container statuses for Peer VM: %s", e)
+            raise AirflowException(e)
+
+        remote_pod.status.container_statuses = container_statuses
+        return remote_pod
+
+    return wrapper
+
+
+def _get_container_state_from_peer_vm_container_status(peer_vm_container_status: str):
+    """Return V1ContainerState object based on Peer VM container status."""
+    if peer_vm_container_status == "RUNNING":
+        return V1ContainerState(running=V1ContainerStateRunning())
+    if peer_vm_container_status == "TERMINATED":
+        return V1ContainerState(terminated=V1ContainerStateTerminated(exit_code=0))
+    if peer_vm_container_status == "WAITING":
+        return V1ContainerState(waiting=V1ContainerStateWaiting())
+    return None

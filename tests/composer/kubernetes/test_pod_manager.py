@@ -27,8 +27,11 @@ from airflow.composer.kubernetes.pod_manager import (
     _composer_extract_xcom_kill,
     _composer_fetch_container_logs,
     _composer_get_container_names,
+    _composer_read_pod,
+    _get_container_state_from_peer_vm_container_status,
     _stream_peer_vm_logs,
     patch_fetch_container_logs,
+    patch_read_pod,
 )
 from airflow.composer.kubernetes.utils import (
     PEER_VM_ENDPOINT_ANNOTATION,
@@ -598,3 +601,139 @@ class TestPodManager:
         time_sleep_mock.assert_called_with(1)
         self_mock.read_pod.assert_called_with(pod_mock)
         get_peer_vm_pod_container_statuses_mock.assert_called_with(self_mock, pod=pod_mock)
+
+    @mock.patch("airflow.composer.kubernetes.pod_manager._composer_read_pod", autospec=True)
+    def test_patch_read_pod(
+        self,
+        composer_read_pod_mock,
+    ):
+        # test setUp
+        PodManager.read_pod._composer_patched = False
+
+        # Call twice to check patching occurres only once.
+        patch_read_pod()
+        patch_read_pod()
+
+        composer_read_pod_mock.assert_called_once()
+        assert getattr(PodManager.read_pod, "_composer_patched") is True
+
+    @pytest.mark.parametrize(
+        ("peer_vm_container_statuses", "container_statuses"),
+        [
+            (
+                [
+                    {"container": "airflow-xcom-sidecar", "state": "RUNNING"},
+                    {"container": "base", "state": "TERMINATED"},
+                ],
+                {
+                    "airflow-xcom-sidecar": k8s.V1ContainerState(running=k8s.V1ContainerStateRunning()),
+                    "base": k8s.V1ContainerState(terminated=k8s.V1ContainerStateTerminated(exit_code=0)),
+                },
+            ),
+            (
+                [
+                    {"container": "airflow-xcom-sidecar", "state": "RUNNING"},
+                    {"container": "base", "state": "RUNNING"},
+                ],
+                {
+                    "airflow-xcom-sidecar": k8s.V1ContainerState(running=k8s.V1ContainerStateRunning()),
+                    "base": k8s.V1ContainerState(running=k8s.V1ContainerStateRunning()),
+                },
+            ),
+            (
+                [
+                    {"container": "airflow-xcom-sidecar", "state": "TERMINATED"},
+                    {"container": "base", "state": "TERMINATED"},
+                ],
+                {
+                    "airflow-xcom-sidecar": k8s.V1ContainerState(
+                        terminated=k8s.V1ContainerStateTerminated(exit_code=0)
+                    ),
+                    "base": k8s.V1ContainerState(terminated=k8s.V1ContainerStateTerminated(exit_code=0)),
+                },
+            ),
+        ],
+    )
+    @mock.patch(
+        "airflow.composer.kubernetes.pod_manager.get_peer_vm_pod_container_statuses",
+        autospec=True,
+    )
+    def test_composer_pod_manager_read_pod(
+        self,
+        get_peer_vm_pod_container_statuses_mock,
+        peer_vm_container_statuses,
+        container_statuses,
+    ):
+        expected_container_statuses = [
+            k8s.V1ContainerStatus(
+                name="airflow-xcom-sidecar",
+                state=container_statuses["airflow-xcom-sidecar"],
+                image="",
+                image_id="",
+                ready=False,
+                restart_count=0,
+            ),
+            k8s.V1ContainerStatus(
+                name="base",
+                state=container_statuses["base"],
+                image="",
+                image_id="",
+                ready=False,
+                restart_count=0,
+            ),
+        ]
+
+        get_peer_vm_pod_container_statuses_mock.return_value = peer_vm_container_statuses
+        remote_pod_mock_return_value = k8s.V1Pod(
+            spec=k8s.V1PodSpec(containers=[k8s.V1Container(name="peervm-placeholder")]),
+            metadata=k8s.V1ObjectMeta(annotations={PEER_VM_ENDPOINT_ANNOTATION: "test-endpoint"}),
+            status=k8s.V1PodStatus(
+                phase="Running",
+                container_statuses=[
+                    k8s.V1ContainerStatus(
+                        name="peervm-placeholder",
+                        state=k8s.V1ContainerState(running=k8s.V1ContainerStateRunning()),
+                        image="",
+                        image_id="",
+                        ready=False,
+                        restart_count=0,
+                    )
+                ],
+            ),
+        )
+        self_mock = mock.Mock()
+        pod_mock = mock.Mock()
+
+        remote_pod_result = _composer_read_pod(mock.Mock(return_value=remote_pod_mock_return_value))(
+            self_mock, pod_mock
+        )
+
+        get_peer_vm_pod_container_statuses_mock.assert_called_with(self_mock, pod=pod_mock)
+        assert expected_container_statuses == remote_pod_result.status.container_statuses
+        assert len(remote_pod_result.status.container_statuses) == 2
+
+    @pytest.mark.parametrize(
+        ("peer_vm_container_status", "expected_container_state"),
+        [
+            (
+                "RUNNING",
+                k8s.V1ContainerState(running=k8s.V1ContainerStateRunning()),
+            ),
+            (
+                "TERMINATED",
+                k8s.V1ContainerState(terminated=k8s.V1ContainerStateTerminated(exit_code=0)),
+            ),
+            (
+                "WAITING",
+                k8s.V1ContainerState(waiting=k8s.V1ContainerStateWaiting()),
+            ),
+        ],
+    )
+    def test_get_container_state_from_peer_vm_container_status(
+        self,
+        peer_vm_container_status,
+        expected_container_state,
+    ):
+        assert expected_container_state == _get_container_state_from_peer_vm_container_status(
+            peer_vm_container_status
+        )
