@@ -8,7 +8,7 @@
 # file.
 #
 # SV - constraint(s) to avoid security vulnerabilities.
-aiohttp>=3.8.5  # SV
+aiohttp>=3.14.1  # SV - Internal bug, Internal bug, Internal bug
 apache-airflow-ctl>=0.1.3  # previous versions require a keyring
 apache-airflow-providers-common-compat>=1.8.0  # unit tests failing for versions prior to 1.8.0
 apache-airflow-providers-cncf-kubernetes<=10.14.0  # Pin to <=10.14.0 to avoid issues in 10.15.0+ (Internal bug)
