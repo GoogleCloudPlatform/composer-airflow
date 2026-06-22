@@ -65,6 +65,7 @@ class TestComposerAuthManager:
             "username": "test-username",
             "email": "test-email",
             "display_username": "test-display_username",
+            "google_groups": ["test-group@google.com"],
         }
         get_or_register_user_mock.return_value = user_mock
 
@@ -72,7 +73,10 @@ class TestComposerAuthManager:
 
         decode_inverting_proxy_jwt_mock.assert_called_once_with("test-token")
         get_or_register_user_mock.assert_called_once_with(
-            username="test-username", email="test-email", display_username="test-display_username"
+            username="test-username",
+            email="test-email",
+            display_username="test-display_username",
+            google_groups=["test-group@google.com"],
         )
         assert actual_user == user_mock
 
@@ -105,6 +109,7 @@ class TestComposerAuthManager:
             "username": "test-username",
             "email": "test-email",
             "display_username": None,
+            "google_groups": [],
         }
         get_or_register_user_mock.return_value = None
 
@@ -126,6 +131,7 @@ class TestComposerAuthManager:
             "username": "test-username",
             "email": "test-email",
             "display_username": None,
+            "google_groups": [],
         }
         get_or_register_user_mock.return_value = mock.Mock(is_active=False)
 

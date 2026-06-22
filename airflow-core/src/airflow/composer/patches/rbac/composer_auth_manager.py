@@ -58,10 +58,12 @@ class ComposerAuthManager(FabAuthManager):
         username = decoded_inverting_proxy_jwt["username"]
         email = decoded_inverting_proxy_jwt["email"]
         display_username = decoded_inverting_proxy_jwt["display_username"]
+        google_groups = decoded_inverting_proxy_jwt["google_groups"]
         user = get_or_register_user(
             username=username,
             email=email,
             display_username=display_username,
+            google_groups=google_groups,
         )
 
         if user is None or not user.is_active:

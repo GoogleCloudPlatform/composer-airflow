@@ -7,4 +7,5 @@ Changes:
 - implement Composer Airflow Security Manager
 - implement Composer Auth Remote User View
 - implement Per-Folder Roles Autoregistration feature
+- implement user roles synchronization based on the [api]rbac_bindings Airflow configuration property and their Google Groups memberships in JWT
 """

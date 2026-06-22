@@ -87,7 +87,7 @@ def decode_inverting_proxy_jwt(inverting_proxy_jwt):
     # Return result of the method instead of raising RetryError exception after two attempts.
     retry_error_callback=lambda retry_state: retry_state.outcome.result(),
 )
-def get_or_register_user(username, email, display_username):
+def get_or_register_user(username, email, display_username, google_groups):
     """Return user by given username and email. If user is not yet registered, register and return it."""
     appbuilder = get_auth_manager().appbuilder
     user = appbuilder.sm.find_user_by_username(username=username)
@@ -131,7 +131,7 @@ def get_or_register_user(username, email, display_username):
                 return None
 
         appbuilder.sm.update_user_auth_stat(user)
-
+    user = appbuilder.sm.reconcile_user_roles(user, google_groups)
     return user
 
 
@@ -189,4 +189,5 @@ def _decode_inverting_proxy_jwt_with_public_keys(inverting_proxy_jwt, public_key
         "username": decoded_jwt["sub"],
         "email": decoded_jwt["email"] if "email" in decoded_jwt else decoded_jwt["principal"],
         "display_username": decoded_jwt.get("display_username"),
+        "google_groups": decoded_jwt.get("groups", []),
     }

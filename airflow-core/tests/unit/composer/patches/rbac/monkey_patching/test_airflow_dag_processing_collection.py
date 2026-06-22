@@ -18,8 +18,11 @@ import random
 import string
 from unittest import mock
 
+import pytest
+
 from airflow.composer.patches.rbac.monkey_patching.airflow_dag_processing_collection import patch
 from airflow.dag_processing import collection
+from airflow.providers.fab.www.app import create_app
 from airflow.providers.fab.www.security_appless import ApplessAirflowSecurityManager
 from airflow.utils.session import provide_session
 
@@ -28,22 +31,25 @@ class TestAirflowDagProcessingCollection:
     def setup_method(self):
         patch()
 
+    @pytest.mark.db_test
     @provide_session
     @mock.patch(
         "airflow.composer.patches.rbac.monkey_patching.airflow_dag_processing_collection.RBAC_AUTOREGISTER_PER_FOLDER_ROLES",
         True,
     )
     def test_patch_sync_dag_perms(self, session):
-        security_manager = ApplessAirflowSecurityManager(session=session)
-        role_name = "".join(random.choice(string.ascii_lowercase) for _ in range(6))
+        app = create_app(enable_plugins=False)
+        with app.app_context():
+            security_manager = ApplessAirflowSecurityManager(session=session)
+            role_name = "".join(random.choice(string.ascii_lowercase) for _ in range(6))
 
-        collection._sync_dag_perms(
-            mock.Mock(
-                dag_id="test-dag",
-                access_control={role_name: {"DAGs": {"can_read"}}},
-            ),
-            session,
-        )
+            collection._sync_dag_perms(
+                mock.Mock(
+                    dag_id="test-dag",
+                    access_control={role_name: {"DAGs": {"can_read"}}},
+                ),
+                session,
+            )
 
         # Check that role is added.
         role = security_manager.find_role(role_name)

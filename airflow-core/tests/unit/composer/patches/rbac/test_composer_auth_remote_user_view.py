@@ -17,12 +17,21 @@ from __future__ import annotations
 
 from unittest import mock
 
+import pytest
+
 from airflow.providers.fab.www.app import create_app
 
 from tests_common.test_utils.config import conf_vars
 
 
 class TestComposerAuthRemoteUserView:
+    @pytest.mark.parametrize(
+        "google_groups",
+        [
+            ["group1@example.com", "group2@example.com"],
+            [],
+        ],
+    )
     @conf_vars(
         {("core", "auth_manager"): "airflow.composer.patches.rbac.composer_auth_manager.ComposerAuthManager"}
     )
@@ -43,6 +52,7 @@ class TestComposerAuthRemoteUserView:
         login_user_mock,
         get_or_register_user_mock,
         decode_inverting_proxy_jwt_mock,
+        google_groups,
     ):
         app = create_app(enable_plugins=False)
         client = app.test_client()
@@ -50,6 +60,7 @@ class TestComposerAuthRemoteUserView:
             "username": "test-username",
             "email": "test-email",
             "display_username": "test-display_username",
+            "google_groups": google_groups,
         }
         user_mock = mock.Mock(is_active=True)
         get_or_register_user_mock.return_value = user_mock
@@ -61,6 +72,7 @@ class TestComposerAuthRemoteUserView:
             username="test-username",
             email="test-email",
             display_username="test-display_username",
+            google_groups=google_groups,
         )
         login_user_mock.assert_called_once_with(user_mock)
         get_flashed_messages_mock.assert_called_once_with()
@@ -83,6 +95,12 @@ class TestComposerAuthRemoteUserView:
     ):
         app = create_app(enable_plugins=False)
         client = app.test_client()
+        decode_inverting_proxy_jwt_mock.return_value = {
+            "username": "test-username",
+            "email": "test-email",
+            "display_username": "test-display_username",
+            "google_groups": [],
+        }
 
         response = client.get("/login/?next=http://localhost/test")
 
@@ -105,6 +123,12 @@ class TestComposerAuthRemoteUserView:
     ):
         app = create_app(enable_plugins=False)
         client = app.test_client()
+        decode_inverting_proxy_jwt_mock.return_value = {
+            "username": "test-username",
+            "email": "test-email",
+            "display_username": "test-display_username",
+            "google_groups": [],
+        }
 
         response = client.get("/login/?next=http://unsafe/test")
 
@@ -145,6 +169,12 @@ class TestComposerAuthRemoteUserView:
     ):
         app = create_app(enable_plugins=False)
         client = app.test_client()
+        decode_inverting_proxy_jwt_mock.return_value = {
+            "username": "test-username",
+            "email": "test-email",
+            "display_username": "test-display_username",
+            "google_groups": [],
+        }
         get_or_register_user_mock.return_value = None
 
         response = client.get("/login/", headers={"X-Inverting-Proxy-User-ID": "test-jwt"})
@@ -169,6 +199,12 @@ class TestComposerAuthRemoteUserView:
     ):
         app = create_app(enable_plugins=False)
         client = app.test_client()
+        decode_inverting_proxy_jwt_mock.return_value = {
+            "username": "test-username",
+            "email": "test-email",
+            "display_username": "test-display_username",
+            "google_groups": [],
+        }
         get_or_register_user_mock.return_value = mock.Mock(is_active=False)
 
         response = client.get("/login/", headers={"X-Inverting-Proxy-User-ID": "test-jwt"})
