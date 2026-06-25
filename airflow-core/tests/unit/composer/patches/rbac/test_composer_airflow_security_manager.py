@@ -1,0 +1,114 @@
+#
+# Copyright 2025 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+from __future__ import annotations
+
+import random
+import string
+from unittest import mock
+
+from flask_appbuilder.const import AUTH_REMOTE_USER
+
+from airflow.composer.patches.core.configuration import ALL_RBAC_ROLES_EXTRA_PERMISSIONS
+from airflow.composer.patches.rbac.composer_airflow_security_manager import ComposerAirflowSecurityManager
+from airflow.composer.patches.rbac.composer_auth_remote_user_view import ComposerAuthRemoteUserView
+from airflow.providers.fab.www.app import create_app
+
+from tests_common.test_utils.config import conf_vars
+
+
+class TestComposerAirflowSecurityManager:
+    def test_composer_airflow_security_manager(self):
+        app = create_app(enable_plugins=False)
+        with app.app_context():
+            ComposerAirflowSecurityManager(app.appbuilder)
+
+        assert ComposerAirflowSecurityManager.authremoteuserview == ComposerAuthRemoteUserView
+        assert app.config["AUTH_TYPE"] == AUTH_REMOTE_USER
+
+    @mock.patch(
+        "airflow.composer.patches.rbac.composer_airflow_security_manager.RBAC_AUTOREGISTER_PER_FOLDER_ROLES",
+        True,
+    )
+    def test_composer_airflow_security_manager_pfra_enabled(self):
+        app = create_app(enable_plugins=False)
+        with app.app_context():
+            security_manager = ComposerAirflowSecurityManager(app.appbuilder)
+
+        found = False
+        for role_config in security_manager.ROLE_CONFIGS:
+            if role_config["role"] == "UserNoDags":
+                found = True
+                break
+        # Assert that config for "UserNoDags" role is present.
+        assert found
+        # Assert that permissions for "UserNoDags" role are subset of Viewer and User roles permissions.
+        for p in role_config["perms"]:
+            assert p in security_manager.VIEWER_PERMISSIONS or p in security_manager.USER_PERMISSIONS
+        # Assert that some DAGs permission is present for User role but not for "UserNoDags" role.
+        assert ("can_edit", "DAGs") in security_manager.USER_PERMISSIONS
+        assert ("can_edit", "DAGs") not in role_config["perms"]
+
+    @conf_vars(
+        {("core", "auth_manager"): "airflow.composer.patches.rbac.composer_auth_manager.ComposerAuthManager"}
+    )
+    def test_sync_roles(self):
+        resource_name = "".join(random.choice(string.ascii_uppercase) for _ in range(6))
+        ALL_RBAC_ROLES_EXTRA_PERMISSIONS.append(("menu_access", resource_name))
+        custom_role = "".join(random.choice(string.ascii_uppercase) for _ in range(6))
+
+        def _has_permission(sm, role_name):
+            role = sm.find_role(role_name)
+            for permission in role.permissions:
+                if permission.action.name == "menu_access" and permission.resource.name == resource_name:
+                    return True
+
+            return False
+
+        app = create_app(enable_plugins=False)
+        app.appbuilder.sm.add_role(custom_role)
+
+        # Built-in roles should get permission already, since sync_roles() is called during app creation.
+        assert _has_permission(app.appbuilder.sm, "Admin")
+        # Custom role shouldn't have permission yet, because the role was added after app created.
+        assert not _has_permission(app.appbuilder.sm, custom_role)
+
+        app.appbuilder.sm.sync_roles()
+
+        assert _has_permission(app.appbuilder.sm, "Admin")
+        assert _has_permission(app.appbuilder.sm, custom_role)
+
+    @conf_vars(
+        {("core", "auth_manager"): "airflow.composer.patches.rbac.composer_auth_manager.ComposerAuthManager"}
+    )
+    def test_find_user_by_username(self):
+        app = create_app(enable_plugins=False)
+        username = "".join(random.choice(string.ascii_uppercase) for _ in range(6))
+        email = f"{username}@gmail.com"
+        app.appbuilder.sm.add_user(
+            username=username,
+            first_name="first name",
+            last_name="last name",
+            email=email,
+        )
+
+        actual_user = app.appbuilder.sm.find_user_by_username(username)
+        actual_user2 = app.appbuilder.sm.find_user_by_username(username.lower())
+
+        assert actual_user.username == username
+        assert actual_user.first_name == "first name"
+        assert actual_user.last_name == "last name"
+        assert actual_user.email == email
+        assert actual_user2.id == actual_user.id
