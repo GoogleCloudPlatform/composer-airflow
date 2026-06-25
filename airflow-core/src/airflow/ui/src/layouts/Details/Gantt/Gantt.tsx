@@ -156,6 +156,11 @@ export const Gantt = ({ limit, runType, triggeringUser }: Props) => {
         const gridSummary = gridSummaries.find((ti) => ti.task_id === node.id);
 
         if ((node.isGroup ?? node.is_mapped) && gridSummary) {
+          // TODO(Internal bug): Guard against null dates on mapped/group task summaries (re-implementation of upstream #64031). Do not rebase into Airflow 3.2.0+.
+          if (gridSummary.min_start_date === null || gridSummary.max_end_date === null) {
+            return undefined;
+          }
+
           // Use min/max times from grid summary; ISO so time scale and bar positions render consistently across browsers
           return {
             isGroup: node.isGroup,
@@ -172,9 +177,13 @@ export const Gantt = ({ limit, runType, triggeringUser }: Props) => {
           // Individual task - use individual task instance data
           const taskInstance = taskInstances.find((ti) => ti.task_id === node.id);
 
-          if (taskInstance) {
+          // TODO(Internal bug): Guard against null start_date on individual task instances (re-implementation of upstream #64031). Do not rebase into Airflow 3.2.0+.
+          if (taskInstance && taskInstance.start_date !== null) {
             const hasTaskRunning = isStatePending(taskInstance.state);
-            const endTime = hasTaskRunning ? dayjs().toISOString() : taskInstance.end_date;
+            const endTime =
+              hasTaskRunning || taskInstance.end_date === null
+                ? dayjs().toISOString()
+                : taskInstance.end_date;
 
             return {
               isGroup: node.isGroup,
