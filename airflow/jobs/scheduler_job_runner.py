@@ -1128,10 +1128,12 @@ class SchedulerJobRunner(BaseJobRunner, LoggingMixin):
                 self._cleanup_stale_dags,
             )
 
+        from airflow.utils.net import get_hostname
+
         for loop_count in itertools.count(start=1):
             with Trace.start_span(
                 span_name="scheduler_job_loop", component="SchedulerJobRunner"
-            ) as span, Stats.timer("scheduler.scheduler_loop_duration") as timer:
+            ) as span, Stats.timer(f"scheduler.scheduler_loop_duration.{get_hostname()}") as timer:
                 span.set_attribute("category", "scheduler")
                 span.set_attribute("loop_count", loop_count)
 
