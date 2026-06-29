@@ -76,6 +76,7 @@ COMPOSER_NON_PYPI_ORG_DEPENDENCIES = [
 
 # Airflow extras that are Composer dependencies.
 COMPOSER_EXTRAS_DEPENDENCIES = [
+    "gunicorn",
     "statsd",
 ]
 
