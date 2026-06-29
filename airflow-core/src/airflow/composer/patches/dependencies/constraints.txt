@@ -22,6 +22,7 @@ chardet<6.0.0
 dbt-adapters>=1.22.5
 dbt-bigquery>=1.11.0
 dbt-core>=1.10.20
+fastapi<0.137.0  # TODO: remove for Airflow 3.3+, fastapi<0.137.0 is not compatible with Airflow 3.2.2
 Flask-AppBuilder>=4.6.3
 firebase-admin>=7.0.0
 flower>=2.0.0  # SV
