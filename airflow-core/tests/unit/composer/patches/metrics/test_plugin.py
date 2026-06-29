@@ -25,12 +25,15 @@ from airflow.composer.patches.metrics.plugin import (
 
 
 class TestPlugin:
-    @mock.patch("airflow.composer.patches.metrics.plugin.register_plugin", autospec=True)
-    def test_register_composer_metrics_plugin(self, register_plugin_mock):
+    @mock.patch("airflow.composer.patches.metrics.plugin._get_plugins", autospec=True)
+    def test_register_composer_metrics_plugin(self, get_plugins_mock):
+        plugins_list = []
+        get_plugins_mock.return_value = (plugins_list, {})
+
         register_composer_metrics_plugin()
 
-        assert len(register_plugin_mock.call_args_list) == 1
-        actual_plugin = register_plugin_mock.call_args_list[0][0][0]
+        assert len(plugins_list) == 1
+        actual_plugin = plugins_list[0]
         assert isinstance(actual_plugin, ComposerMetricsPlugin)
         assert actual_plugin.listeners == [listener]
         assert isinstance(actual_plugin.source, ComposerMetricsPluginSource)
