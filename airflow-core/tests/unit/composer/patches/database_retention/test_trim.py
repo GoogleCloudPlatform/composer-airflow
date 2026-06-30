@@ -92,6 +92,8 @@ class TestTrim:
     def test_execute_trim_log_table(self, session):
         retention_days = 30
         utcnow = timezone.utcnow()
+        # Drop the whole table, as it anyway shouldn't be used across the tests.
+        session.query(Log).delete()
         for ind, dttm in enumerate(
             [
                 utcnow - timedelta(days=retention_days) - timedelta(seconds=1000),
@@ -117,6 +119,8 @@ class TestTrim:
     def test_execute_trim_parse_import_error_table(self, session):
         retention_days = 30
         utcnow = timezone.utcnow()
+        # Drop the whole table, as it anyway shouldn't be used across the tests.
+        session.query(ParseImportError).delete()
         for ind, timestamp in enumerate(
             [
                 utcnow - timedelta(days=retention_days) - timedelta(seconds=1000),
@@ -198,7 +202,7 @@ class TestTrim:
             ti = create_task_instance(run_id=f"trim_rendered_task_instance_fields_{ind}")
 
             ti.dag_run.logical_date = logical_date
-            rendered_task_instance_fields = RenderedTaskInstanceFields(ti=ti)
+            rendered_task_instance_fields = RenderedTaskInstanceFields(ti=ti, render_templates=False)
             session.add(ti)
             session.add(rendered_task_instance_fields)
         session.commit()
