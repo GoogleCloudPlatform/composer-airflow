@@ -15,15 +15,13 @@
 from __future__ import annotations
 
 from airflow.composer.patches.metrics import listener
-from airflow.plugins_manager import AirflowPlugin, AirflowPluginSource, _get_plugins
+from airflow.plugins_manager import AirflowPlugin, AirflowPluginSource
 
 
-def register_composer_metrics_plugin():
+def get_composer_metrics_plugin():
     plugin_instance = ComposerMetricsPlugin()
     plugin_instance.source = ComposerMetricsPluginSource()
-    plugins, _ = _get_plugins()
-    if not any(p.name == plugin_instance.name for p in plugins):
-        plugins.append(plugin_instance)
+    return plugin_instance
 
 
 class ComposerMetricsPluginSource(AirflowPluginSource):

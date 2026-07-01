@@ -17,21 +17,22 @@ from __future__ import annotations
 import functools
 
 from airflow import plugins_manager
-from airflow.composer.patches.metrics.plugin import register_composer_metrics_plugin
+from airflow.composer.patches.metrics.plugin import get_composer_metrics_plugin
 
 
 def patch():
-    plugins_manager.ensure_plugins_loaded = _composer_plugins_manager_ensure_plugins_loaded(
-        plugins_manager.ensure_plugins_loaded
+    plugins_manager._get_plugins = _composer_plugins_manager_get_plugins(
+        plugins_manager._get_plugins
     )
 
 
-def _composer_plugins_manager_ensure_plugins_loaded(f):
+def _composer_plugins_manager_get_plugins(f):
     @functools.wraps(f)
     def wrapper(*args, **kwargs):
         res = f(*args, **kwargs)
 
-        register_composer_metrics_plugin()
+        plugin_instance = get_composer_metrics_plugin()
+        res[0].append(plugin_instance)
 
         return res
 

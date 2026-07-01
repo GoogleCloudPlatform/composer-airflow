@@ -21,15 +21,18 @@ from airflow.composer.patches.webserver.monkey_patching.airflow_plugins_manager 
 
 
 class TestAirflowPluginsManager:
-    @mock.patch("airflow.plugins_manager.ensure_plugins_loaded", return_value="mocked")
+    @mock.patch("airflow.plugins_manager._get_plugins", return_value=(["mocked"], {}))
     @mock.patch(
-        "airflow.composer.patches.webserver.monkey_patching.airflow_plugins_manager.register_composer_menu_plugin",
+        "airflow.composer.patches.webserver.monkey_patching.airflow_plugins_manager.get_composer_menu_plugin",
         autospec=True,
     )
-    def test_patch(self, register_composer_menu_plugin_mock, ensure_plugins_loaded_mock):
+    def test_patch(self, get_composer_menu_plugin_mock, _get_plugins_mock):
+        mock_plugin = mock.MagicMock()
+        get_composer_menu_plugin_mock.return_value = mock_plugin
+
         patch()
 
-        res = plugins_manager.ensure_plugins_loaded()
+        res = plugins_manager._get_plugins()
 
-        assert res == "mocked"
-        register_composer_menu_plugin_mock.assert_called_once_with()
+        assert res[0] == ["mocked", mock_plugin]
+        assert res[1] == {}

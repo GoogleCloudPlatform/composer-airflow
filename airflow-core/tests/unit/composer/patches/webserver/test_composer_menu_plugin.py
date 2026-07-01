@@ -21,7 +21,7 @@ from unittest import mock
 import pytest
 
 from airflow.composer.patches.webserver import composer_menu_plugin
-from airflow.composer.patches.webserver.composer_menu_plugin import register_composer_menu_plugin
+from airflow.composer.patches.webserver.composer_menu_plugin import get_composer_menu_plugin
 
 
 class TestComposerMenuPlugin:
@@ -82,15 +82,9 @@ class TestComposerMenuPlugin:
             assert menu_item["destination"] == "nav"
             assert menu_item["category"] == "Google Managed Airflow"
 
-    @mock.patch("airflow.composer.patches.webserver.composer_menu_plugin._get_plugins", autospec=True)
-    def test_register_composer_menu_plugin(self, get_plugins_mock):
-        plugins_list = []
-        get_plugins_mock.return_value = (plugins_list, {})
+    def test_get_composer_menu_plugin(self):
+        actual_plugin = get_composer_menu_plugin()
 
-        register_composer_menu_plugin()
-
-        assert len(plugins_list) == 1
-        actual_plugin = plugins_list[0]
         assert isinstance(actual_plugin, composer_menu_plugin.ComposerMenuPlugin)
         assert isinstance(actual_plugin.source, composer_menu_plugin.ComposerMenuPluginSource)
 

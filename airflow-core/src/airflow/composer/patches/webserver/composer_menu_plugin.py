@@ -20,7 +20,6 @@ from urllib.parse import urlencode
 from airflow.plugins_manager import (
     AirflowPlugin,
     AirflowPluginSource,
-    _get_plugins,
 )
 
 MENU_CATEGORY_NAME = "Google Managed Airflow"
@@ -75,12 +74,10 @@ COMP_DOCS_EXTERNAL_VIEW = {
 }
 
 
-def register_composer_menu_plugin():
+def get_composer_menu_plugin():
     plugin_instance = ComposerMenuPlugin()
     plugin_instance.source = ComposerMenuPluginSource()
-    plugins, _ = _get_plugins()
-    if not any(p.name == plugin_instance.name for p in plugins):
-        plugins.append(plugin_instance)
+    return plugin_instance
 
 
 class ComposerMenuPluginSource(AirflowPluginSource):
