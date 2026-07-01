@@ -35,6 +35,7 @@ HOOKS_TO_DISABLE = [
     "update-version",
     # Hooks that require breeze.
     "mypy-airflow-core",
+    "mypy-devel-common",
 ]
 
 

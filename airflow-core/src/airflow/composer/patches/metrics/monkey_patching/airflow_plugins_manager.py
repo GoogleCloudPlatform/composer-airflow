@@ -21,9 +21,7 @@ from airflow.composer.patches.metrics.plugin import get_composer_metrics_plugin
 
 
 def patch():
-    plugins_manager._get_plugins = _composer_plugins_manager_get_plugins(
-        plugins_manager._get_plugins
-    )
+    plugins_manager._get_plugins = _composer_plugins_manager_get_plugins(plugins_manager._get_plugins)
 
 
 def _composer_plugins_manager_get_plugins(f):

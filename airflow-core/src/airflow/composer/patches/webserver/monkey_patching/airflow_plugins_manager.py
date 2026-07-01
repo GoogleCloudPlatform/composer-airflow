@@ -21,9 +21,7 @@ from airflow.composer.patches.webserver.composer_menu_plugin import get_composer
 
 
 def patch():
-    plugins_manager._get_plugins = _composer_plugins_manager_get_plugins(
-        plugins_manager._get_plugins
-    )
+    plugins_manager._get_plugins = _composer_plugins_manager_get_plugins(plugins_manager._get_plugins)
 
 
 def _composer_plugins_manager_get_plugins(f):
