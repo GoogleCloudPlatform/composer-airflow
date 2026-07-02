@@ -254,7 +254,17 @@ def _composer_pod_manager_await_container_completion(f):
         await_pod_endpoint_creation(self, pod, remote_pod)
 
         while True:
-            container_statuses = get_peer_vm_pod_container_statuses(self, pod=pod)
+            try:
+                container_statuses = get_peer_vm_pod_container_statuses(self, pod=pod)
+            except PeerVmPlaceholderPodContainerNotFoundException:
+                self.log.debug(
+                    "KubernetesPodOperator pod container is not found. Looks like it was terminated already."
+                )
+                break
+            except PeerVmPlaceholderPodShutDownException:
+                self.log.debug("KubernetesPodOperator pod is shut down.")
+                break
+
             container_status = next(c for c in container_statuses if c["container"] == container_name)
             if container_status["state"] == "TERMINATED":
                 break
