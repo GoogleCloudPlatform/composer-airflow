@@ -190,10 +190,12 @@ class TestComposerAuthRemoteUserView:
         # Check that response has header to delete DATALAB_TUNNEL_TOKEN cookie.
         assert any(
             map(
-                lambda h: h
-                == (
-                    "Set-Cookie",
-                    "DATALAB_TUNNEL_TOKEN=; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Max-Age=0; Path=/",
+                lambda h: (
+                    h
+                    == (
+                        "Set-Cookie",
+                        "DATALAB_TUNNEL_TOKEN=; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Max-Age=0; Path=/",
+                    )
                 ),
                 response.headers,
             )
