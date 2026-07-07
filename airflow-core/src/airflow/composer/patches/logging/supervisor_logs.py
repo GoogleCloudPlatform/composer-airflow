@@ -41,6 +41,13 @@ _LOG_CONTEXT_DATA_KEYS_TO_OMIT = [
     # Other fields that are not needed in the context data.
     "loc",
     "logger",
+    # TI fields that will be emitted as labels.
+    "ti_id",
+    "dag_id",
+    "task_id",
+    "run_id",
+    "try_number",
+    "map_index",
 ]
 # Separator between actual log message and json annotation with Composer labels. This separator will be
 # recognised and parsed by fluentd.
