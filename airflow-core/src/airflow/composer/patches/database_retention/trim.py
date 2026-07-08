@@ -21,6 +21,7 @@ import time
 
 from sqlalchemy import (
     func as sqlfunc,
+    select,
     text,
     tuple_,
 )
@@ -210,7 +211,7 @@ def _prepare_filter_criterion(session, table, primary_key, expiration_datetime):
     if table["airflow_db_model"].__tablename__ == "dag_run" and table.get("keep_last", False):
         additional_filter.append(
             tuple_(*primary_key).not_in(
-                session.query(sqlfunc.max(tuple_(*primary_key))).group_by(table["airflow_db_model"].dag_id)
+                select(sqlfunc.max(tuple_(*primary_key))).group_by(table["airflow_db_model"].dag_id)
             )
         )
     additional_filter.append(table["age_column"] < expiration_datetime)

@@ -17,8 +17,8 @@ from __future__ import annotations
 import functools
 from typing import TYPE_CHECKING
 
-from airflow.listeners import hookimpl
 from airflow._shared.observability.metrics.validators import ALLOWED_CHARACTERS, stat_name_default_handler
+from airflow.listeners import hookimpl
 from airflow.stats import Stats
 
 if TYPE_CHECKING:

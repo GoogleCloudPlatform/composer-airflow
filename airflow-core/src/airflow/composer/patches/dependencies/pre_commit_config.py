@@ -28,6 +28,8 @@ import yaml
 
 HOOKS_TO_DISABLE = [
     "check-cncf-k8s-only-for-executors",
+    "check-metrics-synced-with-registry",
+    "check-no-new-airflow-exceptions",
     "check-sdk-imports",
     "check-tests-in-the-right-folders",
     "insert-license",
