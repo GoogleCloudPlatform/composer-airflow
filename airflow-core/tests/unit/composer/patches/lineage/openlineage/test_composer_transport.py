@@ -267,7 +267,7 @@ class TestComposerTransport:
     @mock.patch.dict("os.environ", {"COMPOSER_VERSION": "composer-version"})
     @mock.patch.dict("os.environ", {"COMPOSER_ENVIRONMENT": "composer-env-name"})
     @pytest.mark.parametrize(
-        "event, expected_metadata",
+        ("event", "expected_metadata"),
         [
             (TASK_START_EVENT, [("x-goog-ext-512598505-bin", b"\n\x08COMPOSER\x12\x04TASK")]),
             (TASK_COMPLETE_EVENT, [("x-goog-ext-512598505-bin", b"\n\x08COMPOSER\x12\x04TASK")]),
@@ -314,7 +314,7 @@ class TestComposerTransport:
     @mock.patch.dict("os.environ", {"GCP_PROJECT": "test_gcp_project"})
     @mock.patch.dict("os.environ", {"COMPOSER_LOCATION": "us-central1"})
     @pytest.mark.parametrize(
-        "event, expected_composer_job_facet, expected_composer_run_facet",
+        ("event", "expected_composer_job_facet", "expected_composer_run_facet"),
         [
             (
                 TASK_START_EVENT,
@@ -388,7 +388,7 @@ class TestComposerTransport:
             )
 
     @pytest.mark.parametrize(
-        "event, expected_external_query",
+        ("event", "expected_external_query"),
         [
             (RUN_EVENT_EXTERNAL_QUERY_1, EXPECTED_EXTERNAL_QUERY_1),
             (RUN_EVENT_EXTERNAL_QUERY_2, EXPECTED_EXTERNAL_QUERY_2),

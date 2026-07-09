@@ -196,7 +196,7 @@ class TestUtils:
         assert result == {"key": "value"}
 
     @pytest.mark.parametrize(
-        "container_statuses, expected_result",
+        ("container_statuses", "expected_result"),
         [
             (
                 [
@@ -238,17 +238,16 @@ class TestUtils:
         self_mock = mock.Mock()
         pod_mock = mock.Mock()
 
-        with pytest.raises(ValueError) as exc:
+        with pytest.raises(
+            ValueError,
+            match=r"Unexpected list of containers in KubernetesPodOperator pod, container statuses: \[\{'container': 'airflow-xcom-sidecar', 'state': 'RUNNING'\}\]",
+        ):
             is_kubernetes_pod_operator_base_container_terminated(self_mock, pod_mock)
 
         get_peer_vm_pod_container_statuses_mock.assert_called_with(self_mock, pod=pod_mock)
-        assert str(exc.value) == (
-            "Unexpected list of containers in KubernetesPodOperator pod, container statuses: "
-            "[{'container': 'airflow-xcom-sidecar', 'state': 'RUNNING'}]"
-        )
 
     @pytest.mark.parametrize(
-        "response, expected_result",
+        ("response", "expected_result"),
         [
             (b"ggEBghMBeyJrZXk6IjogInZhbHVlIn0KiAID6A==", '{"key:": "value"}\n'),
             (b"ggEBggUBMjIyCogCA+g=", "222\n"),

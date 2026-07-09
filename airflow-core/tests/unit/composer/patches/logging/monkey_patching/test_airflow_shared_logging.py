@@ -74,7 +74,5 @@ class TestAirflowSharedLogging:
         logging.root.handlers[0].name = "handler1"
         logging.root.handlers[0].stream = sys.stderr
 
-        with pytest.raises(ValueError) as exc:
+        with pytest.raises(ValueError, match=r"'default' handler is not found for root logger"):
             _patch_stdlib_root_logger()
-
-        assert str(exc.value) == "'default' handler is not found for root logger"

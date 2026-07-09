@@ -55,7 +55,7 @@ class TestTaskLogReaderHandler:
         self.handler = self.create_handler()
 
     @pytest.mark.parametrize(
-        "task_instance_mock, try_number, expected_get_logs_filter_try_number_param",
+        ("task_instance_mock", "try_number", "expected_get_logs_filter_try_number_param"),
         [
             (
                 mock.Mock(),
@@ -169,7 +169,7 @@ class TestTaskLogReaderHandler:
         assert actual_start_date is None
 
     @pytest.mark.parametrize(
-        "task_instance, try_number, expected_result",
+        ("task_instance", "try_number", "expected_result"),
         [
             (
                 mock.Mock(
@@ -300,7 +300,7 @@ class TestTaskLogReaderHandler:
         ]
 
     @pytest.mark.parametrize(
-        "error, expected_event",
+        ("error", "expected_event"),
         [
             (
                 PermissionDenied("error"),

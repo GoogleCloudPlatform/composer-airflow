@@ -39,7 +39,7 @@ class TestComposerMenuPlugin:
             reload(composer_menu_plugin)
 
     @pytest.mark.parametrize(
-        "expected_name, expected_href",
+        ("expected_name", "expected_href"),
         [
             (
                 "DAGs in Cloud Console",

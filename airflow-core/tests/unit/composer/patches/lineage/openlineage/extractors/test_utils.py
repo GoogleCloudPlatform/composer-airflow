@@ -90,7 +90,7 @@ class TestDataprocSQLJobLineageExtractor:
         mock_build_lineage_entities.assert_has_calls([call(tables=source_tables), call(tables=target_tables)])
 
     @pytest.mark.parametrize(
-        "parsed_tables, expected_tables",
+        ("parsed_tables", "expected_tables"),
         [
             ([], []),
             (
@@ -270,7 +270,7 @@ class TestDataprocSQLJobLineageExtractor:
             extractor.get_queries()
 
     @pytest.mark.parametrize(
-        "queries, expected",
+        ("queries", "expected"),
         [
             ([""], ([], [])),
             ([SQL_SELECT_FROM_TABLE1], ([], [])),
@@ -303,7 +303,7 @@ class TestDataprocSQLJobLineageExtractor:
         assert extractor.parse_queries() == expected
 
     @pytest.mark.parametrize(
-        "queries, expected",
+        ("queries", "expected"),
         [
             ([SQL_SELECT_FROM_SCHEMA1_TABLE3], ([], [])),
             ([SQL_INSERT_INTO_SCHEMA1_TABLE3], ([], [])),

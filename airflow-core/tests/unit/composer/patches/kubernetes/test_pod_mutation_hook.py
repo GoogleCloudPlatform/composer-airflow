@@ -143,7 +143,7 @@ class TestPodMutationHook:
         )
 
     @pytest.mark.parametrize(
-        "pod, expected_disk_size_gb",
+        ("pod", "expected_disk_size_gb"),
         [
             (
                 k8s.V1Pod(
@@ -277,7 +277,7 @@ class TestPodMutationHook:
         assert actual_disk_size_gb == expected_disk_size_gb
 
     @pytest.mark.parametrize(
-        "resources, expected_machine_type",
+        ("resources", "expected_machine_type"),
         [
             (None, "e2-custom-small-2048"),
         ]

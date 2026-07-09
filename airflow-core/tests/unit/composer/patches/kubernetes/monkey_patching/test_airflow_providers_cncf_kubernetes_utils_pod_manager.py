@@ -359,7 +359,7 @@ class TestAirflowProvidersCncfKubernetesUtilsPodManager:
         time_sleep_mock.assert_has_calls([mock.call(10)] + [mock.call(1)] * (num_iterations + 10))
 
     @pytest.mark.parametrize(
-        "exception, error",
+        ("exception", "error"),
         [
             (PeerVmPlaceholderPodContainerNotFoundException, "container not found"),
             (PeerVmPlaceholderPodShutDownException, "pod shut down"),
@@ -423,7 +423,7 @@ class TestAirflowProvidersCncfKubernetesUtilsPodManager:
         ]
 
     @pytest.mark.parametrize(
-        "original_container_names, expected_container_names",
+        ("original_container_names", "expected_container_names"),
         [
             (["base", "sidecar"], ["base", "sidecar"]),
             (["peervm-placeholder"], ["base"]),
@@ -439,7 +439,7 @@ class TestAirflowProvidersCncfKubernetesUtilsPodManager:
         assert actual_container_names == expected_container_names
 
     @pytest.mark.parametrize(
-        "container_name, container_statuses, expected_result",
+        ("container_name", "container_statuses", "expected_result"),
         [
             (
                 "airflow-xcom-sidecar",
@@ -508,12 +508,11 @@ class TestAirflowProvidersCncfKubernetesUtilsPodManager:
         )
         pod_mock = k8s.V1Pod(metadata=k8s.V1ObjectMeta(name="test-pod"))
 
-        with pytest.raises(ValueError) as exc:
+        with pytest.raises(ValueError, match="Not found container named as 'not-exist' for pod 'test-pod'"):
             _composer_pod_manager_container_is_running(mock.Mock())(self_mock, pod_mock, "not-exist")
 
         self_mock.read_pod.assert_called_with(pod_mock)
         get_peer_vm_pod_container_statuses_mock.assert_called_with(self_mock, pod=pod_mock)
-        assert str(exc.value) == "Not found container named as 'not-exist' for pod 'test-pod'"
 
     @mock.patch(
         f"{AIRFLOW_PROVIDERS_CNCF_KUBERNETES_UTILS_POD_MANAGER_MODULE_PATH}.exec_on_placeholder_pod",

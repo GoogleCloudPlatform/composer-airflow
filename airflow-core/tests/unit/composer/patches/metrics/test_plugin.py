@@ -14,8 +14,6 @@
 # limitations under the License.
 from __future__ import annotations
 
-from unittest import mock
-
 from airflow.composer.patches.metrics import listener
 from airflow.composer.patches.metrics.plugin import (
     ComposerMetricsPlugin,

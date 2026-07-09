@@ -19,7 +19,7 @@ from datetime import timedelta
 from unittest import mock
 
 import pytest
-from sqlalchemy import text
+from sqlalchemy import delete, func as sqlfunc, select, text
 
 from airflow._shared.timezones import timezone
 from airflow.composer.patches.database_retention.trim import (
@@ -69,7 +69,7 @@ class TestTrim:
         retention_days = 30
         utcnow = timezone.utcnow()
         # Drop the whole table, as it anyway shouldn't be used across the tests.
-        session.query(Job).delete()
+        session.execute(delete(Job))
         for ind, latest_heartbeat in enumerate(
             [
                 utcnow - timedelta(days=retention_days) - timedelta(seconds=1000),
@@ -80,12 +80,12 @@ class TestTrim:
             session.add(Job(id=ind + 1, latest_heartbeat=latest_heartbeat))
         session.commit()
 
-        job_ids = session.query(Job.id).filter(Job.id.in_([1, 2, 3])).all()
+        job_ids = session.execute(select(Job.id).filter(Job.id.in_([1, 2, 3]))).all()
         assert job_ids == [(1,), (2,), (3,)]
 
         execute_trim(retention_days, batch_size=100, sleep_between_batches_seconds=0)
 
-        job_ids = session.query(Job.id).filter(Job.id.in_([1, 2, 3])).all()
+        job_ids = session.execute(select(Job.id).filter(Job.id.in_([1, 2, 3]))).all()
         assert job_ids == [(3,)]
 
     @provide_session
@@ -93,7 +93,7 @@ class TestTrim:
         retention_days = 30
         utcnow = timezone.utcnow()
         # Drop the whole table, as it anyway shouldn't be used across the tests.
-        session.query(Log).delete()
+        session.execute(delete(Log))
         for ind, dttm in enumerate(
             [
                 utcnow - timedelta(days=retention_days) - timedelta(seconds=1000),
@@ -107,12 +107,12 @@ class TestTrim:
             session.add(log)
         session.commit()
 
-        log_ids = session.query(Log.id).filter(Log.id.in_([1, 2, 3])).all()
+        log_ids = session.execute(select(Log.id).filter(Log.id.in_([1, 2, 3]))).all()
         assert log_ids == [(1,), (2,), (3,)]
 
         execute_trim(retention_days, batch_size=100, sleep_between_batches_seconds=0)
 
-        log_ids = session.query(Log.id).filter(Log.id.in_([1, 2, 3])).all()
+        log_ids = session.execute(select(Log.id).filter(Log.id.in_([1, 2, 3]))).all()
         assert log_ids == [(3,)]
 
     @provide_session
@@ -120,7 +120,7 @@ class TestTrim:
         retention_days = 30
         utcnow = timezone.utcnow()
         # Drop the whole table, as it anyway shouldn't be used across the tests.
-        session.query(ParseImportError).delete()
+        session.execute(delete(ParseImportError))
         for ind, timestamp in enumerate(
             [
                 utcnow - timedelta(days=retention_days) - timedelta(seconds=1000),
@@ -135,16 +135,16 @@ class TestTrim:
             session.add(parse_import_error)
         session.commit()
 
-        parse_import_error_ids = (
-            session.query(ParseImportError.id).filter(ParseImportError.id.in_([1, 2, 3])).all()
-        )
+        parse_import_error_ids = session.execute(
+            select(ParseImportError.id).filter(ParseImportError.id.in_([1, 2, 3]))
+        ).all()
         assert parse_import_error_ids == [(1,), (2,), (3,)]
 
         execute_trim(retention_days, batch_size=100, sleep_between_batches_seconds=0)
 
-        parse_import_error_ids = (
-            session.query(ParseImportError.id).filter(ParseImportError.id.in_([1, 2, 3])).all()
-        )
+        parse_import_error_ids = session.execute(
+            select(ParseImportError.id).filter(ParseImportError.id.in_([1, 2, 3]))
+        ).all()
         assert parse_import_error_ids == [(3,)]
 
     @provide_session
@@ -153,7 +153,7 @@ class TestTrim:
         utcnow = timezone.utcnow()
 
         # Drop the whole table, as it anyway shouldn't be used across the tests.
-        session.query(XComModel).delete()
+        session.execute(delete(XComModel))
         for ind, logical_date in enumerate(
             [
                 utcnow - timedelta(days=retention_days) - timedelta(seconds=1000),
@@ -176,12 +176,12 @@ class TestTrim:
             session.add(xcom)
         session.commit()
 
-        assert session.query(XComModel).count() == 3
+        assert session.scalar(select(sqlfunc.count()).select_from(XComModel)) == 3
 
         execute_trim(retention_days, batch_size=100, sleep_between_batches_seconds=0)
 
-        assert session.query(XComModel).count() == 1
-        assert session.query(XComModel).first().logical_date == utcnow - timedelta(
+        assert session.scalar(select(sqlfunc.count()).select_from(XComModel)) == 1
+        assert session.scalars(select(XComModel)).first().logical_date == utcnow - timedelta(
             days=retention_days
         ) + timedelta(seconds=10)
 
@@ -191,7 +191,7 @@ class TestTrim:
         utcnow = timezone.utcnow()
 
         # Drop the whole table, as it anyway shouldn't be used across the tests.
-        session.query(RenderedTaskInstanceFields).delete()
+        session.execute(delete(RenderedTaskInstanceFields))
         for ind, logical_date in enumerate(
             [
                 utcnow - timedelta(days=retention_days) - timedelta(seconds=1000),
@@ -207,14 +207,14 @@ class TestTrim:
             session.add(rendered_task_instance_fields)
         session.commit()
 
-        assert session.query(RenderedTaskInstanceFields).count() == 3
+        assert session.scalar(select(sqlfunc.count()).select_from(RenderedTaskInstanceFields)) == 3
 
         execute_trim(retention_days, batch_size=100, sleep_between_batches_seconds=0)
 
-        assert session.query(RenderedTaskInstanceFields).count() == 1
-        assert session.query(RenderedTaskInstanceFields).first().logical_date[0] == utcnow - timedelta(
-            days=retention_days
-        ) + timedelta(seconds=10)
+        assert session.scalar(select(sqlfunc.count()).select_from(RenderedTaskInstanceFields)) == 1
+        assert session.scalars(select(RenderedTaskInstanceFields)).first().logical_date[
+            0
+        ] == utcnow - timedelta(days=retention_days) + timedelta(seconds=10)
 
     @provide_session
     def test_execute_trim_task_instance_dag_run_tables(self, session, create_task_instance):
@@ -222,8 +222,8 @@ class TestTrim:
         utcnow = timezone.utcnow()
 
         # Drop tables, as they anyway shouldn't be used across the tests.
-        session.query(TaskInstance).delete()
-        session.query(DagRun).delete()
+        session.execute(delete(TaskInstance))
+        session.execute(delete(DagRun))
         for ind, logical_date in enumerate(
             [
                 utcnow - timedelta(days=retention_days) - timedelta(seconds=1000),
@@ -237,17 +237,17 @@ class TestTrim:
             session.add(ti)
         session.commit()
 
-        assert session.query(TaskInstance).count() == 3
-        assert session.query(DagRun).count() == 3
+        assert session.scalar(select(sqlfunc.count()).select_from(TaskInstance)) == 3
+        assert session.scalar(select(sqlfunc.count()).select_from(DagRun)) == 3
 
         execute_trim(retention_days, batch_size=100, sleep_between_batches_seconds=0)
 
-        assert session.query(TaskInstance).count() == 1
-        assert session.query(DagRun).count() == 1
-        assert session.query(TaskInstance).first().logical_date == utcnow - timedelta(
+        assert session.scalar(select(sqlfunc.count()).select_from(TaskInstance)) == 1
+        assert session.scalar(select(sqlfunc.count()).select_from(DagRun)) == 1
+        assert session.scalars(select(TaskInstance)).first().logical_date == utcnow - timedelta(
             days=retention_days
         ) + timedelta(seconds=10)
-        assert session.query(DagRun).first().logical_date == utcnow - timedelta(
+        assert session.scalars(select(DagRun)).first().logical_date == utcnow - timedelta(
             days=retention_days
         ) + timedelta(seconds=10)
 
@@ -257,8 +257,8 @@ class TestTrim:
         utcnow = timezone.utcnow()
 
         # Drop tables, as they anyway shouldn't be used across the tests.
-        session.query(TaskInstance).delete()
-        session.query(DagRun).delete()
+        session.execute(delete(TaskInstance))
+        session.execute(delete(DagRun))
         for ind, logical_date in enumerate(
             [
                 utcnow - timedelta(days=retention_days) - timedelta(seconds=1000),
@@ -272,14 +272,14 @@ class TestTrim:
             session.add(ti)
         session.commit()
 
-        assert session.query(TaskInstance).count() == 3
-        assert session.query(DagRun).count() == 3
+        assert session.scalar(select(sqlfunc.count()).select_from(TaskInstance)) == 3
+        assert session.scalar(select(sqlfunc.count()).select_from(DagRun)) == 3
 
         execute_trim(retention_days, batch_size=100, sleep_between_batches_seconds=0)
 
-        assert session.query(TaskInstance).count() == 0
-        assert session.query(DagRun).count() == 1
-        assert session.query(DagRun).first().logical_date == utcnow - timedelta(
+        assert session.scalar(select(sqlfunc.count()).select_from(TaskInstance)) == 0
+        assert session.scalar(select(sqlfunc.count()).select_from(DagRun)) == 1
+        assert session.scalars(select(DagRun)).first().logical_date == utcnow - timedelta(
             days=retention_days
         ) - timedelta(seconds=5)
 
@@ -289,8 +289,8 @@ class TestTrim:
         utcnow = timezone.utcnow()
 
         # Drop tables, as they anyway shouldn't be used across the tests.
-        session.query(TaskInstance).delete()
-        session.query(DagRun).delete()
+        session.execute(delete(TaskInstance))
+        session.execute(delete(DagRun))
         for ind, logical_date in enumerate(
             [
                 None,
@@ -305,18 +305,18 @@ class TestTrim:
             session.add(ti)
         session.commit()
 
-        assert session.query(TaskInstance).count() == 4
-        assert session.query(DagRun).count() == 4
+        assert session.scalar(select(sqlfunc.count()).select_from(TaskInstance)) == 4
+        assert session.scalar(select(sqlfunc.count()).select_from(DagRun)) == 4
 
         execute_trim(retention_days, batch_size=100, sleep_between_batches_seconds=0)
 
-        assert session.query(TaskInstance).count() == 2
-        assert session.query(DagRun).count() == 2
-        assert set(ti.logical_date for ti in session.query(TaskInstance).all()) == {
+        assert session.scalar(select(sqlfunc.count()).select_from(TaskInstance)) == 2
+        assert session.scalar(select(sqlfunc.count()).select_from(DagRun)) == 2
+        assert set(ti.logical_date for ti in session.scalars(select(TaskInstance)).all()) == {
             None,
             utcnow - timedelta(days=retention_days) + timedelta(seconds=10),
         }
-        assert set(ti.logical_date for ti in session.query(DagRun).all()) == {
+        assert set(ti.logical_date for ti in session.scalars(select(DagRun)).all()) == {
             None,
             utcnow - timedelta(days=retention_days) + timedelta(seconds=10),
         }
@@ -346,7 +346,7 @@ class TestTrim:
         retention_days = 30
         utcnow = timezone.utcnow()
         # Drop the whole table, as it anyway shouldn't be used across the tests.
-        session.query(Job).delete()
+        session.execute(delete(Job))
         for ind, latest_heartbeat in enumerate(
             [
                 utcnow - timedelta(days=retention_days) - timedelta(seconds=1000),
@@ -357,12 +357,12 @@ class TestTrim:
             session.add(Job(id=ind + 1, latest_heartbeat=latest_heartbeat))
         session.commit()
 
-        job_ids = session.query(Job.id).all()
+        job_ids = session.execute(select(Job.id)).all()
         assert job_ids == [(1,), (2,), (3,)]
 
         execute_trim(retention_days, batch_size=1, sleep_between_batches_seconds=0)
 
-        job_ids = session.query(Job.id).all()
+        job_ids = session.execute(select(Job.id)).all()
         assert job_ids == []
 
     def test_run_trimming_loop_retry_successful(self):
@@ -392,7 +392,7 @@ class TestTrim:
         trim_batch_func = mock.MagicMock()
         trim_batch_func.return_value = 10
 
-        with pytest.raises(ValueError) as exc:
+        with pytest.raises(ValueError, match="Commit error") as exc:
             _run_trimming_loop(session_mock, "test-table", trim_batch_func, 0)
 
         assert isinstance(exc.value, ValueError)

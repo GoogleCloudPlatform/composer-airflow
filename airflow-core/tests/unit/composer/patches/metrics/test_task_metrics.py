@@ -57,7 +57,7 @@ class TestTaskMetrics:
     @mock.patch("airflow.composer.patches.metrics.listener.Stats.incr", autospec=True)
     @mock.patch("airflow.composer.patches.metrics.listener.Stats.gauge", autospec=True)
     @pytest.mark.parametrize(
-        "state, msg, status",
+        ("state", "msg", "status"),
         [
             (
                 TaskInstanceState.SUCCESS,

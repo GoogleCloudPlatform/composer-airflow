@@ -50,7 +50,7 @@ class TestAirflowSdkExecutionTimeSupervisor:
         }
 
     @pytest.mark.parametrize(
-        "os_environ_patch, expected_result",
+        ("os_environ_patch", "expected_result"),
         [
             ({"AIRFLOW_IS_K8S_EXECUTOR_POD": "True"}, {"subprocess_logs_to_stdout": False}),
             ({}, {}),

@@ -39,7 +39,7 @@ class TestUtils:
         assert is_triggerer_enabled() is True
 
     @pytest.mark.parametrize(
-        "hostname, expected_result",
+        ("hostname", "expected_result"),
         [
             ("airflow-worker-123", "airflow-worker-123"),
             ("airflow-worker-123.internal", "airflow-worker-123"),
@@ -71,7 +71,7 @@ class TestUtils:
         config_mock.load_kube_config.assert_called_once()
 
     @pytest.mark.parametrize(
-        "sys_argv, component_name, expected_result",
+        ("sys_argv", "component_name", "expected_result"),
         [
             (["airflow", "triggerer"], "triggerer", True),
             (["airflow", "scheduler"], "triggerer", False),
