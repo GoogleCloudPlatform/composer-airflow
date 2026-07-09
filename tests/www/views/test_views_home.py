@@ -16,18 +16,23 @@
 # under the License.
 from __future__ import annotations
 
+import os
 from unittest import mock
 
 import flask
 import markupsafe
 import pytest
 
+from airflow import settings
 from airflow.dag_processing.processor import DagFileProcessor
+from airflow.models.errors import ParseImportError
 from airflow.security import permissions
+from airflow.utils import timezone
 from airflow.utils.state import State
 from airflow.www.utils import UIAlert
 from airflow.www.views import FILTER_LASTRUN_COOKIE, FILTER_STATUS_COOKIE, FILTER_TAGS_COOKIE
 from tests.test_utils.api_connexion_utils import create_user
+from tests.test_utils.config import conf_vars
 from tests.test_utils.db import clear_db_dags, clear_db_import_errors, clear_db_serialized_dags
 from tests.test_utils.permissions import _resource_name
 from tests.test_utils.www import check_content_in_response, check_content_not_in_response, client_with_login
@@ -163,6 +168,30 @@ def client_single_dag(app, user_single_dag):
         app,
         username="user_single_dag",
         password="user_single_dag",
+    )
+
+
+@pytest.fixture(scope="module")
+def user_subfolder(app):
+    """Create User that can access import errors for the subfolder role."""
+    return create_user(
+        app,
+        username="user_subfolder",
+        role_name="subfolder",
+        permissions=[
+            (permissions.ACTION_CAN_READ, permissions.RESOURCE_WEBSITE),
+            (permissions.ACTION_CAN_READ, permissions.RESOURCE_IMPORT_ERROR),
+        ],
+    )
+
+
+@pytest.fixture
+def client_subfolder(app, user_subfolder):
+    """Client for User that has the Composer per-folder role named subfolder."""
+    return client_with_login(
+        app,
+        username="user_subfolder",
+        password="user_subfolder",
     )
 
 
@@ -320,6 +349,33 @@ def test_home_importerrors_filtered_singledag_user(broken_dags_with_read_perm, c
     # But not the rest
     for dag_id in TEST_FILTER_DAG_IDS[1:]:
         check_content_not_in_response(f"/{dag_id}.py", resp)
+
+
+@conf_vars({("webserver", "rbac_autoregister_per_folder_roles"): "True"})
+def test_home_importerrors_show_unparsed_file_for_matching_folder_role(client_subfolder, session):
+    session.add_all(
+        [
+            ParseImportError(
+                filename=os.path.join(settings.DAGS_FOLDER, "subfolder/dag_subfolder_broken.py"),
+                stacktrace="subfolder traceback",
+                timestamp=timezone.utcnow(),
+            ),
+            ParseImportError(
+                filename=os.path.join(settings.DAGS_FOLDER, "dag_root_broken.py"),
+                stacktrace="root traceback",
+                timestamp=timezone.utcnow(),
+            ),
+        ]
+    )
+    session.commit()
+
+    resp = client_subfolder.get("home", follow_redirects=True)
+
+    check_content_in_response("Import Errors", resp)
+    check_content_in_response("dag_subfolder_broken.py", resp)
+    check_content_in_response("subfolder traceback", resp)
+    check_content_not_in_response("dag_root_broken.py", resp)
+    check_content_not_in_response("root traceback", resp)
 
 
 def test_home_importerrors_missing_read_on_all_dags_in_file(broken_dags_after_working, client_single_dag):

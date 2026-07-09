@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import datetime
 import os
+from types import SimpleNamespace
 from unittest import mock
 
 import pytest
@@ -24,6 +25,7 @@ from kubernetes.client import Configuration, models as k8s
 
 from airflow import DAG, settings
 from airflow.composer.airflow_local_settings import dag_policy, pod_mutation_hook
+from airflow.composer.dag_rbac_per_folder import user_has_dag_file_role
 from airflow.configuration import conf
 from airflow.security.permissions import ACTION_CAN_EDIT, ACTION_CAN_READ
 from tests.test_utils.config import conf_vars
@@ -73,6 +75,12 @@ class TestAirflowLocalSettings:
         }
         assert root_dag.access_control is None
         assert role_length_exceed_dag.access_control is None
+
+    def test_dag_rbac_per_folder_role_check_ignores_empty_filepath(self):
+        user = SimpleNamespace(roles=[SimpleNamespace(name="subfolder")])
+
+        assert not user_has_dag_file_role(None, user)
+        assert not user_has_dag_file_role("", user)
 
     @pytest.mark.parametrize(
         "composer_version, namespace, expected_mutated_namespace",
