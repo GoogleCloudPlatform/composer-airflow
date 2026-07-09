@@ -595,6 +595,15 @@ def get_value_from_path(key_path, content):
     return elem
 
 
+def _can_read_unparsed_file_import_error(filename: str) -> bool:
+    if not conf.getboolean("webserver", "rbac_autoregister_per_folder_roles", fallback=False):
+        return False
+
+    from airflow.composer.dag_rbac_per_folder import user_has_dag_file_role
+
+    return user_has_dag_file_role(filename, g.user)
+
+
 def get_task_stats_from_query(qry):
     """
     Return a dict of the task quantity, grouped by dag id and task status.
@@ -1017,28 +1026,31 @@ class Airflow(AirflowBaseView):
                 import_errors = select(ParseImportError).order_by(ParseImportError.id)
 
                 can_read_all_dags = get_auth_manager().is_authorized_dag(method="GET")
+                visible_dag_filelocs: set[str] = set()
                 if not can_read_all_dags:
-                    # if the user doesn't have access to all DAGs, only display errors from visible DAGs
-                    import_errors = import_errors.where(
-                        ParseImportError.filename.in_(
+                    visible_dag_filelocs = set(
+                        session.scalars(
                             select(DagModel.fileloc).distinct().where(DagModel.dag_id.in_(filter_dag_ids))
-                        )
+                        ).all()
                     )
 
-                import_errors = session.scalars(import_errors)
-                for import_error in import_errors:
+                for import_error in session.scalars(import_errors):
                     stacktrace = import_error.stacktrace
                     if not can_read_all_dags:
+                        if (
+                            import_error.filename not in visible_dag_filelocs
+                            and not _can_read_unparsed_file_import_error(import_error.filename)
+                        ):
+                            continue
+
                         # Check if user has read access to all the DAGs defined in the file
-                        file_dag_ids = (
-                            session.query(DagModel.dag_id)
-                            .filter(DagModel.fileloc == import_error.filename)
-                            .all()
-                        )
+                        file_dag_ids = session.scalars(
+                            select(DagModel.dag_id).where(DagModel.fileloc == import_error.filename)
+                        ).all()
                         requests: Sequence[IsAuthorizedDagRequest] = [
                             {
                                 "method": "GET",
-                                "details": DagDetails(id=dag_id[0]),
+                                "details": DagDetails(id=dag_id),
                             }
                             for dag_id in file_dag_ids
                         ]

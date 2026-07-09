@@ -65,6 +65,22 @@ def _role_from_filepath(dag_filepath):
     return dag_subfolder
 
 
+def user_has_dag_file_role(dag_filepath, user):
+    """Return whether the user has the per-folder role for a DAG file."""
+    if not dag_filepath:
+        return False
+
+    dags_folder = os.path.realpath(settings.DAGS_FOLDER)
+    try:
+        if os.path.commonpath([dags_folder, os.path.realpath(dag_filepath)]) != dags_folder:
+            return False
+    except (TypeError, ValueError):
+        return False
+
+    role = _role_from_filepath(dag_filepath)
+    return bool(role and any(user_role.name == role for user_role in getattr(user, "roles", ())))
+
+
 def apply_dag_rbac_per_folder_policy(dag):
     """Add per-folder role to the "access_control" DAG property."""
     role = _role_from_filepath(dag.fileloc)

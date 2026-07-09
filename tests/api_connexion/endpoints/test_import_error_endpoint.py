@@ -16,10 +16,12 @@
 # under the License.
 from __future__ import annotations
 
+import os
 from datetime import timedelta
 
 import pytest
 
+from airflow import settings
 from airflow.api_connexion.exceptions import EXCEPTIONS_LINK_MAP
 from airflow.models.dag import DagModel
 from airflow.security import permissions
@@ -70,12 +72,19 @@ def configured_app(minimal_app_for_api):
             }
         ]
     )
+    create_user(
+        app,  # type:ignore
+        username="test_subfolder",
+        role_name="subfolder",
+        permissions=[(permissions.ACTION_CAN_READ, permissions.RESOURCE_IMPORT_ERROR)],  # type: ignore
+    )
 
     yield app
 
     delete_user(app, username="test")  # type: ignore
     delete_user(app, username="test_no_permissions")  # type: ignore
     delete_user(app, username="test_single_dag")  # type: ignore
+    delete_user(app, username="test_subfolder")  # type: ignore
 
 
 class TestBaseImportError:
@@ -215,6 +224,31 @@ class TestGetImportErrorEndpoint(TestBaseImportError):
             "filename": "Lorem_ipsum.py",
             "import_error_id": 1,
             "stack_trace": "REDACTED - you do not have read permission on all DAGs in the file",
+            "timestamp": "2020-06-10T12:00:00+00:00",
+        } == response_data
+
+    @conf_vars({("webserver", "rbac_autoregister_per_folder_roles"): "True"})
+    def test_should_return_200_for_unparsed_file_with_matching_folder_role(self, session):
+        import_error = ParseImportError(
+            filename=os.path.join(settings.DAGS_FOLDER, "subfolder/dag_subfolder_broken.py"),
+            stacktrace="Lorem ipsum",
+            timestamp=timezone.parse(self.timestamp, timezone="UTC"),
+        )
+        session.add(import_error)
+        session.commit()
+
+        response = self.client.get(
+            f"/api/v1/importErrors/{import_error.id}",
+            environ_overrides={"REMOTE_USER": "test_subfolder"},
+        )
+
+        assert response.status_code == 200
+        response_data = response.json
+        response_data["import_error_id"] = 1
+        assert {
+            "filename": os.path.join(settings.DAGS_FOLDER, "subfolder/dag_subfolder_broken.py"),
+            "import_error_id": 1,
+            "stack_trace": "Lorem ipsum",
             "timestamp": "2020-06-10T12:00:00+00:00",
         } == response_data
 
@@ -387,6 +421,44 @@ class TestGetImportErrorsEndpoint(TestBaseImportError):
                     "filename": "/tmp/all_in_one.py",
                     "import_error_id": 1,
                     "stack_trace": "REDACTED - you do not have read permission on all DAGs in the file",
+                    "timestamp": "2020-06-10T12:00:00+00:00",
+                },
+            ],
+            "total_entries": 1,
+        } == response_data
+
+    @conf_vars({("webserver", "rbac_autoregister_per_folder_roles"): "True"})
+    def test_get_import_errors_unparsed_file_with_matching_folder_role(self, session):
+        session.add_all(
+            [
+                ParseImportError(
+                    filename=os.path.join(settings.DAGS_FOLDER, "subfolder/dag_subfolder_broken.py"),
+                    stacktrace="subfolder traceback",
+                    timestamp=timezone.parse(self.timestamp, timezone="UTC"),
+                ),
+                ParseImportError(
+                    filename=os.path.join(settings.DAGS_FOLDER, "dag_root_broken.py"),
+                    stacktrace="root traceback",
+                    timestamp=timezone.parse(self.timestamp, timezone="UTC"),
+                ),
+            ]
+        )
+        session.commit()
+
+        response = self.client.get(
+            "/api/v1/importErrors",
+            environ_overrides={"REMOTE_USER": "test_subfolder"},
+        )
+
+        assert response.status_code == 200
+        response_data = response.json
+        self._normalize_import_errors(response_data["import_errors"])
+        assert {
+            "import_errors": [
+                {
+                    "filename": os.path.join(settings.DAGS_FOLDER, "subfolder/dag_subfolder_broken.py"),
+                    "import_error_id": 1,
+                    "stack_trace": "subfolder traceback",
                     "timestamp": "2020-06-10T12:00:00+00:00",
                 },
             ],
