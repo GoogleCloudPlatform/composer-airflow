@@ -17,7 +17,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from airflow.sdk.api.datamodels._generated import TaskInstanceState, TerminalTIState
-from airflow.stats import Stats
+from airflow.sdk.observability.stats import Stats
 
 if TYPE_CHECKING:
     from airflow.sdk.execution_time.comms import ToSupervisor

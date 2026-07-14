@@ -54,8 +54,8 @@ END_DATE = datetime(2025, 7, 10, 15, 12, 40, tzinfo=timezone.utc)
 
 
 class TestTaskMetrics:
-    @mock.patch("airflow.composer.patches.metrics.listener.Stats.incr", autospec=True)
-    @mock.patch("airflow.composer.patches.metrics.listener.Stats.gauge", autospec=True)
+    @mock.patch("airflow.composer.patches.metrics.task_metrics.Stats.incr", autospec=True)
+    @mock.patch("airflow.composer.patches.metrics.task_metrics.Stats.gauge", autospec=True)
     @pytest.mark.parametrize(
         ("state", "msg", "status"),
         [
@@ -85,8 +85,8 @@ class TestTaskMetrics:
             125,
         )
 
-    @mock.patch("airflow.composer.patches.metrics.listener.Stats.incr", autospec=True)
-    @mock.patch("airflow.composer.patches.metrics.listener.Stats.gauge", autospec=True)
+    @mock.patch("airflow.composer.patches.metrics.task_metrics.Stats.incr", autospec=True)
+    @mock.patch("airflow.composer.patches.metrics.task_metrics.Stats.gauge", autospec=True)
     def test_emit_metrics_on_task_instance_finished_no_end_date(self, gauge_mock, incr_mock):
         ti = _create_dummy_task_instance("test-dag", "test-task", START_DATE)
         state = TaskInstanceState.FAILED
@@ -100,8 +100,8 @@ class TestTaskMetrics:
         )
         gauge_mock.assert_not_called()
 
-    @mock.patch("airflow.composer.patches.metrics.listener.Stats.incr", autospec=True)
-    @mock.patch("airflow.composer.patches.metrics.listener.Stats.gauge", autospec=True)
+    @mock.patch("airflow.composer.patches.metrics.task_metrics.Stats.incr", autospec=True)
+    @mock.patch("airflow.composer.patches.metrics.task_metrics.Stats.gauge", autospec=True)
     def test_emit_metrics_on_task_instance_finished_itermediate_ti_state(self, gauge_mock, incr_mock):
         ti = _create_dummy_task_instance("test-dag", "test-task", START_DATE)
         state = TaskInstanceState.DEFERRED
