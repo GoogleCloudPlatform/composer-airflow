@@ -30,7 +30,8 @@ def _composer_plugins_manager_get_plugins(f):
         res = f(*args, **kwargs)
 
         plugin_instance = get_composer_menu_plugin()
-        res[0].append(plugin_instance)
+        if not any(p.name == plugin_instance.name for p in res[0]):
+            res[0].append(plugin_instance)
 
         return res
 
