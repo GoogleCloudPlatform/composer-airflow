@@ -14,6 +14,7 @@
 # limitations under the License.
 from __future__ import annotations
 
+import os
 import signal
 from datetime import timedelta
 from unittest import mock
@@ -23,6 +24,7 @@ from sqlalchemy import delete, func as sqlfunc, select, text
 
 from airflow._shared.timezones import timezone
 from airflow.composer.patches.database_retention.trim import (
+    _count_and_log_num_rows,
     _run_trimming_loop,
     _sigalrm_handler,
     _sigint_handler,
@@ -31,18 +33,25 @@ from airflow.composer.patches.database_retention.trim import (
 from airflow.jobs.job import Job
 from airflow.models import (
     DagRun,
+    Deadline,
+    HITLDetail,
     Log,
     RenderedTaskInstanceFields,
     TaskInstance,
+    TaskReschedule,
 )
+from airflow.models.asset import AssetEvent
+from airflow.models.backfill import Backfill, BackfillDagRun
 from airflow.models.errors import ParseImportError
+from airflow.models.taskinstancehistory import TaskInstanceHistory
 from airflow.models.xcom import XComModel
-from airflow.utils.session import provide_session
+from airflow.sdk.definitions.deadline import AsyncCallback
 
 
 class TestTrim:
-    @provide_session
-    def test_execute_trim_session_table(self, session):
+    @mock.patch.dict(os.environ, {"AIRFLOW3_DATABASE_RETENTION_NEW_TABLES": "True"})
+    @mock.patch("airflow.composer.patches.database_retention.trim.logger")
+    def test_execute_trim_session_table(self, mock_logger, session):
         # It is not easy to access `session` model, thus we are using raw queries here.
         session.execute(
             text("DELETE FROM session")
@@ -60,12 +69,20 @@ class TestTrim:
         session_ids = session.execute(text("SELECT id FROM session WHERE id in (1, 2, 3) ORDER BY id")).all()
         assert session_ids == [(3,)]
 
+        # Verify that the row estimation was logged correctly
+        mock_logger.info.assert_any_call(
+            "Airflow metadata cleanup calculated number of expired rows to remove for table '%s': %s",
+            "session",
+            "2",
+        )
+
         # Clean up table after test execution.
         session.execute(text("DELETE FROM session"))
         session.commit()
 
-    @provide_session
-    def test_execute_trim_job_table(self, session):
+    @mock.patch.dict(os.environ, {"AIRFLOW3_DATABASE_RETENTION_NEW_TABLES": "True"})
+    @mock.patch("airflow.composer.patches.database_retention.trim.logger")
+    def test_execute_trim_job_table(self, mock_logger, session):
         retention_days = 30
         utcnow = timezone.utcnow()
         # Drop the whole table, as it anyway shouldn't be used across the tests.
@@ -88,7 +105,13 @@ class TestTrim:
         job_ids = session.execute(select(Job.id).filter(Job.id.in_([1, 2, 3]))).all()
         assert job_ids == [(3,)]
 
-    @provide_session
+        # Verify that the row estimation was logged correctly
+        mock_logger.info.assert_any_call(
+            "Airflow metadata cleanup calculated number of expired rows to remove for table '%s': %s",
+            "job",
+            "2",
+        )
+
     def test_execute_trim_log_table(self, session):
         retention_days = 30
         utcnow = timezone.utcnow()
@@ -115,7 +138,6 @@ class TestTrim:
         log_ids = session.execute(select(Log.id).filter(Log.id.in_([1, 2, 3]))).all()
         assert log_ids == [(3,)]
 
-    @provide_session
     def test_execute_trim_parse_import_error_table(self, session):
         retention_days = 30
         utcnow = timezone.utcnow()
@@ -147,7 +169,6 @@ class TestTrim:
         ).all()
         assert parse_import_error_ids == [(3,)]
 
-    @provide_session
     def test_execute_trim_xcom_table(self, session, create_task_instance):
         retention_days = 30
         utcnow = timezone.utcnow()
@@ -185,7 +206,6 @@ class TestTrim:
             days=retention_days
         ) + timedelta(seconds=10)
 
-    @provide_session
     def test_execute_trim_rendered_task_instance_fields_table(self, session, create_task_instance):
         retention_days = 30
         utcnow = timezone.utcnow()
@@ -216,7 +236,6 @@ class TestTrim:
             0
         ] == utcnow - timedelta(days=retention_days) + timedelta(seconds=10)
 
-    @provide_session
     def test_execute_trim_task_instance_dag_run_tables(self, session, create_task_instance):
         retention_days = 30
         utcnow = timezone.utcnow()
@@ -251,7 +270,6 @@ class TestTrim:
             days=retention_days
         ) + timedelta(seconds=10)
 
-    @provide_session
     def test_execute_trim_task_instance_dag_run_tables_keep_last(self, session, create_task_instance):
         retention_days = 30
         utcnow = timezone.utcnow()
@@ -283,7 +301,6 @@ class TestTrim:
             days=retention_days
         ) - timedelta(seconds=5)
 
-    @provide_session
     def test_execute_trim_task_instance_dag_run_tables_logical_date_null(self, session, create_task_instance):
         retention_days = 30
         utcnow = timezone.utcnow()
@@ -321,6 +338,220 @@ class TestTrim:
             utcnow - timedelta(days=retention_days) + timedelta(seconds=10),
         }
 
+    @mock.patch.dict(os.environ, {"AIRFLOW3_DATABASE_RETENTION_NEW_TABLES": "True"})
+    def test_execute_trim_asset_event_table(self, session):
+        retention_days = 30
+        utcnow = timezone.utcnow()
+        session.execute(delete(AssetEvent))
+        for timestamp in [
+            utcnow - timedelta(days=retention_days) - timedelta(seconds=1000),
+            utcnow - timedelta(days=retention_days) - timedelta(seconds=10),
+            utcnow - timedelta(days=retention_days) + timedelta(seconds=10),
+        ]:
+            event = AssetEvent(asset_id=1, extra={})
+            event.timestamp = timestamp
+            session.add(event)
+        session.commit()
+
+        assert session.scalar(select(sqlfunc.count()).select_from(AssetEvent)) == 3
+        execute_trim(retention_days, batch_size=100, sleep_between_batches_seconds=0)
+        assert session.scalar(select(sqlfunc.count()).select_from(AssetEvent)) == 1
+        assert session.scalars(select(AssetEvent)).first().timestamp == utcnow - timedelta(
+            days=retention_days
+        ) + timedelta(seconds=10)
+
+    @mock.patch.dict(os.environ, {"AIRFLOW3_DATABASE_RETENTION_NEW_TABLES": "True"})
+    def test_execute_trim_task_reschedule_table(self, session, create_task_instance):
+        retention_days = 30
+        utcnow = timezone.utcnow()
+        session.execute(delete(TaskReschedule))
+        for ind, logical_date in enumerate(
+            [
+                utcnow - timedelta(days=retention_days) - timedelta(seconds=1000),
+                utcnow - timedelta(days=retention_days) - timedelta(seconds=10),
+                utcnow - timedelta(days=retention_days) + timedelta(seconds=10),
+            ]
+        ):
+            ti = create_task_instance(run_id=f"run_id_reschedule_{ind}")
+            ti.dag_run.logical_date = logical_date
+            tr = TaskReschedule(
+                ti_id=ti.id,
+                start_date=utcnow - timedelta(days=retention_days) - timedelta(seconds=2000),
+                end_date=utcnow - timedelta(days=retention_days) - timedelta(seconds=1500),
+                reschedule_date=logical_date,
+            )
+            session.add(ti)
+            session.add(tr)
+        session.commit()
+
+        assert session.scalar(select(sqlfunc.count()).select_from(TaskReschedule)) == 3
+        execute_trim(retention_days, batch_size=100, sleep_between_batches_seconds=0)
+        assert session.scalar(select(sqlfunc.count()).select_from(TaskReschedule)) == 1
+        assert session.scalars(select(TaskReschedule)).first().reschedule_date == utcnow - timedelta(
+            days=retention_days
+        ) + timedelta(seconds=10)
+
+    @mock.patch.dict(os.environ, {"AIRFLOW3_DATABASE_RETENTION_NEW_TABLES": "True"})
+    def test_execute_trim_task_instance_history_table(self, session, create_task_instance):
+        retention_days = 30
+        utcnow = timezone.utcnow()
+        session.execute(delete(TaskInstanceHistory))
+        for ind, logical_date in enumerate(
+            [
+                utcnow - timedelta(days=retention_days) - timedelta(seconds=1000),
+                utcnow - timedelta(days=retention_days) - timedelta(seconds=10),
+                utcnow - timedelta(days=retention_days) + timedelta(seconds=10),
+            ]
+        ):
+            ti = create_task_instance(run_id=f"run_id_history_{ind}")
+            ti.dag_run.logical_date = logical_date
+            ti.end_date = logical_date
+            tih = TaskInstanceHistory(ti=ti, state="success")
+            session.add(ti)
+            session.add(tih)
+        session.commit()
+
+        assert session.scalar(select(sqlfunc.count()).select_from(TaskInstanceHistory)) == 3
+        execute_trim(retention_days, batch_size=100, sleep_between_batches_seconds=0)
+        assert session.scalar(select(sqlfunc.count()).select_from(TaskInstanceHistory)) == 1
+        assert session.scalars(select(TaskInstanceHistory)).first().end_date == utcnow - timedelta(
+            days=retention_days
+        ) + timedelta(seconds=10)
+
+    @mock.patch.dict(os.environ, {"AIRFLOW3_DATABASE_RETENTION_NEW_TABLES": "True"})
+    def test_execute_trim_hitl_detail_table(self, session, create_task_instance):
+        retention_days = 30
+        utcnow = timezone.utcnow()
+        session.execute(delete(HITLDetail))
+        for ind, logical_date in enumerate(
+            [
+                utcnow - timedelta(days=retention_days) - timedelta(seconds=1000),
+                utcnow - timedelta(days=retention_days) - timedelta(seconds=10),
+                utcnow - timedelta(days=retention_days) + timedelta(seconds=10),
+            ]
+        ):
+            ti = create_task_instance(run_id=f"run_id_hitl_{ind}")
+            ti.dag_run.logical_date = logical_date
+            hitl = HITLDetail(
+                ti_id=ti.id,
+                options={"o": "k"},
+                subject="subj",
+                created_at=logical_date,
+            )
+            session.add(ti)
+            session.add(hitl)
+        session.commit()
+
+        assert session.scalar(select(sqlfunc.count()).select_from(HITLDetail)) == 3
+        execute_trim(retention_days, batch_size=100, sleep_between_batches_seconds=0)
+        assert session.scalar(select(sqlfunc.count()).select_from(HITLDetail)) == 1
+        assert session.scalars(select(HITLDetail)).first().created_at == utcnow - timedelta(
+            days=retention_days
+        ) + timedelta(seconds=10)
+
+    @mock.patch.dict(os.environ, {"AIRFLOW3_DATABASE_RETENTION_NEW_TABLES": "True"})
+    def test_execute_trim_deadline_table(self, session, create_task_instance):
+
+        async def dummy_callback():
+            pass
+
+        retention_days = 30
+        utcnow = timezone.utcnow()
+        session.execute(delete(Deadline))
+        for ind, logical_date in enumerate(
+            [
+                utcnow - timedelta(days=retention_days) - timedelta(seconds=1000),
+                utcnow - timedelta(days=retention_days) - timedelta(seconds=10),
+                utcnow - timedelta(days=retention_days) + timedelta(seconds=10),
+            ]
+        ):
+            ti = create_task_instance(run_id=f"run_id_deadline_{ind}")
+            ti.dag_run.logical_date = logical_date
+            callback = AsyncCallback(dummy_callback)
+            deadline = Deadline(
+                deadline_time=logical_date,
+                callback=callback,
+                dagrun_id=ti.dag_run.id,
+                deadline_alert_id=None,
+            )
+            session.add(ti)
+            session.add(deadline)
+        session.commit()
+
+        assert session.scalar(select(sqlfunc.count()).select_from(Deadline)) == 3
+        execute_trim(retention_days, batch_size=100, sleep_between_batches_seconds=0)
+        assert session.scalar(select(sqlfunc.count()).select_from(Deadline)) == 1
+        assert session.scalars(select(Deadline)).first().deadline_time == utcnow - timedelta(
+            days=retention_days
+        ) + timedelta(seconds=10)
+
+    @mock.patch.dict(os.environ, {"AIRFLOW3_DATABASE_RETENTION_NEW_TABLES": "True"})
+    def test_execute_trim_backfill_tables(self, session, create_task_instance):
+        retention_days = 30
+        utcnow = timezone.utcnow()
+        session.execute(delete(BackfillDagRun))
+        session.execute(delete(Backfill))
+        for ind, date in enumerate(
+            [
+                utcnow - timedelta(days=retention_days) - timedelta(seconds=1000),
+                utcnow - timedelta(days=retention_days) - timedelta(seconds=10),
+                utcnow - timedelta(days=retention_days) + timedelta(seconds=10),
+            ]
+        ):
+            backfill = Backfill(
+                dag_id="dag",
+                from_date=utcnow,
+                to_date=utcnow,
+                created_at=date,
+            )
+            session.add(backfill)
+            session.flush()
+
+            ti = create_task_instance(run_id=f"run_id_backfill_{ind}")
+            ti.dag_run.logical_date = date
+
+            bdr = BackfillDagRun(
+                backfill_id=backfill.id,
+                dag_run_id=ti.dag_run.id,
+                logical_date=date,
+                sort_ordinal=1,
+            )
+            session.add(ti)
+            session.add(bdr)
+        session.commit()
+
+        assert session.scalar(select(sqlfunc.count()).select_from(Backfill)) == 3
+        assert session.scalar(select(sqlfunc.count()).select_from(BackfillDagRun)) == 3
+
+        execute_trim(retention_days, batch_size=100, sleep_between_batches_seconds=0)
+
+        assert session.scalar(select(sqlfunc.count()).select_from(Backfill)) == 1
+        assert session.scalar(select(sqlfunc.count()).select_from(BackfillDagRun)) == 1
+        assert session.scalars(select(Backfill)).first().created_at == utcnow - timedelta(
+            days=retention_days
+        ) + timedelta(seconds=10)
+        assert session.scalars(select(BackfillDagRun)).first().logical_date == utcnow - timedelta(
+            days=retention_days
+        ) + timedelta(seconds=10)
+
+    @mock.patch.dict(os.environ, {"AIRFLOW3_DATABASE_RETENTION_NEW_TABLES": "False"})
+    def test_execute_trim_new_tables_skipped_when_flag_disabled(self, session):
+        retention_days = 30
+        utcnow = timezone.utcnow()
+        session.execute(delete(AssetEvent))
+        for timestamp in [
+            utcnow - timedelta(days=retention_days) - timedelta(seconds=1000),
+            utcnow - timedelta(days=retention_days) - timedelta(seconds=10),
+        ]:
+            event = AssetEvent(asset_id=1, extra={})
+            event.timestamp = timestamp
+            session.add(event)
+        session.commit()
+
+        assert session.scalar(select(sqlfunc.count()).select_from(AssetEvent)) == 2
+        execute_trim(retention_days, batch_size=100, sleep_between_batches_seconds=0)
+        assert session.scalar(select(sqlfunc.count()).select_from(AssetEvent)) == 2
+
     @mock.patch("signal.signal", autospec=True)
     def test_execute_trim_signals(self, signal_mock):
         execute_trim(30, batch_size=100, sleep_between_batches_seconds=0)
@@ -341,7 +572,6 @@ class TestTrim:
 
         assert exc.value.code == 1
 
-    @provide_session
     def test_execute_trim_batches(self, session):
         retention_days = 30
         utcnow = timezone.utcnow()
@@ -412,3 +642,17 @@ class TestTrim:
 
         assert isinstance(exc.value, SystemExit)
         assert exc.value.code == 0
+
+    @mock.patch("airflow.composer.patches.database_retention.trim.logger")
+    def test_count_and_log_num_rows_exception(self, mock_logger):
+        error = RuntimeError("DB error")
+        count_func_mock = mock.MagicMock(side_effect=error)
+
+        _count_and_log_num_rows("test_table", count_func_mock)
+
+        mock_logger.warning.assert_called_once_with(
+            "Airflow metadata cleanup failed to calculate number of expired rows to remove for table '%s'. Error: %s",
+            "test_table",
+            error,
+        )
+        mock_logger.info.assert_not_called()

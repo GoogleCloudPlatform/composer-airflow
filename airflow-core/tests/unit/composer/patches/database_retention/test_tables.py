@@ -24,8 +24,8 @@ from airflow.models import TaskInstance
 
 
 class TestTables:
-    def test_tables_to_trim_order(self):
-        tables = tables_to_trim()
+    def test_tables_to_trim_order_default(self):
+        tables = tables_to_trim(trim_af3_tables=False)
 
         assert [t["airflow_db_model"].__tablename__ for t in tables] == [
             "job",
@@ -35,6 +35,26 @@ class TestTables:
             "rendered_task_instance_fields",
             "task_instance",
             "dag_run",
+        ]
+
+    def test_tables_to_trim_order_with_new_tables(self):
+        tables = tables_to_trim(trim_af3_tables=True)
+
+        assert [t["airflow_db_model"].__tablename__ for t in tables] == [
+            "job",
+            "log",
+            "import_error",
+            "asset_event",
+            "xcom",
+            "rendered_task_instance_fields",
+            "task_reschedule",
+            "task_instance_history",
+            "hitl_detail",
+            "task_instance",
+            "deadline",
+            "backfill_dag_run",
+            "dag_run",
+            "backfill",
         ]
 
     def test_get_table_primary_key_id(self):

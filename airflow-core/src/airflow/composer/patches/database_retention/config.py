@@ -14,6 +14,7 @@
 # limitations under the License.
 from __future__ import annotations
 
+import os
 from datetime import datetime, timedelta
 
 from airflow.composer.patches.database_retention.tables import tables_to_trim
@@ -29,5 +30,6 @@ class Config:
         execution_time = datetime.now(tz=utc)
         self.execution_time_str = execution_time.strftime("'%Y-%m-%d %H:%M:%S'")
         self.expiration_datetime = execution_time - timedelta(days=self.retention_days)
+        self.trim_af3_tables = os.getenv("AIRFLOW3_DATABASE_RETENTION_NEW_TABLES", "False").lower() == "true"
 
-        self.tables = tables_to_trim()
+        self.tables = tables_to_trim(self.trim_af3_tables)
