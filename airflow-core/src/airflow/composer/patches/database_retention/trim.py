@@ -98,6 +98,12 @@ def _trim_session_table(
 ):
     """Delete expired rows from the "session" table."""
 
+    def _count_sessions():
+        result = _execute_sql(
+            session, f"SELECT COUNT(*) FROM session WHERE expiry < {config.execution_time_str}::date"
+        )
+        return result.scalar()
+
     def _trim_batch(_session):
         """Delete a batch of expired rows."""
         sql = f"""
@@ -109,6 +115,8 @@ def _trim_session_table(
         num_removed = result.rowcount
         return num_removed
 
+    _count_and_log_num_rows("session", _count_sessions)
+
     _run_trimming_loop(
         session=session,
         table_name="session",
@@ -119,11 +127,17 @@ def _trim_session_table(
 
 def _trim_table(session, table, config, batch_size, sleep_between_batches_seconds):
     """Delete expired rows from a given table."""
+    table_name = table["airflow_db_model"].__tablename__
+    primary_key = get_table_primary_key(table)
+    filter_criterion = _prepare_filter_criterion(session, table, primary_key, config.expiration_datetime)
+
+    def _count_rows():
+        return session.scalar(
+            select(sqlfunc.count()).select_from(table["airflow_db_model"]).filter(*filter_criterion)
+        )
 
     def _trim_batch(_session):
         """Delete a batch of expired rows."""
-        primary_key = get_table_primary_key(table)
-        filter_criterion = _prepare_filter_criterion(_session, table, primary_key, config.expiration_datetime)
         table_with_filter_and_limit = _session.query(*primary_key).filter(*filter_criterion).limit(batch_size)
         num_removed = (
             _session.query(table["airflow_db_model"])
@@ -132,9 +146,11 @@ def _trim_table(session, table, config, batch_size, sleep_between_batches_second
         )
         return num_removed
 
+    _count_and_log_num_rows(table_name, _count_rows)
+
     _run_trimming_loop(
         session=session,
-        table_name=table["airflow_db_model"].__tablename__,
+        table_name=table_name,
         trim_batch_func=_trim_batch,
         sleep_between_batches_seconds=sleep_between_batches_seconds,
     )
@@ -203,6 +219,23 @@ def _run_trimming_loop(
     )
 
 
+def _count_and_log_num_rows(table_name, count_func):
+    """Calculate and log the number of expired rows to remove."""
+    try:
+        row_count = count_func()
+        logger.info(
+            "Airflow metadata cleanup calculated number of expired rows to remove for table '%s': %s",
+            table_name,
+            format(row_count, ","),
+        )
+    except Exception as e:
+        logger.warning(
+            "Airflow metadata cleanup failed to calculate number of expired rows to remove for table '%s'. Error: %s",
+            table_name,
+            e,
+        )
+
+
 def _prepare_filter_criterion(session, table, primary_key, expiration_datetime):
     additional_filter = []
 
@@ -214,7 +247,11 @@ def _prepare_filter_criterion(session, table, primary_key, expiration_datetime):
                 select(sqlfunc.max(tuple_(*primary_key))).group_by(table["airflow_db_model"].dag_id)
             )
         )
-    additional_filter.append(table["age_column"] < expiration_datetime)
+
+    if "custom_filter" in table:
+        additional_filter.append(table["custom_filter"](expiration_datetime))
+    else:
+        additional_filter.append(table["age_column"] < expiration_datetime)
 
     return additional_filter
 
