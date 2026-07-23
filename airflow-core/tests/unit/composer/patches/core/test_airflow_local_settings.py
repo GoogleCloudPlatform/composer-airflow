@@ -17,8 +17,8 @@ from __future__ import annotations
 from unittest import mock
 
 
+@mock.patch("airflow.composer.patches.core.initialize.initialize", autospec=True)
 class TestAirflowLocalSettings:
-    @mock.patch("airflow.composer.patches.core.initialize.initialize", autospec=True)
     def test_initialize_called_on_import(self, initialize_mock):
         initialize_mock.assert_not_called()
 
@@ -26,12 +26,12 @@ class TestAirflowLocalSettings:
 
         initialize_mock.assert_called_once()
 
-    def test_pod_mutation_hook_defined(self):
+    def test_pod_mutation_hook_defined(self, initialize_mock):
         from airflow.composer.patches.core import airflow_local_settings
 
         assert hasattr(airflow_local_settings, "pod_mutation_hook")
 
-    def test_dag_policy_defined(self):
+    def test_dag_policy_defined(self, initialize_mock):
         from airflow.composer.patches.core import airflow_local_settings
 
         assert hasattr(airflow_local_settings, "dag_policy")
