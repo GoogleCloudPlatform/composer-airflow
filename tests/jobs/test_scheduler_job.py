@@ -33,7 +33,7 @@ from uuid import uuid4
 import psutil
 import pytest
 import time_machine
-from sqlalchemy import func, select, update
+from sqlalchemy import delete, func, select, update
 
 import airflow.example_dags
 from airflow import settings
@@ -6189,6 +6189,156 @@ def test_schedule_dag_run_with_upstream_skip(dag_maker, session):
     assert tis[dummy2.task_id].state == State.SUCCESS
     # dummy3 should be skipped because dummy1 is skipped.
     assert tis[dummy3.task_id].state == State.SKIPPED
+
+    @pytest.mark.need_serialized_dag
+    def test_create_dag_runs_dataset_triggered_skips_stale_triggered_date(self, session, dag_maker):
+        dataset = Dataset(uri="test://dataset-for-stale-trigger-date")
+        with dag_maker(dag_id="dataset-consumer-stale-trigger-date", schedule=[dataset], session=session):
+            pass
+        dag_model = dag_maker.dag_model
+        dataset_id = session.scalar(select(DatasetModel.id).where(DatasetModel.uri == dataset.uri))
+
+        queued_at = timezone.utcnow()
+        session.add(
+            DatasetDagRunQueue(target_dag_id=dag_model.dag_id, dataset_id=dataset_id, created_at=queued_at)
+        )
+        session.flush()
+
+        # Simulate another scheduler consuming DDRQ rows after we computed dataset_triggered_dag_info.
+        session.execute(
+            delete(DatasetDagRunQueue).where(DatasetDagRunQueue.target_dag_id == dag_model.dag_id)
+        )
+        session.flush()
+
+        scheduler_job = Job()
+        self.job_runner = SchedulerJobRunner(job=scheduler_job, executors=[self.null_exec])
+        dataset_triggered_dag_info = {dag_model.dag_id: (queued_at, queued_at)}
+        self.job_runner._create_dag_runs_dataset_triggered(
+            dag_models=[dag_model],
+            dataset_triggered_dag_info=dataset_triggered_dag_info,
+            session=session,
+        )
+
+        # We do not create a new DagRun since the DDRQ has already been consumed
+        assert session.scalars(select(DagRun).where(DagRun.dag_id == dag_model.dag_id)).one_or_none() is None
+
+    @pytest.mark.need_serialized_dag
+    def test_no_create_dag_runs_when_no_dataset_event(self, session, dag_maker, caplog):
+        dataset = Dataset(uri="test_dataset_no_event")
+        with dag_maker(dag_id="consumer", schedule=[dataset], session=session):
+            pass
+        dag_model = dag_maker.dag_model
+        dataset_id = session.scalar(select(DatasetModel.id).where(DatasetModel.uri == dataset.uri))
+        # Simulate a DDRQ row whose matching dataset events were already consumed by an earlier DagRun.
+        # The DDRQ should be cleaned up even when no new DagRun is created, to prevent stale DDRQ
+        # rows from accumulating and causing infinite scheduler loops.
+        ddrq = DatasetDagRunQueue(
+            dataset_id=dataset_id, target_dag_id=dag_model.dag_id, created_at=timezone.utcnow()
+        )
+        session.add(ddrq)
+        session.flush()
+        ddrq.created_at = timezone.utcnow() + timedelta(seconds=1)
+        session.merge(ddrq)
+        with caplog.at_level("INFO"):
+            scheduler_job = Job()
+            self.job_runner = SchedulerJobRunner(job=scheduler_job, executors=[self.null_exec])
+            dataset_triggered_dag_info = {dag_model.dag_id: (ddrq.created_at, ddrq.created_at)}
+            self.job_runner._create_dag_runs_dataset_triggered(
+                dag_models=[dag_model],
+                dataset_triggered_dag_info=dataset_triggered_dag_info,
+                session=session,
+            )
+        dr = session.scalars(select(DagRun).where(DagRun.dag_id == dag_model.dag_id)).one_or_none()
+        assert "No DagRun created" in caplog.text
+        assert dr is None
+        _ddrq = session.scalars(
+            select(DatasetDagRunQueue).where(
+                DatasetDagRunQueue.dataset_id == dataset_id,
+                DatasetDagRunQueue.target_dag_id == dag_model.dag_id,
+            )
+        ).one_or_none()
+        # DDRQ is deleted even when no DagRun is created, to prevent stale rows accumulating.
+        assert _ddrq is None
+
+    @pytest.mark.need_serialized_dag
+    @pytest.mark.backend("postgres", "mysql")
+    def test_create_dag_runs_when_concurrent_dataset_events_created(self, session, dag_maker, caplog):
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
+        DATASET_EVENT_COUNT = 30
+        dataset = Dataset(uri="test_dataset_concurrent")
+        with dag_maker(dag_id="consumer", schedule=[dataset], session=session):
+            pass
+        dag_model = dag_maker.dag_model
+        consumer_dag_id = dag_model.dag_id
+        with dag_maker(dag_id="dataset-producer", start_date=timezone.utcnow(), session=session):
+            BashOperator(task_id="simulate-dataset-outlet", bash_command="echo 1")
+        dag_maker.create_dagrun(run_id="dataset-producer-run")
+        dataset_id = session.scalar(select(DatasetModel.id).where(DatasetModel.uri == dataset.uri))
+        futures = []
+        consumed_dataset_events = []
+
+        def create_dataset_events(sleep):
+            import time
+
+            from airflow.datasets.manager import _create_dataset_event
+
+            with create_session() as session:
+                dag = session.get(DagModel, consumer_dag_id)
+                now = timezone.utcnow()
+                dataset_manager = DatasetManager()
+                dataset_event = _create_dataset_event(session=session, dataset_id=dataset_id, timestamp=now)
+                time.sleep(sleep)
+                dialect_name = session.bind.dialect.name
+                if dialect_name in ("postgresql", "sqlite"):
+                    dataset_manager._queue_dagruns_nonpartitioned_conflict_update(
+                        dataset_id=dataset_id,
+                        dags_to_queue=[dag],
+                        event=dataset_event,
+                        session=session,
+                        dialect_name=dialect_name,
+                    )
+                elif dialect_name == "mysql":
+                    dataset_manager._queue_dagruns_nonpartitioned_mysql(
+                        dataset_id=dataset_id, dags_to_queue=[dag], event=dataset_event, session=session
+                    )
+
+            return dataset_event.id, now.isoformat()
+
+        with (
+            ThreadPoolExecutor(max_workers=3) as executor,
+            caplog.at_level(
+                "WARNING",
+                logger="airflow.jobs.scheduler_job_runner",
+            ),
+        ):
+            for i in range(DATASET_EVENT_COUNT):
+                future = executor.submit(create_dataset_events, i % 3)
+                futures.append(future)
+            scheduler_job = Job()
+            self.job_runner = SchedulerJobRunner(job=scheduler_job, executors=[self.null_exec])
+            seen_dr_ids: set[int] = set()
+            for future in as_completed(futures, timeout=120):
+                future.result()
+
+                now = timezone.utcnow()
+                dataset_triggered_dag_info = {dag_model.dag_id: (now, now)}
+                self.job_runner._create_dag_runs_dataset_triggered(
+                    dag_models=[dag_model],
+                    dataset_triggered_dag_info=dataset_triggered_dag_info,
+                    session=session,
+                )
+                session.commit()
+                all_drs = session.scalars(select(DagRun).where(DagRun.dag_id == dag_model.dag_id)).all()
+                for dr in all_drs:
+                    if dr.id not in seen_dr_ids:
+                        seen_dr_ids.add(dr.id)
+                        consumed_dataset_events += dr.consumed_dataset_events
+        total_consumed_dataset_events = len(consumed_dataset_events)
+        assert total_consumed_dataset_events == DATASET_EVENT_COUNT
+        assert (
+            len({event.id for event in consumed_dataset_events}) == total_consumed_dataset_events
+        ), "Expected no duplicated Dataset event consumed"
 
 
 class TestSchedulerJobQueriesCount:

@@ -56,6 +56,7 @@ from airflow.models.dataset import (
     DatasetEvent,
     DatasetModel,
     TaskOutletDatasetReference,
+    association_table,
 )
 from airflow.models.serialized_dag import SerializedDagModel
 from airflow.models.taskinstance import SimpleTaskInstance, TaskInstance
@@ -1456,22 +1457,19 @@ class SchedulerJobRunner(BaseJobRunner, LoggingMixin):
             # instead of falling in a loop of Integrity Error.
             exec_date = exec_dates[dag.dag_id]
             if (dag.dag_id, exec_date) not in existing_dagruns:
-                previous_dag_run = session.scalar(
-                    select(DagRun)
-                    .where(
-                        DagRun.dag_id == dag.dag_id,
-                        DagRun.execution_date < exec_date,
-                        DagRun.run_type == DagRunType.DATASET_TRIGGERED,
-                    )
-                    .order_by(DagRun.execution_date.desc())
-                    .limit(1)
-                )
                 dataset_event_filters = [
                     DagScheduleDatasetReference.dag_id == dag.dag_id,
                     DatasetEvent.timestamp <= exec_date,
+                    ~(
+                        select(association_table.c.event_id)
+                        .join(DagRun, DagRun.id == association_table.c.dag_run_id)
+                        .where(
+                            DagRun.dag_id == dag.dag_id,
+                            association_table.c.event_id == DatasetEvent.id,
+                        )
+                        .exists()
+                    ),
                 ]
-                if previous_dag_run:
-                    dataset_event_filters.append(DatasetEvent.timestamp > previous_dag_run.execution_date)
 
                 dataset_events = session.scalars(
                     select(DatasetEvent)
@@ -1480,32 +1478,51 @@ class SchedulerJobRunner(BaseJobRunner, LoggingMixin):
                         DatasetEvent.dataset_id == DagScheduleDatasetReference.dataset_id,
                     )
                     .where(*dataset_event_filters)
+                    .order_by(DatasetEvent.timestamp.asc(), DatasetEvent.id.asc())
                 ).all()
 
-                data_interval = dag.timetable.data_interval_for_events(exec_date, dataset_events)
-                run_id = dag.timetable.generate_run_id(
-                    run_type=DagRunType.DATASET_TRIGGERED,
-                    logical_date=exec_date,
-                    data_interval=data_interval,
-                    session=session,
-                    events=dataset_events,
-                )
+                if dataset_events:
+                    data_interval = dag.timetable.data_interval_for_events(exec_date, dataset_events)
+                    run_id = dag.timetable.generate_run_id(
+                        run_type=DagRunType.DATASET_TRIGGERED,
+                        logical_date=exec_date,
+                        data_interval=data_interval,
+                        session=session,
+                        events=dataset_events,
+                    )
 
-                dag_run = dag.create_dagrun(
-                    run_id=run_id,
-                    run_type=DagRunType.DATASET_TRIGGERED,
-                    execution_date=exec_date,
-                    data_interval=data_interval,
-                    state=DagRunState.QUEUED,
-                    external_trigger=False,
-                    session=session,
-                    dag_hash=dag_hash,
-                    creating_job_id=self.job.id,
-                )
-                Stats.incr("dataset.triggered_dagruns")
-                dag_run.consumed_dataset_events.extend(dataset_events)
+                    dag_run = dag.create_dagrun(
+                        run_id=run_id,
+                        run_type=DagRunType.DATASET_TRIGGERED,
+                        execution_date=exec_date,
+                        data_interval=data_interval,
+                        state=DagRunState.QUEUED,
+                        external_trigger=False,
+                        session=session,
+                        dag_hash=dag_hash,
+                        creating_job_id=self.job.id,
+                    )
+                    Stats.incr("dataset.triggered_dagruns")
+                    dag_run.consumed_dataset_events.extend(dataset_events)
+                    self.log.info(
+                        "Created dataset-triggered DagRun for '%s': run_id=%s, consumed %d dataset events",
+                        dag.dag_id,
+                        dag_run.run_id,
+                        len(dataset_events),
+                    )
+                else:
+                    self.log.info(
+                        "No DagRun created for '%s' at '%s' - dataset events already consumed or none found",
+                        dag.dag_id,
+                        exec_date,
+                    )
+
+                # Always delete queue records created up to exec_date
                 session.execute(
-                    delete(DatasetDagRunQueue).where(DatasetDagRunQueue.target_dag_id == dag_run.dag_id)
+                    delete(DatasetDagRunQueue).where(
+                        DatasetDagRunQueue.target_dag_id == dag.dag_id,
+                        DatasetDagRunQueue.created_at <= exec_date,
+                    )
                 )
 
     def _should_update_dag_next_dagruns(

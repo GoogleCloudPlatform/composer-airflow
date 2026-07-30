@@ -2370,11 +2370,11 @@ class TestTaskInstance:
             DatasetEvent.source_task_instance == ti
         ).one() == ("s3://dag1/output_1.txt",)
 
-        # check that the dataset event has an earlier timestamp than the DDRQ's
+        # check that the dataset event timestamp is identical to the DDRQ's
         ddrq_timestamps = (
             session.query(DatasetDagRunQueue.created_at).filter_by(dataset_id=event.dataset.id).all()
         )
-        assert all([event.timestamp < ddrq_timestamp for (ddrq_timestamp,) in ddrq_timestamps])
+        assert all([event.timestamp == ddrq_timestamp for (ddrq_timestamp,) in ddrq_timestamps])
 
     @pytest.mark.skip_if_database_isolation_mode  # Does not work in db isolation mode
     def test_outlet_datasets_failed(self, create_task_instance):

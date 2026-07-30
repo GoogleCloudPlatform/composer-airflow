@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import exc, select
 from sqlalchemy.orm import joinedload
 
+from airflow import settings
 from airflow.api_internal.internal_api_call import internal_api_call
 from airflow.configuration import conf
 from airflow.datasets import Dataset
@@ -45,6 +46,38 @@ if TYPE_CHECKING:
 
     from airflow.models.dag import DagModel
     from airflow.models.taskinstance import TaskInstance
+
+
+def _create_dataset_event(*, session: Session, **event_kwargs) -> DatasetEvent:
+    """
+    Persist a :class:`DatasetEvent` row and return it, bound to *session*.
+
+    On SQLite the event is added directly to the caller's *session* and
+    flushed to avoid connection lock deadlocks. On Postgres/MySQL an
+    independent session is used so the row is committed immediately and
+    visible to the scheduler before caller operations proceed.
+    """
+    if session.bind.dialect.name == "sqlite":
+        dataset_event = DatasetEvent(**event_kwargs)
+        session.add(dataset_event)
+        session.flush()
+        return dataset_event
+
+    Session = getattr(settings, "Session", None)
+    session_factory = getattr(Session, "session_factory", Session)
+    ae_session = session_factory()
+    try:
+        dataset_event = DatasetEvent(**event_kwargs)
+        ae_session.add(dataset_event)
+        ae_session.commit()
+        dataset_event_id = dataset_event.id
+    except Exception:
+        ae_session.rollback()
+        raise
+    finally:
+        ae_session.close()
+
+    return session.get(DatasetEvent, dataset_event_id)
 
 
 class DatasetManager(LoggingMixin):
@@ -110,8 +143,7 @@ class DatasetManager(LoggingMixin):
                 }
             )
 
-        dataset_event = DatasetEvent(**event_kwargs)
-        session.add(dataset_event)
+        dataset_event = _create_dataset_event(session=session, **event_kwargs)
 
         dags_to_queue_from_dataset = {
             ref.dag for ref in dataset_model.consuming_dags if ref.dag.is_active and not ref.dag.is_paused
@@ -149,7 +181,9 @@ class DatasetManager(LoggingMixin):
         Stats.incr("dataset.updates")
 
         dags_to_queue = dags_to_queue_from_dataset | dags_to_queue_from_dataset_alias
-        cls._queue_dagruns(dataset_id=dataset_model.id, dags_to_queue=dags_to_queue, session=session)
+        cls._queue_dagruns(
+            dataset_id=dataset_model.id, dags_to_queue=dags_to_queue, event=dataset_event, session=session
+        )
         session.flush()
         return dataset_event
 
@@ -163,7 +197,13 @@ class DatasetManager(LoggingMixin):
         get_listener_manager().hook.on_dataset_changed(dataset=dataset)
 
     @classmethod
-    def _queue_dagruns(cls, dataset_id: int, dags_to_queue: set[DagModel], session: Session) -> None:
+    def _queue_dagruns(
+        cls,
+        dataset_id: int,
+        dags_to_queue: set[DagModel],
+        event: DatasetEvent,
+        session: Session,
+    ) -> None:
         # Possible race condition: if multiple dags or multiple (usually
         # mapped) tasks update the same dataset, this can fail with a unique
         # constraint violation.
@@ -175,20 +215,37 @@ class DatasetManager(LoggingMixin):
         if not dags_to_queue:
             return
 
-        if session.bind.dialect.name == "postgresql":
-            return cls._postgres_queue_dagruns(dataset_id, dags_to_queue, session)
-        return cls._slow_path_queue_dagruns(dataset_id, dags_to_queue, session)
+        dialect_name = session.bind.dialect.name
+        if dialect_name == "mysql":
+            return cls._queue_dagruns_nonpartitioned_mysql(dataset_id, dags_to_queue, event, session)
+        if dialect_name in ("postgresql", "sqlite"):
+            return cls._queue_dagruns_nonpartitioned_conflict_update(
+                dataset_id, dags_to_queue, event, session, dialect_name
+            )
+        return cls._slow_path_queue_dagruns(dataset_id, dags_to_queue, event, session)
 
     @classmethod
     def _slow_path_queue_dagruns(
-        cls, dataset_id: int, dags_to_queue: set[DagModel], session: Session
+        cls,
+        dataset_id: int,
+        dags_to_queue: set[DagModel],
+        event: DatasetEvent,
+        session: Session,
     ) -> None:
         def _queue_dagrun_if_needed(dag: DagModel) -> str | None:
-            item = DatasetDagRunQueue(target_dag_id=dag.dag_id, dataset_id=dataset_id)
+            item = DatasetDagRunQueue(
+                target_dag_id=dag.dag_id, dataset_id=dataset_id, created_at=event.timestamp
+            )
             # Don't error whole transaction when a single RunQueue item conflicts.
             # https://docs.sqlalchemy.org/en/14/orm/session_transaction.html#using-savepoint
             try:
                 with session.begin_nested():
+                    existing = session.get(
+                        DatasetDagRunQueue, {"target_dag_id": dag.dag_id, "dataset_id": dataset_id}
+                    )
+                    if existing and existing.created_at >= event.timestamp:
+                        cls.logger().debug("Skipping record %s due to newer timestamp", item)
+                        return dag.dag_id
                     session.merge(item)
             except exc.IntegrityError:
                 cls.logger().debug("Skipping record %s", item, exc_info=True)
@@ -197,6 +254,46 @@ class DatasetManager(LoggingMixin):
         queued_results = (_queue_dagrun_if_needed(dag) for dag in dags_to_queue)
         if queued_dag_ids := [r for r in queued_results if r is not None]:
             cls.logger().debug("consuming dag ids %s", queued_dag_ids)
+
+    @classmethod
+    def _queue_dagruns_nonpartitioned_mysql(
+        cls, dataset_id: int, dags_to_queue: set[DagModel], event: DatasetEvent, session: Session
+    ) -> None:
+        from sqlalchemy import case
+        from sqlalchemy.dialects.mysql import insert
+
+        values = [{"target_dag_id": dag.dag_id} for dag in dags_to_queue]
+        stmt = insert(DatasetDagRunQueue).values(dataset_id=dataset_id, created_at=event.timestamp)
+        update_stmt = stmt.on_duplicate_key_update(
+            created_at=case(
+                (stmt.inserted.created_at >= DatasetDagRunQueue.created_at, stmt.inserted.created_at),
+                else_=DatasetDagRunQueue.created_at,
+            )
+        )
+        session.execute(update_stmt, values)
+
+    @classmethod
+    def _queue_dagruns_nonpartitioned_conflict_update(
+        cls,
+        dataset_id: int,
+        dags_to_queue: set[DagModel],
+        event: DatasetEvent,
+        session: Session,
+        dialect_name: str,
+    ) -> None:
+        """Handle ON CONFLICT DO UPDATE upsert for dialects that support it (postgresql, sqlite)."""
+        if dialect_name == "postgresql":
+            from sqlalchemy.dialects.postgresql import insert
+        else:
+            from sqlalchemy.dialects.sqlite import insert  # type: ignore[assignment]
+        values = [{"target_dag_id": dag.dag_id} for dag in dags_to_queue]
+        stmt = insert(DatasetDagRunQueue).values(dataset_id=dataset_id, created_at=event.timestamp)
+        update_stmt = stmt.on_conflict_do_update(
+            index_elements=["dataset_id", "target_dag_id"],
+            set_={"created_at": stmt.excluded.created_at},
+            where=(DatasetDagRunQueue.created_at < stmt.excluded.created_at),
+        )
+        session.execute(update_stmt, values)
 
     @classmethod
     def _postgres_queue_dagruns(cls, dataset_id: int, dags_to_queue: set[DagModel], session: Session) -> None:
