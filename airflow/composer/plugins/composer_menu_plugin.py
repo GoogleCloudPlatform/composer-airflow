@@ -24,21 +24,28 @@ COMPOSER_MENU_PLUGIN_PERMISSIONS = [
 
 MENU_CATEGORY_NAME = "Google Managed Airflow"
 
+# For the TPC, we need to use the GOOGLE_CLOUD_HIGH_VALUE_COOKIE_DOMAIN value to be able to set
+#   the correct URL for the menu item links.
+HIGH_VALUE_COOKIE_DOMAIN = os.environ.get("GOOGLE_CLOUD_HIGH_VALUE_COOKIE_DOMAIN", "google.com")
+
 # No url encoding needed for COMPOSER_ENVIRONMENT. From Composer docs:
 #   'The name must start with a lowercase letter followed by up to 62 lowercase letters,
 #   numbers, or hyphens, and cannot end with a hyphen.'
 ENVIRONMENT_DETAILS_LINK = (
-    "https://console.cloud.google.com"
+    f"https://console.cloud.{HIGH_VALUE_COOKIE_DOMAIN}"
     f"/composer/environments/detail/{os.environ.get('COMPOSER_LOCATION')}"
     f"/{os.environ.get('COMPOSER_ENVIRONMENT')}"
     "{tab}"
     "?" + urlencode({"project": os.environ.get("GCP_PROJECT")})
 )
 DAGS_IN_GCC_LINK = ENVIRONMENT_DETAILS_LINK.format(tab="/dags")
-DAGS_IN_GCS_LINK = f"https://console.cloud.google.com/storage/browser/{os.environ.get('GCS_BUCKET')}/dags"
+DAGS_IN_GCS_LINK = (
+    f"https://console.cloud.{HIGH_VALUE_COOKIE_DOMAIN}"
+    f"/storage/browser/{os.environ.get('GCS_BUCKET')}/dags"
+)
 ENVIRONMENT_MONITORING_LINK = ENVIRONMENT_DETAILS_LINK.format(tab="/monitoring")
 ENVIRONMENT_LOGS_LINK = ENVIRONMENT_DETAILS_LINK.format(tab="/logs")
-COMPOSER_DOCS_LINK = "https://cloud.google.com/composer/docs"
+COMPOSER_DOCS_LINK = os.environ.get("CLOUD_COMPOSER_DOCS_LINK", "https://cloud.google.com/composer/docs")
 
 DAGS_GCC_APPBUILDER_MITEM = {
     "name": RESOURCE_DAGS_IN_GCC,
