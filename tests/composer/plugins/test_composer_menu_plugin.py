@@ -15,7 +15,7 @@ from tests.test_utils.www import check_content_in_response, client_with_login
 
 class TestComposerMenuPlugin:
     @classmethod
-    def setup_class(cls):
+    def _reload_default_env(cls):
         with mock.patch.dict(
             os.environ,
             {
@@ -29,9 +29,15 @@ class TestComposerMenuPlugin:
                 ("webserver", "rbac_user_registration_role"): "Viewer",
             }
         ):
+            os.environ.pop("GOOGLE_CLOUD_HIGH_VALUE_COOKIE_DOMAIN", None)
+            os.environ.pop("CLOUD_COMPOSER_DOCS_LINK", None)
             reload(composer_menu_plugin)
             cls.app = app.create_app(testing=True)
             cls.app.config["WTF_CSRF_ENABLED"] = False
+
+    @classmethod
+    def setup_class(cls):
+        cls._reload_default_env()
 
     @pytest.mark.parametrize(
         "expected_label, expected_href",
@@ -107,3 +113,45 @@ class TestComposerMenuPlugin:
         ]
         for text in expected_link_texts:
             check_content_in_response(text, resp)
+
+    def test_menu_links_custom_env(self):
+        try:
+            with mock.patch.dict(
+                os.environ,
+                {
+                    "GCP_PROJECT": "test-project",
+                    "COMPOSER_LOCATION": "test-location",
+                    "COMPOSER_ENVIRONMENT": "test-env",
+                    "GCS_BUCKET": "test-location-test-env-bucket",
+                    "GOOGLE_CLOUD_HIGH_VALUE_COOKIE_DOMAIN": "custom-domain.google.com",
+                    "CLOUD_COMPOSER_DOCS_LINK": "https://custom.docs.google.com/composer/docs",
+                },
+            ):
+                reload(composer_menu_plugin)
+                menu_items = composer_menu_plugin.ComposerMenuPlugin().appbuilder_menu_items
+
+                expected_links = {
+                    "DAGs in Cloud Console": (
+                        "https://console.cloud.custom-domain.google.com/composer/environments/detail"
+                        "/test-location/test-env/dags?project=test-project"
+                    ),
+                    "DAGs in Cloud Storage": (
+                        "https://console.cloud.custom-domain.google.com/storage/browser"
+                        "/test-location-test-env-bucket/dags"
+                    ),
+                    "Environment Monitoring": (
+                        "https://console.cloud.custom-domain.google.com/composer/environments/detail"
+                        "/test-location/test-env/monitoring?project=test-project"
+                    ),
+                    "Environment Logs": (
+                        "https://console.cloud.custom-domain.google.com/composer/environments/detail"
+                        "/test-location/test-env/logs?project=test-project"
+                    ),
+                    "Google Managed Airflow Documentation": "https://custom.docs.google.com/composer/docs",
+                }
+
+                links = {item["label"]: item["href"] for item in menu_items}
+                for label, expected_href in expected_links.items():
+                    assert links[label] == expected_href
+        finally:
+            self._reload_default_env()
