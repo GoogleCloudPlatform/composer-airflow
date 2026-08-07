@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import logging
+import sys
 import urllib.parse
 from typing import Collection
 
@@ -31,9 +32,18 @@ from google.auth.transport import requests
 from google.auth.transport.requests import AuthorizedSession
 from google.oauth2 import id_token
 from jwt.exceptions import InvalidSignatureError
+from sqlalchemy import select
+from sqlalchemy.orm import object_session
+from tenacity import retry, retry_if_result, stop_after_attempt
 
+from airflow.composer.composer_airflow_rbac_bindings import (
+    RBAC_BINDINGS,
+    USER_METHODS_TO_REMOVE,
+    USER_PERMISSIONS_TO_REMOVE,
+)
 from airflow.composer.plugins.composer_menu_plugin import COMPOSER_MENU_PLUGIN_PERMISSIONS
 from airflow.configuration import conf
+from airflow.exceptions import AirflowException
 from airflow.models import DagBag
 from airflow.providers.fab.auth_manager.security_manager.override import FabAirflowSecurityManagerOverride
 from airflow.security import permissions
@@ -72,13 +82,13 @@ def _decode_inverting_proxy_jwt(inverting_proxy_jwt):
     Decode the given Inverting Proxy JWT.
 
     Return username, email (or IAM principal for BYOID users),
-       and display_username decoded from the given Inverting Proxy JWT.
+       display_username, and google_groups decoded from the given Inverting Proxy JWT.
 
     Args:
       inverting_proxy_jwt: JWT from Inverting Proxy.
 
     Returns:
-      Decoded username, email (or IAM principal), and display_username.
+      Decoded username, email (or IAM principal), display_username, and google_groups.
     """
     try:
         credentials, _ = auth.default(scopes=["https://www.googleapis.com/auth/cloud-platform"])
@@ -89,17 +99,22 @@ def _decode_inverting_proxy_jwt(inverting_proxy_jwt):
         )
         if response.status_code != 200:
             log.error("Failed to fetch public key for JWT verification, status: %s", response.status_code)
-            return None, None, None
+            return None, None, None, []
         # The response may contain multiple concatenated public keys. The verification is successful
         # if one of the keys can verify the signature.
         public_keys = [str(key) for key in pem.parse(response.text)]
         decoded_jwt = _try_decoding_jwt_with_keys(inverting_proxy_jwt, public_keys)
         email_or_principal = decoded_jwt["email"] if "email" in decoded_jwt else decoded_jwt["principal"]
         # display_username is available only for BYOID users.
-        return decoded_jwt["sub"], email_or_principal, decoded_jwt.get("display_username")
+        return (
+            decoded_jwt["sub"],
+            email_or_principal,
+            decoded_jwt.get("display_username"),
+            decoded_jwt.get("groups", []),
+        )
     except Exception as e:  # pylint: disable=broad-except
         log.error("JWT verification error: %s", e)
-        return None, None, None
+        return None, None, None, []
 
 
 def _try_decoding_jwt_with_keys(encoded_jwt, public_keys):
@@ -197,9 +212,12 @@ class ComposerAuthRemoteUserView(AuthView):
             iap_jwt = request.headers.get("X-Goog-IAP-JWT-Assertion")
             username, email = _decode_iap_jwt(iap_jwt)
             display_username = None
+            google_groups = []
         elif "X-Inverting-Proxy-User-ID" in request.headers:
             inverting_proxy_jwt = request.headers.get("X-Inverting-Proxy-User-ID")
-            username, email, display_username = _decode_inverting_proxy_jwt(inverting_proxy_jwt)
+            username, email, display_username, google_groups = _decode_inverting_proxy_jwt(
+                inverting_proxy_jwt
+            )
         else:
             return None
 
@@ -210,6 +228,7 @@ class ComposerAuthRemoteUserView(AuthView):
             username=username,
             email=email,
             display_username=display_username,
+            google_groups=google_groups,
             user_registration_role=user_registration_role,
         )
         if user is None or not user.is_active:
@@ -218,7 +237,9 @@ class ComposerAuthRemoteUserView(AuthView):
         login_user(user)
         return user
 
-    def _auth_remote_user(self, username, email, display_username, user_registration_role=None):
+    def _auth_remote_user(
+        self, username, email, display_username, google_groups, user_registration_role=None
+    ):
         """
         Fetch the specified user record or creates one if it doesn't exist.
 
@@ -233,6 +254,7 @@ class ComposerAuthRemoteUserView(AuthView):
           display_username: User's display username from which the first_name
             and last_name will be derived before setting them in the user's
             record.
+          google_groups: List of user's Google Groups from JWT.
           user_registration_role: User's role in case it will be registered
             (created). If not passed, AUTH_USER_REGISTRATION_ROLE from
             webserver_config.py will be used.
@@ -290,6 +312,7 @@ class ComposerAuthRemoteUserView(AuthView):
                     return None
 
         self.appbuilder.sm.update_user_auth_stat(user)
+        user = self.appbuilder.sm.reconcile_user_roles(user, google_groups)
         return user
 
     def _redirect_back(self):
@@ -348,9 +371,155 @@ class ComposerAirflowSecurityManager(FabAirflowSecurityManagerOverride):
                 }
             )
 
+    @staticmethod
+    def _get_groups_from_flask_request() -> list[str] | None:
+        """
+        Extract user groups from the JWT token in request headers from flask request.
+
+        Returns:
+            A list of group names if groups are present in the valid JWT token.
+            None if unable to extract groups from the token, the token is missing, or decoding failed.
+        """
+        jwt_token = request.headers.get("X-Inverting-Proxy-User-ID")
+        if not jwt_token:
+            return None
+
+        username, _, _, google_groups = _decode_inverting_proxy_jwt(jwt_token)
+        if username is None:
+            return None
+        return google_groups
+
+    def _remove_user_permissions(self) -> None:
+        """
+        Remove ability to manually edit Users.
+
+        If the declarative RBAC config is disabled, these permissions will be automatically recreated
+        and assigned to appropriate default roles by Airflow itself during its regular RBAC sync.
+        """
+        perms = self.get_session.scalars(
+            select(self.permission_model)
+            .join(self.action_model)
+            .join(self.resource_model)
+            .where(
+                self.action_model.name.in_(USER_PERMISSIONS_TO_REMOVE),
+                self.resource_model.name == permissions.RESOURCE_USER,
+            )
+        ).all()
+        for perm in perms:
+            for role in list(perm.role):
+                role.permissions.remove(perm)
+            self.get_session.delete(perm)
+
+        self.get_session.commit()
+
+    @staticmethod
+    def _check_cli_user_modifications() -> None:
+        if RBAC_BINDINGS:
+            # Check if this is being executed from the Airflow CLI
+            if (
+                len(sys.argv) >= 3
+                and "airflow" in sys.argv[0]
+                and sys.argv[1] == "users"
+                and sys.argv[2] in USER_METHODS_TO_REMOVE
+            ):
+                raise AirflowException(
+                    f"The 'airflow users {sys.argv[2]}' CLI command is disabled when Airflow RBAC configuration is enabled."
+                )
+
     def sync_roles(self):
         super().sync_roles()
         self.add_composer_menu_access_to_custom_roles()
+
+        # Remove user modification permissions when RBAC_BINDINGS are configured.
+        if RBAC_BINDINGS:
+            self._remove_user_permissions()
+
+    def add_permissions_view(self, base_permissions: list[str], view_menu: str) -> None:
+        """
+        Intercept permission creation to prevent modifications on Users.
+
+        This prevents Airflow from recreating these permissions automatically on the Webserver startup.
+
+        This is done when RBAC bindings are configured.
+        """
+        if RBAC_BINDINGS and view_menu == permissions.RESOURCE_USER:
+            base_permissions = [p for p in base_permissions if p not in USER_PERMISSIONS_TO_REMOVE]
+        super().add_permissions_view(base_permissions, view_menu)
+
+    def update_user(self, user) -> bool:
+        """
+        Intercept user updates to prevent manual role modifications via the CLI.
+
+        This is done when declarative RBAC bindings are configured.
+        """
+        self._check_cli_user_modifications()
+        return super().update_user(user)
+
+    def add_user(self, *args, **kwargs):
+        """
+        Intercept user creation to prevent manual creation via the CLI.
+
+        This is done when declarative RBAC bindings are configured.
+        """
+        self._check_cli_user_modifications()
+        return super().add_user(*args, **kwargs)
+
+    @retry(
+        retry=retry_if_result(lambda user: user is None),
+        stop=stop_after_attempt(2),
+        retry_error_callback=lambda retry_state: retry_state.outcome.result(),
+    )
+    def reconcile_user_roles(self, user, google_groups: list[str]):
+        """
+        Reconcile user roles based on RBAC_BINDINGS configuration.
+
+        This takes into account user's email and its Google Groups memberships.
+        """
+        if not RBAC_BINDINGS:
+            return user
+
+        session = self.get_session
+        if object_session(user) is not session:
+            db_user = session.query(self.user_model).get(user.id)
+            if db_user:
+                user = db_user
+
+        managed_identities = set()
+        if user.email:
+            managed_identities.add(f"user:{user.email.strip().lower()}")
+        for g_name in google_groups:
+            managed_identities.add(f"group:{g_name.strip().lower()}")
+
+        expected_role_names = {
+            binding.role for binding in RBAC_BINDINGS if managed_identities & set(binding.members)
+        }
+        current_role_names = {r.name for r in user.roles}
+
+        if current_role_names != expected_role_names:
+            log.info(
+                "Reconciling roles for user %s. Current roles: %s. Expected roles: %s.",
+                user.username,
+                sorted(current_role_names),
+                sorted(expected_role_names),
+            )
+            expected_roles = (
+                session.query(self.role_model).filter(self.role_model.name.in_(expected_role_names)).all()
+            )
+
+            user.roles = expected_roles
+            update_result = self.update_user(user)
+            if not update_result:
+                return None
+
+        return user
+
+    def load_user(self, user_id):
+        user = super().load_user(user_id)
+        if user:
+            groups = self._get_groups_from_flask_request()
+            if groups is not None:
+                user = self.reconcile_user_roles(user, groups)
+        return user
 
     def add_composer_menu_access_to_custom_roles(self):
         """Add access to Composer Menu items for all custom roles."""

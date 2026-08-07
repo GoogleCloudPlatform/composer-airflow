@@ -14,6 +14,7 @@
 # limitations under the License.
 from __future__ import annotations
 
+import contextlib
 import os
 import random
 import shutil
@@ -23,7 +24,9 @@ from unittest import mock
 import jwt
 import pytest
 from google.auth.transport import requests
+from sqlalchemy import select
 
+from airflow.composer.composer_airflow_rbac_bindings import USER_PERMISSIONS_TO_REMOVE, Binding
 from airflow.composer.security_manager import ComposerAirflowSecurityManager, _get_first_and_last_name
 from airflow.configuration import (
     WEBSERVER_CONFIG,
@@ -31,10 +34,25 @@ from airflow.configuration import (
     write_default_airflow_configuration_if_needed,
     write_webserver_configuration_if_needed,
 )
+from airflow.exceptions import AirflowException
 from airflow.security import permissions
 from airflow.www import app
 from tests.test_utils.api_connexion_utils import create_user
 from tests.test_utils.config import conf_vars
+
+
+@contextlib.contextmanager
+def mock_rbac_bindings(bindings_list):
+    if bindings_list is None:
+        parsed_bindings = None
+    else:
+        parsed_bindings = [Binding(**b) for b in bindings_list]
+
+    with mock.patch(
+        "airflow.composer.security_manager.RBAC_BINDINGS",
+        parsed_bindings,
+    ):
+        yield
 
 
 class TestBase:
@@ -404,6 +422,188 @@ class TestBase:
             first_name, last_name = _get_first_and_last_name(display_username, email_or_principal)
             assert first_name == expected_first_name
             assert last_name == expected_last_name
+
+    @mock.patch("airflow.composer.security_manager.ComposerAirflowSecurityManager._remove_user_permissions")
+    def test_sync_roles_calls_remove_user_permissions(self, remove_permissions_mock):
+        bindings = [{"role": "Viewer", "members": ["user:test@example.com"]}]
+        with mock_rbac_bindings(bindings):
+            self.sm.sync_roles()
+            remove_permissions_mock.assert_called_once()
+
+    def test_reconcile_user_roles(self):
+        self.sm.add_role("TestRole1")
+        self.sm.add_role("TestRole2")
+        self.sm.add_role("TestRole3")
+        user_mock = mock.Mock()
+        user_mock.id = 9999
+        user_mock.is_authenticated = True
+        user_mock.email = "test-user@gmail.com"
+        db_role = self.sm.find_role("TestRole3")
+        user_mock.roles = [db_role]
+        bindings = [
+            {"role": "TestRole1", "members": ["user:test-user@gmail.com"]},
+            {"role": "TestRole2", "members": ["group:group-2@google.com"]},
+        ]
+        with mock_rbac_bindings(bindings):
+            with mock.patch.object(self.sm.get_session, "get", return_value=user_mock):
+                with mock.patch.object(self.sm, "update_user") as update_user_mock:
+                    resolved_user = self.sm.reconcile_user_roles(
+                        user_mock, ["group-1@google.com", "group-2@google.com"]
+                    )
+                    update_user_mock.assert_called_once_with(user_mock)
+        resolved_role_names = {r.name for r in resolved_user.roles}
+        assert "TestRole1" in resolved_role_names
+        assert "TestRole2" in resolved_role_names
+        assert "TestRole3" not in resolved_role_names
+        assert len(resolved_role_names) == 2
+
+    def test_reconcile_user_roles_no_bindings_match_strips_existing_roles(self):
+        self.sm.add_role("TestRole")
+        db_role = self.sm.find_role("TestRole")
+        user_mock = mock.Mock()
+        user_mock.id = 9999
+        user_mock.is_authenticated = True
+        user_mock.email = "unmapped@gmail.com"
+        user_mock.roles = [db_role]
+        bindings = [
+            {"role": "TestRole1", "members": ["user:test-user@gmail.com"]},
+            {"role": "TestRole2", "members": ["group:group-2@google.com"]},
+        ]
+        with mock_rbac_bindings(bindings):
+            with mock.patch.object(self.sm.get_session, "get", return_value=user_mock):
+                with mock.patch.object(self.sm, "update_user") as update_user_mock:
+                    resolved_user = self.sm.reconcile_user_roles(user_mock, ["unmapped-group@gmail.com"])
+                    update_user_mock.assert_called_once_with(user_mock)
+        assert resolved_user.roles == []
+
+    def test_reconcile_user_roles_retries_on_update_user_failure(self):
+        self.sm.add_role("TestRole1")
+        user_mock = mock.Mock()
+        user_mock.id = 9999
+        user_mock.is_authenticated = True
+        user_mock.email = "test-user@gmail.com"
+        user_mock.roles = []
+        bindings = [
+            {"role": "TestRole1", "members": ["user:test-user@gmail.com"]},
+        ]
+
+        def update_user_side_effect(user):
+            if update_user_mock.call_count == 1:
+                user.roles = []
+                return False
+            return True
+
+        with mock_rbac_bindings(bindings):
+            with mock.patch.object(self.sm.get_session, "get", return_value=user_mock):
+                with mock.patch.object(
+                    self.sm, "update_user", side_effect=update_user_side_effect
+                ) as update_user_mock:
+                    resolved_user = self.sm.reconcile_user_roles(user_mock, [])
+                    assert update_user_mock.call_count == 2
+                    assert resolved_user is not None
+
+    def test_remove_user_permissions(self):
+        bindings = [{"role": "Viewer", "members": ["user:test@example.com"]}]
+
+        with mock_rbac_bindings(bindings):
+
+            def _get_user_permissions():
+                return self.sm.get_session.scalars(
+                    select(self.sm.permission_model)
+                    .join(self.sm.action_model)
+                    .join(self.sm.resource_model)
+                    .where(
+                        self.sm.action_model.name.in_(USER_PERMISSIONS_TO_REMOVE),
+                        self.sm.resource_model.name == permissions.RESOURCE_USER,
+                    )
+                ).all()
+
+            assert len(_get_user_permissions()) > 0
+            self.sm._remove_user_permissions()
+            assert len(_get_user_permissions()) == 0
+
+    def test_cli_user_modifications_prevented(self):
+        user_mock = mock.Mock()
+        bindings = [{"role": "Viewer", "members": ["user:test@example.com"]}]
+
+        with mock_rbac_bindings(bindings):
+            with mock.patch("sys.argv", ["airflow", "users", "add-role", "test", "--role", "Admin"]):
+                with pytest.raises(
+                    AirflowException,
+                    match="The 'airflow users add-role' CLI command is disabled when Airflow RBAC configuration is enabled.",
+                ):
+                    self.sm.update_user(user_mock)
+
+            with mock.patch("sys.argv", ["airflow", "users", "remove-role", "test", "--role", "Admin"]):
+                with pytest.raises(
+                    AirflowException,
+                    match="The 'airflow users remove-role' CLI command is disabled when Airflow RBAC configuration is enabled.",
+                ):
+                    self.sm.update_user(user_mock)
+
+            with mock.patch("sys.argv", ["airflow", "users", "create", "-e", "test@test.com"]):
+                with pytest.raises(
+                    AirflowException,
+                    match="The 'airflow users create' CLI command is disabled when Airflow RBAC configuration is enabled.",
+                ):
+                    self.sm.add_user(
+                        username="test",
+                        first_name="t",
+                        last_name="t",
+                        email="test@test.com",
+                        role=mock.Mock(),
+                    )
+
+            with mock.patch("sys.argv", ["airflow", "users", "import", "users.json"]):
+                with pytest.raises(
+                    AirflowException,
+                    match="The 'airflow users import' CLI command is disabled when Airflow RBAC configuration is enabled.",
+                ):
+                    self.sm.add_user(
+                        username="test",
+                        first_name="t",
+                        last_name="t",
+                        email="test@test.com",
+                        role=mock.Mock(),
+                    )
+
+                with pytest.raises(
+                    AirflowException,
+                    match="The 'airflow users import' CLI command is disabled when Airflow RBAC configuration is enabled.",
+                ):
+                    self.sm.update_user(user_mock)
+
+    @mock.patch(
+        "airflow.composer.security_manager.ComposerAirflowSecurityManager._get_groups_from_flask_request"
+    )
+    @mock.patch(
+        "airflow.providers.fab.auth_manager.security_manager.override.FabAirflowSecurityManagerOverride.load_user"
+    )
+    def test_load_user(self, super_load_user_mock, get_groups_mock):
+        user_mock = mock.Mock()
+        super_load_user_mock.return_value = user_mock
+        get_groups_mock.return_value = ["group-1@google.com"]
+
+        with mock.patch.object(self.sm, "reconcile_user_roles") as reconcile_mock:
+            reconcile_mock.return_value = user_mock
+
+            assert self.sm.load_user("user-id") == user_mock
+
+            super_load_user_mock.assert_called_once_with("user-id")
+            get_groups_mock.assert_called_once_with()
+            reconcile_mock.assert_called_once_with(user_mock, ["group-1@google.com"])
+
+    @mock.patch(
+        "airflow.providers.fab.auth_manager.security_manager.override.FabAirflowSecurityManagerOverride.update_user"
+    )
+    def test_update_user(self, super_update_user_mock):
+        user_mock = mock.Mock()
+
+        with mock.patch.object(self.sm, "_check_cli_user_modifications") as check_mock:
+            self.sm.update_user(user_mock)
+
+            check_mock.assert_called_once_with()
+            super_update_user_mock.assert_called_once_with(user_mock)
 
 
 class TestComposerAirflowSecurityManager:
