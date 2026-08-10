@@ -25,6 +25,7 @@ from kubernetes.utils import parse_quantity
 
 from airflow.composer.patches.core.utils import get_composer_gke_cluster_host
 from airflow.composer.patches.kubernetes.kubernetes_executor import get_task_run_command_from_args
+from airflow.exceptions import AirflowException
 from airflow.providers.cncf.kubernetes.kubernetes_helper_functions import add_unique_suffix
 from airflow.providers.cncf.kubernetes.pod_generator import PodGenerator
 
@@ -36,6 +37,38 @@ EPS = 1e-9
 # The pod name should be at maximum 63 characters length.
 # https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#dns-label-names
 POD_NAME_MAX_LEN = 63
+
+# Supported machines is a map from (cpu, memory_gb) to machine name
+TPC_UNIVERSE_TO_SUPPORTED_MACHINES = {
+    "prp": {
+        (4, 15): "n1-standard-4",
+        (8, 30): "n1-standard-8",
+    },
+    "thp": {  # codespell:ignore thp
+        (4, 16): "c3-standard-4",
+        (8, 32): "c3-standard-8",
+    },
+    "thq": {  # codespell:ignore thq
+        (4, 16): "c3-standard-4",
+        (8, 32): "c3-standard-8",
+    },
+    "tsp": {
+        (4, 16): "c3-standard-4",
+        (8, 32): "c3-standard-8",
+    },
+    "tsq": {
+        (4, 16): "c3-standard-4",
+        (8, 32): "c3-standard-8",
+    },
+}
+UNIVERSE_TO_DISK_TYPE = {
+    "gdu": "pd-standard",
+    "prp": "pd-ssd",
+    "thp": "hyperdisk-balanced",  # codespell:ignore thp
+    "thq": "hyperdisk-balanced",  # codespell:ignore thq
+    "tsp": "hyperdisk-balanced",
+    "tsq": "hyperdisk-balanced",
+}
 
 logger = logging.getLogger(__name__)
 
@@ -130,19 +163,43 @@ def _get_peer_vm_pod_metadata(pod: k8s.V1Pod):
                     "selector": {
                         "matchLabels": {
                             "machineType": _get_peer_vm_machine_type(pod.spec.containers[0].resources),
+                            "diskType": _get_peer_vm_disk_type(),
                             "diskSizeGb": str(disk_size_gb),
                         }
                     },
                     "logging": ["Workload", "System"],
-                    "vmServiceAccount": f"peervm-vm@{tenant_project_id}.iam.gserviceaccount.com",
+                    "vmServiceAccount": _get_peer_vm_sa(tenant_project_id),
                 }
             ),
         },
     )
 
 
+def _get_peer_vm_sa(tenant_project_id: str) -> str:
+    suffix = "iam.gserviceaccount.com"
+    if ":" in tenant_project_id:
+        domain, identifier = tenant_project_id.split(":", 1)
+        return f"peervm-vm@{identifier}.{domain}.{suffix}"
+    return f"peervm-vm@{tenant_project_id}.{suffix}"
+
+
+def _get_peer_vm_disk_type() -> str:
+    prod_universe = _get_current_prod_universe()
+    if prod_universe not in UNIVERSE_TO_DISK_TYPE:
+        raise AirflowException(f"{prod_universe} is not a supported Cloud Universe")
+    return UNIVERSE_TO_DISK_TYPE[prod_universe]
+
+
+def _get_current_prod_universe() -> str:
+    return os.environ.get("PROD_UNIVERSE", "gdu")
+
+
 def _get_peer_vm_machine_type(resources: k8s.V1ResourceRequirements) -> str:
     """Return machine type for container-based tasks."""
+    prod_universe = _get_current_prod_universe()
+    if prod_universe != "gdu":
+        return _get_peer_vm_machine_type_for_tpc(prod_universe, resources)
+
     machine_series = "e2"
     cpu_amount, cpu_string = _get_peer_vm_machine_cpu(resources)
     memory_string = _get_peer_vm_machine_memory(resources, cpu_amount)
@@ -150,7 +207,39 @@ def _get_peer_vm_machine_type(resources: k8s.V1ResourceRequirements) -> str:
     return f"{machine_series}-custom-{cpu_string}-{memory_string}"
 
 
-def _get_peer_vm_machine_cpu(resources: k8s.V1ResourceRequirements) -> tuple[float, str]:
+def _get_peer_vm_machine_type_for_tpc(prod_universe: str, resources: k8s.V1ResourceRequirements) -> str:
+    if prod_universe not in TPC_UNIVERSE_TO_SUPPORTED_MACHINES:
+        raise AirflowException(f"{prod_universe} is not a supported Cloud Universe")
+
+    desired_cpu_amount = _get_desired_cpu_amount(resources)
+    desired_memory_gb = _get_desired_memory_gb_amount(resources, desired_cpu_amount)
+    machine_specs = TPC_UNIVERSE_TO_SUPPORTED_MACHINES[prod_universe]
+    sorted_machine_specs_keys = sorted(machine_specs)
+    for specs in sorted_machine_specs_keys:
+        machine_name = machine_specs[specs]
+        valid_cpu = specs[0]
+        valid_memory_gb = specs[1]
+        if desired_cpu_amount < valid_cpu + EPS and desired_memory_gb < valid_memory_gb + EPS:
+            return machine_name
+
+    biggest_machine_cpu = sorted_machine_specs_keys[-1][0]
+    biggest_machine_memory = sorted_machine_specs_keys[-1][1]
+    if desired_cpu_amount >= biggest_machine_cpu + EPS:
+        logger.warning(
+            "Resources CPU is %s which is greater than maximum allowed %s",
+            desired_cpu_amount,
+            biggest_machine_cpu,
+        )
+    if desired_memory_gb >= biggest_machine_memory + EPS:
+        logger.warning(
+            "Resources Memory is %s which is greater than maximum allowed %s",
+            desired_memory_gb,
+            biggest_machine_memory,
+        )
+    return machine_specs[sorted_machine_specs_keys[-1]]
+
+
+def _get_desired_cpu_amount(resources: k8s.V1ResourceRequirements) -> float:
     requests_cpu = None
     limits_cpu = None
     if resources and resources.requests and resources.requests.get("cpu"):
@@ -168,9 +257,12 @@ def _get_peer_vm_machine_cpu(resources: k8s.V1ResourceRequirements) -> tuple[flo
             else float(limits_cpu)
         )
     if (requests_cpu is not None) and (limits_cpu is not None):
-        desired_cpu_amount = max(requests_cpu, limits_cpu)
-    else:
-        desired_cpu_amount = requests_cpu or limits_cpu or 0.5
+        return max(requests_cpu, limits_cpu)
+    return requests_cpu or limits_cpu or 0.5
+
+
+def _get_peer_vm_machine_cpu(resources: k8s.V1ResourceRequirements) -> tuple[float, str]:
+    desired_cpu_amount = _get_desired_cpu_amount(resources)
 
     # List of valid CPU amount and corresponding presentation.
     valid_cpu_values = [
@@ -191,7 +283,7 @@ def _get_peer_vm_machine_cpu(resources: k8s.V1ResourceRequirements) -> tuple[flo
     return valid_cpu_values[-1]
 
 
-def _get_peer_vm_machine_memory(resources: k8s.V1ResourceRequirements, cpu: float) -> str:
+def _get_desired_memory_gb_amount(resources: k8s.V1ResourceRequirements, fallback: float) -> float:
     requests_memory_gb = None
     limits_memory_gb = None
     if resources and resources.requests and resources.requests.get("memory"):
@@ -199,9 +291,12 @@ def _get_peer_vm_machine_memory(resources: k8s.V1ResourceRequirements, cpu: floa
     if resources and resources.limits and resources.limits.get("memory"):
         limits_memory_gb = parse_quantity(resources.limits["memory"]) / 1000 / 1000 / 1000
     if (requests_memory_gb is not None) and (limits_memory_gb is not None):
-        desired_memory_gb_amount = max(requests_memory_gb, limits_memory_gb)
-    else:
-        desired_memory_gb_amount = requests_memory_gb or limits_memory_gb or (cpu * 4)
+        return max(requests_memory_gb, limits_memory_gb)
+    return requests_memory_gb or limits_memory_gb or fallback
+
+
+def _get_peer_vm_machine_memory(resources: k8s.V1ResourceRequirements, cpu: float) -> str:
+    desired_memory_gb_amount = _get_desired_memory_gb_amount(resources, cpu * 4)
 
     # List of valid memory amount with corresponding presentation (based on given CPU).
     # TODO: investigate why KPO/KE tasks are failing with Peer VM having 1GB memory.

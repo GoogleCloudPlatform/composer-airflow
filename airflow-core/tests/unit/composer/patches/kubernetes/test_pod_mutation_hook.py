@@ -22,10 +22,13 @@ import yaml
 from kubernetes.client import Configuration, models as k8s
 
 from airflow.composer.patches.kubernetes.pod_mutation_hook import (
+    _get_peer_vm_disk_type,
     _get_peer_vm_machine_type,
     _get_peer_vm_pod_metadata,
+    _get_peer_vm_sa,
     mutate,
 )
+from airflow.exceptions import AirflowException
 
 
 class TestPodMutationHook:
@@ -132,11 +135,40 @@ class TestPodMutationHook:
                         "selector": {
                             "matchLabels": {
                                 "machineType": "e2-custom-small-2048",
+                                "diskType": "pd-standard",
                                 "diskSizeGb": "30",
                             },
                         },
                         "logging": ["Workload", "System"],
                         "vmServiceAccount": "peervm-vm@test-project-234.iam.gserviceaccount.com",
+                    }
+                ),
+            },
+        )
+
+    @mock.patch.dict(
+        "os.environ", {"GCP_TENANT_PROJECT": "project-prefix:test-project-234", "PROD_UNIVERSE": "prp"}
+    )
+    def test_get_peer_vm_pod_metadata_tpc(self):
+        actual = _get_peer_vm_pod_metadata(
+            pod=k8s.V1Pod(spec=k8s.V1PodSpec(containers=[k8s.V1Container(name="base")]))
+        )
+
+        assert actual == k8s.V1ObjectMeta(
+            namespace="composer-user-workloads",
+            labels={"node.gke.io/use-workload-identity-service": "true"},
+            annotations={
+                "node.gke.io/gce-vm": yaml.dump(
+                    {
+                        "selector": {
+                            "matchLabels": {
+                                "machineType": "n1-standard-4",
+                                "diskType": "pd-ssd",
+                                "diskSizeGb": "30",
+                            },
+                        },
+                        "logging": ["Workload", "System"],
+                        "vmServiceAccount": "peervm-vm@test-project-234.project-prefix.iam.gserviceaccount.com",
                     }
                 ),
             },
@@ -411,3 +443,161 @@ class TestPodMutationHook:
         actual_machine_type = _get_peer_vm_machine_type(resources)
 
         assert actual_machine_type == expected_machine_type
+
+    @pytest.mark.parametrize(
+        ("resources", "expected_machine_type"),
+        [
+            (None, "n1-standard-4"),
+        ]
+        + [
+            # Tests for CPU.
+            (
+                k8s.V1ResourceRequirements(requests={"cpu": "1"}, limits={"cpu": "2"}),
+                "n1-standard-4",
+            ),
+            (
+                k8s.V1ResourceRequirements(requests={}, limits={}),
+                "n1-standard-4",
+            ),
+            (
+                k8s.V1ResourceRequirements(requests={"cpu": "4200m"}),
+                "n1-standard-8",
+            ),
+            (
+                k8s.V1ResourceRequirements(requests={"cpu": "3000m"}, limits={"cpu": "1000m"}),
+                "n1-standard-4",
+            ),
+            (
+                k8s.V1ResourceRequirements(requests={"cpu": "4.5"}, limits={"cpu": "2.5"}),
+                "n1-standard-8",
+            ),
+            (
+                k8s.V1ResourceRequirements(requests={"cpu": "1000m"}, limits={"cpu": "3000m"}),
+                "n1-standard-4",
+            ),
+            (
+                k8s.V1ResourceRequirements(requests={"cpu": "2.5"}, limits={"cpu": "4.5"}),
+                "n1-standard-8",
+            ),
+            (
+                k8s.V1ResourceRequirements(requests={"cpu": "6.5"}),
+                "n1-standard-8",
+            ),
+            (
+                k8s.V1ResourceRequirements(limits={"cpu": "3.89"}),
+                "n1-standard-4",
+            ),
+            (
+                k8s.V1ResourceRequirements(limits={"cpu": "0.1"}),
+                "n1-standard-4",
+            ),
+            (
+                k8s.V1ResourceRequirements(limits={"cpu": "4.26"}),
+                "n1-standard-8",
+            ),
+            (
+                k8s.V1ResourceRequirements(limits={"cpu": "7.6"}),
+                "n1-standard-8",
+            ),
+            (
+                k8s.V1ResourceRequirements(limits={"cpu": "3.9"}),
+                "n1-standard-4",
+            ),
+            (
+                k8s.V1ResourceRequirements(limits={"cpu": "4.0000000001"}),
+                "n1-standard-4",
+            ),
+            (
+                k8s.V1ResourceRequirements(limits={"cpu": "300"}),
+                "n1-standard-8",
+            ),
+        ]
+        # Tests for memory.
+        + [
+            (
+                k8s.V1ResourceRequirements(requests={"wrong-key": "1G"}, limits={"wrong-key": "2G"}),
+                "n1-standard-4",
+            ),
+            (
+                k8s.V1ResourceRequirements(requests={"memory": "1G"}, limits={"memory": "3G"}),
+                "n1-standard-4",
+            ),
+            (
+                k8s.V1ResourceRequirements(requests={"memory": "3G"}, limits={"memory": "1G"}),
+                "n1-standard-4",
+            ),
+            (
+                k8s.V1ResourceRequirements(requests={"memory": "1G"}),
+                "n1-standard-4",
+            ),
+            (
+                k8s.V1ResourceRequirements(limits={"memory": "4G"}),
+                "n1-standard-4",
+            ),
+            (
+                k8s.V1ResourceRequirements(limits={"memory": "2.5G"}),
+                "n1-standard-4",
+            ),
+            (
+                k8s.V1ResourceRequirements(limits={"memory": "3.0000000001G"}),
+                "n1-standard-4",
+            ),
+            (
+                k8s.V1ResourceRequirements(limits={"memory": "0.1G"}),
+                "n1-standard-4",
+            ),
+            (
+                k8s.V1ResourceRequirements(limits={"cpu": "32", "memory": "128G"}),
+                "n1-standard-8",
+            ),
+            (
+                k8s.V1ResourceRequirements(limits={"cpu": "32", "memory": "129G"}),
+                "n1-standard-8",
+            ),
+            (
+                k8s.V1ResourceRequirements(limits={"cpu": "4", "memory": "0.1G"}),
+                "n1-standard-4",
+            ),
+            (
+                k8s.V1ResourceRequirements(limits={"cpu": "4", "memory": "100G"}),
+                "n1-standard-8",
+            ),
+        ],
+    )
+    def test_get_peer_vm_machine_type_tpc(self, resources, expected_machine_type, monkeypatch):
+        monkeypatch.setenv("PROD_UNIVERSE", "prp")
+        actual_machine_type = _get_peer_vm_machine_type(resources)
+
+        assert actual_machine_type == expected_machine_type
+
+    def test_get_peer_vm_machine_type_bad_universe(self, monkeypatch):
+        monkeypatch.setenv("PROD_UNIVERSE", "random")
+        with pytest.raises(AirflowException):
+            _get_peer_vm_machine_type(None)
+
+    @pytest.mark.parametrize(
+        ("universe", "expected_disk_type"),
+        [
+            ("gdu", "pd-standard"),
+            ("prp", "pd-ssd"),
+            ("tsq", "hyperdisk-balanced"),
+            ("thp", "hyperdisk-balanced"),  # codespell:ignore thp
+        ],
+    )
+    def test_get_peer_vm_disk_type(self, universe, expected_disk_type, monkeypatch):
+        monkeypatch.setenv("PROD_UNIVERSE", universe)
+        actual_disk_type = _get_peer_vm_disk_type()
+
+        assert actual_disk_type == expected_disk_type
+
+    @pytest.mark.parametrize(
+        ("tenant_project_id", "expected_sa"),
+        [
+            ("project-id", "peervm-vm@project-id.iam.gserviceaccount.com"),
+            ("projectPrefix:project-id", "peervm-vm@project-id.projectPrefix.iam.gserviceaccount.com"),
+        ],
+    )
+    def test_get_peer_vm_sa(self, tenant_project_id, expected_sa):
+        actual_sa = _get_peer_vm_sa(tenant_project_id)
+
+        assert actual_sa == expected_sa
