@@ -74,3 +74,31 @@ class TestAirflowSdkExecutionTimeTaskRunner:
         parse_mock.assert_called_with("what_arg", "log_arg")
         sleep_mock.assert_called_with(5)
         assert exc.value.code == 1
+
+    # TODO(Internal bug): remove this patch when preparing Airflow 3.3.1+
+    @mock.patch("airflow.sdk.execution_time.task_runner._send_error_email_notification", autospec=True)
+    @mock.patch(
+        "airflow.composer.patches.core.monkey_patching.airflow_sdk_execution_time_task_runner._LegacyEmailBackendNotifier"
+    )
+    @conf_vars({("email", "email_backend"): "my_custom_email_backend"})
+    def test_task_runner_send_error_email_notification_uses_legacy_backend(
+        self, mock_legacy_notifier, mock_original
+    ):
+        patch()
+
+        task_mock = mock.MagicMock()
+        task_mock.email = "recipient@example.com"
+        log_mock = mock.MagicMock()
+
+        mock_notifier_instance = mock_legacy_notifier.return_value
+
+        task_runner._send_error_email_notification(
+            task=task_mock,
+            ti=mock.MagicMock(try_number=1, max_tries=2),
+            context={},
+            error=Exception("test"),
+            log=log_mock,
+        )
+
+        mock_legacy_notifier.assert_called_once()
+        mock_notifier_instance.assert_called_once()
