@@ -14,8 +14,6 @@ apache-airflow-providers-common-compat>=1.8.0  # unit tests failing for versions
 apache-airflow-providers-cncf-kubernetes<=10.14.0  # Pin to <=10.14.0 to avoid issues in 10.15.0+ (Internal bug)
 # TODO: apache-airflow-providers-fab >=3.6.0 is supported only by Airflow >=3.2.0. Remove constraint in Airflow 3.2.0.
 apache-airflow-providers-fab>=3.2.0,<3.6.0
-apache-airflow-providers-google
-apache-airflow-client<3.2.0 # apache-airflow-client 3.2.0 is not compatible with Airflow 3.1.7.
 apache-beam>=2.70.0
 # requests==2.32.5 throws dependency warning message in case of using chardet 6+
 chardet<6.0.0
