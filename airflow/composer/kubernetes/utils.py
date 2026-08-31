@@ -325,8 +325,8 @@ def before_log_custom_only_on_retries(retry_state: tenacity.RetryCallState):
 
 
 @tenacity.retry(
-    stop=tenacity.stop_after_attempt(5),
-    wait=tenacity.wait_fixed(1),
+    stop=tenacity.stop_after_attempt(6),
+    wait=tenacity.wait_exponential(multiplier=1, min=1, max=16),
     before=before_log_custom_only_on_retries,
     reraise=True,
 )
