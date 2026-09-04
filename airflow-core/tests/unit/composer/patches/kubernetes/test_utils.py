@@ -40,6 +40,12 @@ from airflow.exceptions import AirflowException
 
 
 class TestUtils:
+    @pytest.fixture(autouse=True)
+    def exec_retry_sleep_mock(self, monkeypatch):
+        sleep_mock = mock.Mock()
+        monkeypatch.setattr(exec_on_placeholder_pod.retry, "sleep", sleep_mock)
+        return sleep_mock
+
     @mock.patch("airflow.composer.patches.kubernetes.utils.kubernetes_stream", autospec=True)
     def test_exec_on_placeholder_pod(self, kubernetes_stream_mock):
         self_mock = mock.Mock()
@@ -168,6 +174,7 @@ class TestUtils:
         assert str(exc.value) == (
             'Handshake status 500 Error -+-+- b\'container not found ("peervm-placeholder")'
         )
+        assert kubernetes_stream_mock.call_count == 6
 
     @mock.patch("airflow.composer.patches.kubernetes.utils.kubernetes_stream", autospec=True)
     def test_exec_on_placeholder_pod_agent_failed(self, kubernetes_stream_mock):
@@ -179,19 +186,22 @@ class TestUtils:
             exec_on_placeholder_pod(self_mock, pod=pod_mock, command=["arg1", "arg2"])
 
         assert exc.value.reason == "Kubelet agent failed"
+        assert kubernetes_stream_mock.call_count == 6
 
     @mock.patch("airflow.composer.patches.kubernetes.utils.kubernetes_stream", autospec=True)
-    def test_exec_on_placeholder_retry_on_websocket_exception(self, kubernetes_stream_mock):
+    def test_exec_on_placeholder_retry_on_websocket_exception(
+        self, kubernetes_stream_mock, exec_retry_sleep_mock
+    ):
         self_mock, pod_mock = mock.Mock(), mock.Mock()
 
-        num_retries = 5
+        num_attempts = 6
         exec_result_expected = "exec_cmd_read_result"
 
         read_stdout_mock = mock.Mock(return_value=exec_result_expected)
 
         kubernetes_stream_mock.return_value = mock.Mock(
             is_open=mock.Mock(return_value=True),
-            peek_stdout=mock.Mock(side_effect=[WebSocketConnectionClosedException()] * 4 + [True, False]),
+            peek_stdout=mock.Mock(side_effect=[WebSocketConnectionClosedException()] * 5 + [True, False]),
             read_stdout=read_stdout_mock,
             peek_stderr=mock.Mock(return_value=False),
             returncode=0,
@@ -201,20 +211,29 @@ class TestUtils:
 
         assert result == exec_result_expected
         assert read_stdout_mock.call_count == 1
-        assert kubernetes_stream_mock.call_count == num_retries
+        assert kubernetes_stream_mock.call_count == num_attempts
+        assert exec_retry_sleep_mock.call_args_list == [
+            mock.call(1.0),
+            mock.call(2.0),
+            mock.call(4.0),
+            mock.call(8.0),
+            mock.call(16.0),
+        ]
 
     @mock.patch("airflow.composer.patches.kubernetes.utils.kubernetes_stream", autospec=True)
-    def test_exec_on_placeholder_retry_on_airflow_exception(self, kubernetes_stream_mock):
+    def test_exec_on_placeholder_retry_on_airflow_exception(
+        self, kubernetes_stream_mock, exec_retry_sleep_mock
+    ):
         self_mock, pod_mock = mock.Mock(), mock.Mock()
 
-        num_retries = 5
+        num_attempts = 6
         exec_result_expected = "exec_cmd_read_result"
 
         read_stdout_mock = mock.Mock(return_value=exec_result_expected)
 
         kubernetes_stream_mock.return_value = mock.Mock(
             is_open=mock.Mock(return_value=True),
-            peek_stdout=mock.Mock(side_effect=[AirflowException()] * 4 + [True, False]),
+            peek_stdout=mock.Mock(side_effect=[AirflowException()] * 5 + [True, False]),
             read_stdout=read_stdout_mock,
             peek_stderr=mock.Mock(return_value=False),
             returncode=0,
@@ -224,7 +243,14 @@ class TestUtils:
 
         assert result == exec_result_expected
         assert read_stdout_mock.call_count == 1
-        assert kubernetes_stream_mock.call_count == num_retries
+        assert kubernetes_stream_mock.call_count == num_attempts
+        assert exec_retry_sleep_mock.call_args_list == [
+            mock.call(1.0),
+            mock.call(2.0),
+            mock.call(4.0),
+            mock.call(8.0),
+            mock.call(16.0),
+        ]
 
     @mock.patch("airflow.composer.patches.kubernetes.utils.exec_on_placeholder_pod", autospec=True)
     def test_get_peer_vm_pod_container_statuses(self, exec_on_placeholder_pod_mock):
