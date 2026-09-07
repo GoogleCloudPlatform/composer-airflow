@@ -68,6 +68,15 @@ class ComposerAirflowSecurityManager(FabAirflowSecurityManagerOverride):
 
         super()._init_config()
 
+    def _hash_password(self, password: str) -> str:
+        """
+        Skip password hashing as Composer uses AUTH_REMOTE_USER and does not use database passwords.
+
+        Overriding this as a no-op avoids accessing Flask's current_app.config outside of a Flask
+        application context when registering users via FastAPI or CLI.
+        """
+        pass
+
     @staticmethod
     def _get_groups_from_flask_request() -> list[str] | None:
         """
@@ -164,7 +173,7 @@ class ComposerAirflowSecurityManager(FabAirflowSecurityManagerOverride):
         return super().add_user(*args, **kwargs)
 
     @provide_session
-    def find_user_by_username(self, username, session=None):
+    def find_user_by_username(self, username, *, session=None):
         """
         Find user by username.
 
