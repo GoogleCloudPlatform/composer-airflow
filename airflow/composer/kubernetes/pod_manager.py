@@ -47,7 +47,7 @@ from airflow.composer.kubernetes.utils import (
     parse_payload_from_peer_vm_exec_response,
 )
 from airflow.exceptions import AirflowException
-from airflow.providers.cncf.kubernetes.utils.pod_manager import EMPTY_XCOM_RESULT, PodManager
+from airflow.providers.cncf.kubernetes.utils.pod_manager import EMPTY_XCOM_RESULT, PodManager, PodPhase
 from airflow.providers.cncf.kubernetes.utils.xcom_sidecar import PodDefaults
 
 if TYPE_CHECKING:
@@ -351,7 +351,15 @@ def _composer_read_pod(f):
         # For establishing connection and getting container statuses from PeerVM, placeholder Pod needs to have PeerVM host
         # assigned. Because Peer VM host assignment and Peer VM annotation set happen around the same time, so we need to wait
         # until annotation is available before establishing the connection.
-        await_pod_endpoint_creation(self, pod, remote_pod)
+        # We can not use `await_pod_endpoint_creation` here because inside this method the code calls `read_pod` method which
+        # creates recursion and as a result leads to infinite loop.
+        while remote_pod.status.phase in (
+            PodPhase.RUNNING,
+            PodPhase.PENDING,
+        ) and not remote_pod.metadata.annotations.get(PEER_VM_ENDPOINT_ANNOTATION):
+            self.log.info("Awaiting for pod to start execution")
+            time.sleep(5)
+            remote_pod = f(self, pod)
 
         container_statuses: list[V1ContainerStatus] = []
         try:
