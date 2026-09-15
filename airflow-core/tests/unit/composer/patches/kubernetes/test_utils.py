@@ -177,6 +177,28 @@ class TestUtils:
         assert kubernetes_stream_mock.call_count == 6
 
     @mock.patch("airflow.composer.patches.kubernetes.utils.kubernetes_stream", autospec=True)
+    def test_exec_on_placeholder_pod_container_not_found_masked_by_attribute_error(
+        self, kubernetes_stream_mock
+    ):
+        self_mock = mock.Mock()
+        pod_mock = mock.Mock()
+        reason = "Handshake status 500 Error -+-+- container not found (peervm-placeholder)"
+
+        def raise_masked_api_exception(*args, **kwargs):
+            try:
+                raise ApiException(reason=reason)
+            except ApiException:
+                raise AttributeError("'NoneType' object has no attribute 'decode'")
+
+        kubernetes_stream_mock.side_effect = raise_masked_api_exception
+
+        with pytest.raises(PeerVmPlaceholderPodContainerNotFoundException) as exc:
+            exec_on_placeholder_pod(self_mock, pod=pod_mock, command=["arg1", "arg2"])
+
+        assert str(exc.value) == reason
+        assert kubernetes_stream_mock.call_count == 6
+
+    @mock.patch("airflow.composer.patches.kubernetes.utils.kubernetes_stream", autospec=True)
     def test_exec_on_placeholder_pod_agent_failed(self, kubernetes_stream_mock):
         self_mock = mock.Mock()
         pod_mock = mock.Mock()

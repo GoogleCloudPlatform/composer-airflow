@@ -132,6 +132,16 @@ def exec_on_placeholder_pod(self: PodManager, pod: V1Pod, command: list[str]):
         if "container not found" in exc.reason:
             raise PeerVmPlaceholderPodContainerNotFoundException(exc.reason)
         raise
+    except AttributeError as exc:
+        api_exception = exc.__context__
+        # The Kubernetes client masks an ApiException when it tries to decode an empty response body.
+        if (
+            str(exc) == "'NoneType' object has no attribute 'decode'"
+            and isinstance(api_exception, ApiException)
+            and "container not found" in api_exception.reason
+        ):
+            raise PeerVmPlaceholderPodContainerNotFoundException(api_exception.reason) from api_exception
+        raise
 
 
 def get_peer_vm_pod_container_statuses(self: PodManager, pod: V1Pod):
