@@ -32,9 +32,6 @@ MAX_BATCH_SIZE = 100000
 MIN_SLEEP_BETWEEN_BATCHES_SECONDS = 0.1
 MAX_SLEEP_BETWEEN_BATCHES_SECONDS = 0.5
 
-MINIMAL_RETENTION_DAYS = 30
-MAXIMAL_RETENTION_DAYS = 730
-
 COMPOSER_ENVIRONMENT_SIZE = os.environ["COMPOSER_ENVIRONMENT_SIZE"]
 
 logger = logging.getLogger(__name__)
@@ -59,22 +56,15 @@ def trim(args):
         MIN_SLEEP_BETWEEN_BATCHES_SECONDS, min(retention_sleep, MAX_SLEEP_BETWEEN_BATCHES_SECONDS)
     )
 
-    if MINIMAL_RETENTION_DAYS <= args.retention_days <= MAXIMAL_RETENTION_DAYS:
-        execute_trim(
-            args.retention_days,
-            batch_size=retention_batch_size,
-            sleep_between_batches_seconds=retention_sleep,
-        )
-    else:
-        logger.error(
-            "Provided number of days (%d) is not within (%d, %d) range",
-            args.retention_days,
-            MINIMAL_RETENTION_DAYS,
-            MAXIMAL_RETENTION_DAYS,
-        )
-        raise ValueError(
-            f"Retention horizon must be in range({MINIMAL_RETENTION_DAYS}, {MAXIMAL_RETENTION_DAYS})"
-        )
+    if args.retention_days <= 0:
+        logger.error("The provided number of retention days (%d) must be positive", args.retention_days)
+        raise ValueError(f"The provided number of retention days ({args.retention_days}) must be positive")
+
+    execute_trim(
+        args.retention_days,
+        batch_size=retention_batch_size,
+        sleep_between_batches_seconds=retention_sleep,
+    )
 
 
 def _calculate_retention_batch_size(env_size):

@@ -113,10 +113,10 @@ class TestDbCommand:
         execute_trim_mock.assert_called_once_with(30, batch_size=15000, sleep_between_batches_seconds=0.2)
 
     def test_trim_retention_days_out_of_range(self):
-        with pytest.raises(ValueError, match=r"Retention horizon must be in range\(30, 730\)"):
+        with pytest.raises(ValueError, match=r"The provided number of retention days \(0\) must be positive"):
             self.trim(
                 self.parser.parse_args(
-                    ["db", "trim", "--acknowledge-composer-internal", "--retention-days", "1"]
+                    ["db", "trim", "--acknowledge-composer-internal", "--retention-days", "0"]
                 )
             )
 
