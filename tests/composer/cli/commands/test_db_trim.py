@@ -251,7 +251,7 @@ class TestDbTrim:
 
     @pytest.mark.parametrize(
         "retention_days",
-        [(30), (100), (730)],
+        [(1), (30), (100), (730)],
     )
     @mock.patch("airflow.composer.cli.commands.db_command.trim")
     def test_cli_db_trim_within_range_success(self, mock_db_trim, retention_days):
@@ -272,7 +272,7 @@ class TestDbTrim:
 
     @pytest.mark.parametrize(
         "retention_days",
-        [(-5), (13), (1000)],
+        [(-5), (0)],
     )
     def test_cli_db_trim_within_range_failure(self, retention_days):
         env_patch = {"COMPOSER_ENVIRONMENT_SIZE": "ENVIRONMENT_SIZE_SMALL"}
@@ -289,7 +289,9 @@ class TestDbTrim:
             with pytest.raises(ValueError) as value_exception:
                 db_command.trim(args)
 
-        assert "Retention horizon must be in range(30, 730)" in str(value_exception.value)
+        assert f"The provided number of retention days ({retention_days}) must be positive" in str(
+            value_exception.value
+        )
 
     @mock.patch("airflow.composer.db_command.db_trim.trim_session_table")
     @mock.patch("airflow.composer.db_command.db_trim.trim_table")

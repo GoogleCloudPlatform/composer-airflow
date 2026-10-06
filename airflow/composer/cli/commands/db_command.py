@@ -23,9 +23,6 @@ from airflow.utils import cli as cli_utils
 
 logger = logging.getLogger(__name__)
 
-MINIMAL_RETENTION_DAYS = 30
-MAXIMAL_RETENTION_DAYS = 730
-
 MIN_BATCH_SIZE = 1000
 MAX_BATCH_SIZE = 100000
 
@@ -74,19 +71,12 @@ def trim(args):
         MIN_SLEEP_BETWEEN_BATCHES_SECONDS, min(retention_sleep, MAX_SLEEP_BETWEEN_BATCHES_SECONDS)
     )
 
-    if MAXIMAL_RETENTION_DAYS >= args.retention_days >= MINIMAL_RETENTION_DAYS:
-        execute_trim(
-            args.retention_days,
-            batch_size=retention_batch_size,
-            sleep_between_batches_seconds=retention_sleep,
-        )
-    else:
-        logger.error(
-            "Provided number of days (%s) is not within (%s, %s) range",
-            args.retention_days,
-            MINIMAL_RETENTION_DAYS,
-            MAXIMAL_RETENTION_DAYS,
-        )
-        raise ValueError(
-            f"Retention horizon must be in range({MINIMAL_RETENTION_DAYS}, {MAXIMAL_RETENTION_DAYS})"
-        )
+    if args.retention_days <= 0:
+        logger.error("The provided number of retention days (%d) must be positive", args.retention_days)
+        raise ValueError(f"The provided number of retention days ({args.retention_days}) must be positive")
+
+    execute_trim(
+        args.retention_days,
+        batch_size=retention_batch_size,
+        sleep_between_batches_seconds=retention_sleep,
+    )
