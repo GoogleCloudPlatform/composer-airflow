@@ -25,6 +25,7 @@ from sqlalchemy import func as sqlfunc, text, tuple_
 from airflow import __version__, settings
 from airflow.composer.db_command.tables_to_trim import get_table_primary_key, tables_to_trim
 from airflow.utils.timezone import make_aware
+from airflow.utils.types import DagRunType
 
 logger = logging.getLogger(__name__)
 
@@ -151,7 +152,7 @@ def trim_table(session, table, config, batch_size, sleep_between_batches_seconds
     def trim_batch(_session):
         """Delete a batch of expired rows."""
         primary_key = get_table_primary_key(table)
-        filter_criterion = prepare_filter_criterion(_session, table, primary_key, config.expiration_datetime)
+        filter_criterion = prepare_filter_criterion(_session, table, config.expiration_datetime)
         table_with_filter_and_limit = _session.query(*primary_key).filter(*filter_criterion).limit(batch_size)
         num_removed = (
             _session.query(table["airflow_db_model"])
@@ -241,7 +242,6 @@ def select_expired_rows_sql(session, table, config):
     filter_criterion = prepare_filter_criterion(
         session,
         table,
-        get_table_primary_key(table),
         config.expiration_datetime,
     )
     query = session.query(table["airflow_db_model"]).filter(*filter_criterion)
@@ -299,17 +299,21 @@ def estimate_result_count(session, _sql):
     return get_count(result)
 
 
-def prepare_filter_criterion(session, table, primary_key, expiration_datetime, skip_age=False):
+def prepare_filter_criterion(session, table, expiration_datetime, skip_age=False):
     """Return filter all restrictions."""
     additional_filter = []
 
-    # Works only for dag_run, because Airflow required last dag_run to be present, otherwise it will
-    # schedule this DAG again.
+    # Keep the latest scheduler-relevant run for each Dag.
     if table["airflow_db_model"].__tablename__ == "dag_run" and table.get("keep_last", False):
+        dag_run_model = table["airflow_db_model"]
+
+        latest_scheduler_runs = (
+            session.query(dag_run_model.dag_id, sqlfunc.max(table["age_column"]))
+            .filter(dag_run_model.run_type.in_((DagRunType.SCHEDULED, DagRunType.BACKFILL_JOB)))
+            .group_by(dag_run_model.dag_id)
+        )
         additional_filter.append(
-            tuple_(*primary_key).not_in(
-                session.query(sqlfunc.max(tuple_(*primary_key))).group_by(table["airflow_db_model"].dag_id)
-            )
+            tuple_(dag_run_model.dag_id, table["age_column"]).not_in(latest_scheduler_runs)
         )
     if skip_age:
         return [*additional_filter]

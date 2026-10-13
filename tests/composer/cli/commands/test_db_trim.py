@@ -27,11 +27,14 @@ from airflow.composer.cli.commands import db_command
 from airflow.composer.db_command.db_trim import (
     MAX_RETRY_ATTEMPTS,
     execute_trim,
+    prepare_filter_criterion,
     run_trimming_loop,
 )
 from airflow.composer.db_command.tables_to_trim import tables_to_trim
+from airflow.models.dagrun import DagRun
 from airflow.utils.session import create_session
 from airflow.utils.timezone import make_aware
+from airflow.utils.types import DagRunType
 
 
 def prepare_tables():
@@ -256,6 +259,77 @@ class TestDbTrim:
         assert len(expected_order) == len(tables)
         for i in range(len(expected_order)):
             assert expected_order[i]["model"].__tablename__ == tables[i]["airflow_db_model"].__tablename__
+
+    @pytest.mark.db_test
+    @pytest.mark.parametrize(
+        "scheduler_run_type",
+        [DagRunType.SCHEDULED, DagRunType.BACKFILL_JOB],
+        ids=["scheduled", "backfill"],
+    )
+    def test_prepare_filter_criterion_keeps_latest_scheduler_dag_run(self, scheduler_run_type, session):
+        dag_id = "test_db_trim_keeps_latest_scheduler"
+        expiration_datetime = datetime.datetime(2024, 1, 1, tzinfo=datetime.timezone.utc)
+
+        runs = [
+            ("old_manual", DagRunType.MANUAL, True, expiration_datetime - datetime.timedelta(seconds=40)),
+            (
+                "latest_scheduler",
+                scheduler_run_type,
+                False,
+                expiration_datetime - datetime.timedelta(seconds=10),
+            ),
+            (
+                "older_scheduler",
+                scheduler_run_type,
+                False,
+                expiration_datetime - datetime.timedelta(seconds=30),
+            ),
+            (
+                "newer_dataset_run",
+                DagRunType.DATASET_TRIGGERED,
+                False,
+                expiration_datetime - datetime.timedelta(seconds=8),
+            ),
+            (
+                "latest_overall",
+                DagRunType.MANUAL,
+                True,
+                expiration_datetime - datetime.timedelta(seconds=5),
+            ),
+        ]
+        for run_id, run_type, external_trigger, execution_date in runs:
+            session.add(
+                DagRun(
+                    dag_id=dag_id,
+                    run_id=run_id,
+                    run_type=run_type,
+                    external_trigger=external_trigger,
+                    execution_date=execution_date,
+                )
+            )
+        session.flush()
+
+        dag_run_table = next(
+            table for table in tables_to_trim() if table["airflow_db_model"].__tablename__ == "dag_run"
+        )
+        filter_criterion = prepare_filter_criterion(
+            session,
+            dag_run_table,
+            expiration_datetime,
+        )
+
+        deletable_run_ids = {
+            run_id
+            for (run_id,) in session.query(DagRun.run_id)
+            .filter(DagRun.dag_id == dag_id, *filter_criterion)
+            .all()
+        }
+        assert deletable_run_ids == {
+            "old_manual",
+            "older_scheduler",
+            "newer_dataset_run",
+            "latest_overall",
+        }
 
     @pytest.mark.parametrize(
         "retention_days",
