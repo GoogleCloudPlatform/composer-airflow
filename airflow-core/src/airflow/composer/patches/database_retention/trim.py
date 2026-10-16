@@ -32,6 +32,7 @@ from airflow import (
 )
 from airflow.composer.patches.database_retention.config import Config
 from airflow.composer.patches.database_retention.tables import get_table_primary_key
+from airflow.utils.types import DagRunType
 
 logger = logging.getLogger(__name__)
 
@@ -129,7 +130,7 @@ def _trim_table(session, table, config, batch_size, sleep_between_batches_second
     """Delete expired rows from a given table."""
     table_name = table["airflow_db_model"].__tablename__
     primary_key = get_table_primary_key(table)
-    filter_criterion = _prepare_filter_criterion(session, table, primary_key, config.expiration_datetime)
+    filter_criterion = _prepare_filter_criterion(table, config.expiration_datetime)
 
     def _count_rows():
         return session.scalar(
@@ -236,16 +237,23 @@ def _count_and_log_num_rows(table_name, count_func):
         )
 
 
-def _prepare_filter_criterion(session, table, primary_key, expiration_datetime):
+def _prepare_filter_criterion(table, expiration_datetime):
     additional_filter = []
 
-    # Works only for dag_run, because Airflow required last dag_run to be present, otherwise it will
-    # schedule this DAG again.
+    # Keep the latest scheduler-relevant run for each Dag.
     if table["airflow_db_model"].__tablename__ == "dag_run" and table.get("keep_last", False):
-        additional_filter.append(
-            tuple_(*primary_key).not_in(
-                select(sqlfunc.max(tuple_(*primary_key))).group_by(table["airflow_db_model"].dag_id)
+        dag_run_model = table["airflow_db_model"]
+
+        latest_scheduler_runs = (
+            select(dag_run_model.dag_id, sqlfunc.max(table["age_column"]))
+            .where(
+                dag_run_model.run_type.in_((DagRunType.SCHEDULED, DagRunType.BACKFILL_JOB)),
+                table["age_column"].is_not(None),
             )
+            .group_by(dag_run_model.dag_id)
+        )
+        additional_filter.append(
+            tuple_(dag_run_model.dag_id, table["age_column"]).not_in(latest_scheduler_runs)
         )
 
     if "custom_filter" in table:

@@ -46,6 +46,7 @@ from airflow.models.errors import ParseImportError
 from airflow.models.taskinstancehistory import TaskInstanceHistory
 from airflow.models.xcom import XComModel
 from airflow.sdk.definitions.deadline import AsyncCallback
+from airflow.utils.types import DagRunType
 
 
 class TestTrim:
@@ -286,6 +287,8 @@ class TestTrim:
         ):
             ti = create_task_instance(run_id=f"trim_task_instance_dag_run_keep_last_{ind}")
 
+            ti.dag_run.run_type = DagRunType.SCHEDULED
+
             ti.dag_run.logical_date = logical_date
             session.add(ti)
         session.commit()
@@ -300,6 +303,37 @@ class TestTrim:
         assert session.scalars(select(DagRun)).first().logical_date == utcnow - timedelta(
             days=retention_days
         ) - timedelta(seconds=5)
+
+    @mock.patch("airflow.composer.patches.database_retention.trim._trim_session_table", autospec=True)
+    @pytest.mark.parametrize(
+        "scheduler_run_type",
+        [DagRunType.SCHEDULED, DagRunType.BACKFILL_JOB],
+        ids=["scheduled", "backfill"],
+    )
+    def test_execute_trim_keeps_latest_scheduler_dag_run(
+        self, _trim_session_table_mock, scheduler_run_type, session, create_task_instance
+    ):
+        retention_days = 30
+        expiration_datetime = timezone.utcnow() - timedelta(days=retention_days)
+
+        session.execute(delete(TaskInstance))
+        session.execute(delete(DagRun))
+
+        runs = [
+            ("old_manual", DagRunType.MANUAL, expiration_datetime - timedelta(seconds=40)),
+            ("latest_scheduler", scheduler_run_type, expiration_datetime - timedelta(seconds=10)),
+            ("older_scheduler", scheduler_run_type, expiration_datetime - timedelta(seconds=30)),
+            ("newer_asset_run", DagRunType.ASSET_TRIGGERED, expiration_datetime - timedelta(seconds=8)),
+            ("latest_overall", DagRunType.MANUAL, expiration_datetime - timedelta(seconds=5)),
+        ]
+        for run_id, run_type, logical_date in runs:
+            create_task_instance(run_id=run_id, run_type=run_type, logical_date=logical_date)
+        session.commit()
+
+        execute_trim(retention_days, batch_size=100, sleep_between_batches_seconds=0)
+
+        remaining_run_ids = set(session.scalars(select(DagRun.run_id)).all())
+        assert remaining_run_ids == {"latest_scheduler"}
 
     def test_execute_trim_task_instance_dag_run_tables_logical_date_null(self, session, create_task_instance):
         retention_days = 30
