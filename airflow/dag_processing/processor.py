@@ -49,7 +49,7 @@ from airflow.models.dagwarning import DagWarning, DagWarningType
 from airflow.models.errors import ParseImportError
 from airflow.models.serialized_dag import SerializedDagModel
 from airflow.models.taskinstance import TaskInstance, TaskInstance as TI, _run_finished_callback
-from airflow.stats import Stats
+from airflow.stats import Stats, normalize_name_for_stats
 from airflow.utils import timezone
 from airflow.utils.email import get_email_address_list, send_email
 from airflow.utils.file import iter_airflow_imports, might_contain_dag
@@ -584,7 +584,7 @@ class DagFileProcessor(LoggingMixin):
             <pre><code>{task_list}\n<code></pre>
             Blocking tasks:
             <pre><code>{blocking_task_list}<code></pre>
-            Airflow Webserver URL: {conf.get(section='webserver', key='base_url')}
+            Airflow Webserver URL: {conf.get(section="webserver", key="base_url")}
             """
 
             tasks_missed_sla = []
@@ -892,7 +892,10 @@ class DagFileProcessor(LoggingMixin):
             return DagBag(file_path, include_examples=False)
         except Exception:
             cls.logger().exception("Failed at reloading the DAG file %s", file_path)
-            Stats.incr("dag_file_refresh_error", tags={"file_path": file_path})
+            Stats.incr(
+                "dag_file_refresh_error",
+                tags={"file_path": normalize_name_for_stats(file_path, log_warning=False)},
+            )
             raise
 
     @provide_session
@@ -928,7 +931,12 @@ class DagFileProcessor(LoggingMixin):
                 dagbag = DagFileProcessor._get_dagbag(file_path)
             except Exception:
                 self.log.exception("Failed at reloading the DAG file %s", file_path)
-                Stats.incr("dag_file_refresh_error", 1, 1, tags={"file_path": file_path})
+                Stats.incr(
+                    "dag_file_refresh_error",
+                    1,
+                    1,
+                    tags={"file_path": normalize_name_for_stats(file_path, log_warning=False)},
+                )
                 return 0, 0, self._cache_last_num_of_db_queries(query_counter)
 
             if dagbag.dags:

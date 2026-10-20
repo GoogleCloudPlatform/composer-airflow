@@ -1131,6 +1131,31 @@ class TestDagFileProcessor:
             ):
                 self._process_file(dag_filepath, TEST_DAG_FOLDER, session)
 
+    @mock.patch("airflow.dag_processing.processor.Stats.incr")
+    @mock.patch("airflow.dag_processing.processor.DagBag", side_effect=RuntimeError("boom"))
+    def test_process_file_refresh_error_normalizes_file_path_stats_tag(self, mock_dagbag, mock_stats_incr):
+        dag_file_processor = DagFileProcessor(dag_ids=[], dag_directory="/tmp/dags", log=mock.MagicMock())
+        result = dag_file_processor.process_file(
+            file_path="/tmp/dags/basic_ dag.py",
+            callback_requests=[],
+        )
+
+        assert result == (0, 0, 0)
+        mock_stats_incr.assert_has_calls(
+            [
+                mock.call(
+                    "dag_file_refresh_error",
+                    tags={"file_path": "_tmp_dags_basic__dag.py"},
+                ),
+                mock.call(
+                    "dag_file_refresh_error",
+                    1,
+                    1,
+                    tags={"file_path": "_tmp_dags_basic__dag.py"},
+                ),
+            ]
+        )
+
 
 class TestProcessorAgent:
     @pytest.fixture(autouse=True)

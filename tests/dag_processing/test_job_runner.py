@@ -55,6 +55,7 @@ from airflow.jobs.job import Job
 from airflow.models import DagBag, DagModel, DbCallbackRequest
 from airflow.models.dagcode import DagCode
 from airflow.models.serialized_dag import SerializedDagModel
+from airflow.stats import normalize_name_for_stats
 from airflow.utils import timezone
 from airflow.utils.net import get_hostname
 from airflow.utils.session import create_session
@@ -263,7 +264,8 @@ class TestDagProcessorJobRunner:
         assert file_2 in manager.processor._processors.keys()
         assert deque([file_3]) == manager.processor._file_path_queue
 
-    def test_set_file_paths_when_processor_file_path_not_in_new_file_paths(self):
+    @mock.patch("airflow.dag_processing.manager.Stats.decr")
+    def test_set_file_paths_when_processor_file_path_not_in_new_file_paths(self, stats_decr_mock):
         manager = DagProcessorJobRunner(
             job=Job(),
             processor=DagFileProcessorManager(
@@ -281,12 +283,16 @@ class TestDagProcessorJobRunner:
         mock_processor.stop.side_effect = AttributeError("DagFileProcessor object has no attribute stop")
         mock_processor.terminate.side_effect = None
 
-        manager.processor._processors["missing_file.txt"] = mock_processor
-        manager.processor._file_stats["missing_file.txt"] = DagFileStat(0, 0, None, None, 0, 0)
+        manager.processor._processors["missing file.txt"] = mock_processor
+        manager.processor._file_stats["missing file.txt"] = DagFileStat(0, 0, None, None, 0, 0)
 
         manager.processor.set_file_paths(["abc.txt"])
         assert manager.processor._processors == {}
-        assert "missing_file.txt" not in manager.processor._file_stats
+        assert "missing file.txt" not in manager.processor._file_stats
+        stats_decr_mock.assert_called_once_with(
+            "dag_processing.processes",
+            tags={"file_path": "missing_file.txt", "action": "stop"},
+        )
 
     def test_set_file_paths_when_processor_file_path_is_in_new_file_paths(self):
         manager = DagProcessorJobRunner(
@@ -762,12 +768,16 @@ class TestDagProcessorJobRunner:
             active_dag_count = session.query(func.count(DagModel.dag_id)).filter(DagModel.is_active).scalar()
             assert active_dag_count == 1
 
+    @mock.patch("airflow.dag_processing.manager.Stats.incr")
+    @mock.patch("airflow.dag_processing.manager.Stats.decr")
     @mock.patch(
         "airflow.dag_processing.processor.DagFileProcessorProcess.waitable_handle", new_callable=PropertyMock
     )
     @mock.patch("airflow.dag_processing.processor.DagFileProcessorProcess.pid", new_callable=PropertyMock)
     @mock.patch("airflow.dag_processing.processor.DagFileProcessorProcess.kill")
-    def test_kill_timed_out_processors_kill(self, mock_kill, mock_pid, mock_waitable_handle):
+    def test_kill_timed_out_processors_kill(
+        self, mock_kill, mock_pid, mock_waitable_handle, stats_decr_mock, stats_incr_mock
+    ):
         mock_pid.return_value = 1234
         mock_waitable_handle.return_value = 3
         manager = DagProcessorJobRunner(
@@ -784,18 +794,26 @@ class TestDagProcessorJobRunner:
         )
 
         processor = DagFileProcessorProcess(
-            file_path="abc.txt",
+            file_path="folder/abc txt.py",
             pickle_dags=False,
             dag_ids=[],
             dag_directory=TEST_DAG_FOLDER,
             callback_requests=[],
         )
         processor._start_time = timezone.make_aware(datetime.min)
-        manager.processor._processors = {"abc.txt": processor}
+        manager.processor._processors = {"folder/abc txt.py": processor}
         manager.processor.waitables[3] = processor
         initial_waitables = len(manager.processor.waitables)
         manager.processor._kill_timed_out_processors()
         mock_kill.assert_called_once_with()
+        stats_decr_mock.assert_called_once_with(
+            "dag_processing.processes",
+            tags={"file_path": "folder_abc_txt.py", "action": "timeout"},
+        )
+        stats_incr_mock.assert_any_call(
+            "dag_processing.processor_timeouts",
+            tags={"file_path": "folder_abc_txt.py"},
+        )
         assert len(manager.processor._processors) == 0
         assert len(manager.processor.waitables) == initial_waitables - 1
 
@@ -1010,10 +1028,27 @@ class TestDagProcessorJobRunner:
             thread.join(timeout=1.0)
             logger.info("Joined thread")
 
+    @pytest.mark.parametrize(
+        ("dag_filename", "expected_stat_name"),
+        [
+            ("temp_dag.py", "temp_dag"),
+            ("basic_ dag.py", "basic__dag"),
+        ],
+    )
     @conf_vars({("core", "load_examples"): "False"})
+    @mock.patch("airflow.dag_processing.manager.Stats.decr")
+    @mock.patch("airflow.dag_processing.manager.Stats.incr")
     @mock.patch("airflow.dag_processing.manager.Stats.timing")
-    def test_send_file_processing_statsd_timing(self, statsd_timing_mock, tmp_path):
-        path_to_parse = tmp_path / "temp_dag.py"
+    def test_send_file_processing_statsd_timing(
+        self,
+        statsd_timing_mock,
+        statsd_incr_mock,
+        statsd_decr_mock,
+        tmp_path,
+        dag_filename,
+        expected_stat_name,
+    ):
+        path_to_parse = tmp_path / dag_filename
         dag_code = textwrap.dedent(
             """
         from airflow import DAG
@@ -1044,17 +1079,83 @@ class TestDagProcessorJobRunner:
         child_pipe.close()
         parent_pipe.close()
 
+        expected_file_path_tag = normalize_name_for_stats(os.fspath(path_to_parse), log_warning=False)
+        statsd_incr_mock.assert_any_call(
+            "dag_processing.processes",
+            tags={"file_path": expected_file_path_tag, "action": "start"},
+        )
+        statsd_decr_mock.assert_any_call(
+            "dag_processing.processes",
+            tags={"file_path": expected_file_path_tag, "action": "finish"},
+        )
         statsd_timing_mock.assert_has_calls(
             [
-                mock.call("dag_processing.last_duration.temp_dag", timedelta(seconds=last_runtime)),
+                mock.call(
+                    f"dag_processing.last_duration.{expected_stat_name}", timedelta(seconds=last_runtime)
+                ),
                 mock.call(
                     "dag_processing.last_duration",
                     timedelta(seconds=last_runtime),
-                    tags={"file_name": "temp_dag"},
+                    tags={"file_name": expected_stat_name},
                 ),
             ],
             any_order=True,
         )
+
+    @mock.patch("airflow.dag_processing.manager.Stats.gauge")
+    def test_print_stat_normalizes_metric_name(self, statsd_gauge_mock):
+        manager = DagFileProcessorManager(
+            dag_directory="directory",
+            max_runs=1,
+            processor_timeout=timedelta(days=365),
+            signal_conn=MagicMock(),
+            dag_ids=[],
+            pickle_dags=False,
+            async_mode=True,
+        )
+        dag_file = "/tmp/dags/basic_ dag.py"
+        manager._file_paths = [dag_file]
+        manager._file_stats[dag_file] = DagFileStat(
+            num_dags=1,
+            import_errors=0,
+            last_finish_time=timezone.utcnow() - timedelta(seconds=5),
+            last_duration=timedelta(seconds=1),
+            run_count=1,
+            last_num_of_db_queries=3,
+        )
+
+        manager._print_stat()
+
+        statsd_gauge_mock.assert_has_calls(
+            [
+                mock.call("dag_processing.last_run.seconds_ago.basic__dag", mock.ANY),
+                mock.call("dag_processing.last_num_of_db_queries.basic__dag", 3),
+            ],
+            any_order=True,
+        )
+
+    @mock.patch("airflow.dag_processing.manager.Stats.decr")
+    def test_terminate_normalizes_file_path_stats_tag(self, stats_decr_mock):
+        manager = DagFileProcessorManager(
+            dag_directory="directory",
+            max_runs=1,
+            processor_timeout=timedelta(days=365),
+            signal_conn=MagicMock(),
+            dag_ids=[],
+            pickle_dags=False,
+            async_mode=True,
+        )
+        processor = MagicMock()
+        processor.file_path = "folder/basic_ dag.py"
+        manager._processors["folder/basic_ dag.py"] = processor
+
+        manager.terminate()
+
+        stats_decr_mock.assert_called_once_with(
+            "dag_processing.processes",
+            tags={"file_path": "folder_basic__dag.py", "action": "terminate"},
+        )
+        processor.terminate.assert_called_once_with()
 
     @pytest.mark.skip_if_database_isolation_mode  # Test is broken in db isolation mode
     def test_refresh_dags_dir_doesnt_delete_zipped_dags(self, tmp_path):

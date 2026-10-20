@@ -52,7 +52,7 @@ from airflow.models.db_callback_request import DbCallbackRequest
 from airflow.models.errors import ParseImportError
 from airflow.models.serialized_dag import SerializedDagModel
 from airflow.secrets.cache import SecretCache
-from airflow.stats import Stats
+from airflow.stats import Stats, normalize_name_for_stats
 from airflow.traces.tracer import Trace, span
 from airflow.utils import timezone
 from airflow.utils.dates import datetime_to_nano
@@ -934,7 +934,7 @@ class DagFileProcessorManager(LoggingMixin):
             last_runtime = self.get_last_runtime(file_path)
             num_dags = self.get_last_dag_count(file_path)
             num_errors = self.get_last_error_count(file_path)
-            file_name = Path(file_path).stem
+            file_name = normalize_name_for_stats(Path(file_path).stem)
             processor_pid = self.get_pid(file_path)
             processor_start_time = self.get_start_time(file_path)
             runtime = (now - processor_start_time) if processor_start_time else None
@@ -1115,7 +1115,13 @@ class DagFileProcessorManager(LoggingMixin):
                 filtered_processors[file_path] = processor
             else:
                 self.log.warning("Stopping processor for %s", file_path)
-                Stats.decr("dag_processing.processes", tags={"file_path": file_path, "action": "stop"})
+                Stats.decr(
+                    "dag_processing.processes",
+                    tags={
+                        "file_path": normalize_name_for_stats(file_path, log_warning=False),
+                        "action": "stop",
+                    },
+                )
                 processor.terminate()
                 self._file_stats.pop(file_path)
 
@@ -1134,7 +1140,13 @@ class DagFileProcessorManager(LoggingMixin):
 
     def _collect_results_from_processor(self, processor) -> None:
         self.log.debug("Processor for %s finished", processor.file_path)
-        Stats.decr("dag_processing.processes", tags={"file_path": processor.file_path, "action": "finish"})
+        Stats.decr(
+            "dag_processing.processes",
+            tags={
+                "file_path": normalize_name_for_stats(processor.file_path, log_warning=False),
+                "action": "finish",
+            },
+        )
         last_finish_time = timezone.utcnow()
 
         if processor.result is not None:
@@ -1157,7 +1169,7 @@ class DagFileProcessorManager(LoggingMixin):
             last_num_of_db_queries=last_num_of_db_queries,
         )
         self._file_stats[processor.file_path] = stat
-        file_name = Path(processor.file_path).stem
+        file_name = normalize_name_for_stats(Path(processor.file_path).stem)
         """crude exposure of instrumentation code which may need to be furnished"""
         span = Trace.get_tracer("DagFileProcessorManager").start_span(
             "dag_processing", start_time=datetime_to_nano(processor.start_time)
@@ -1187,7 +1199,7 @@ class DagFileProcessorManager(LoggingMixin):
 
         for sentinel in ready:
             if sentinel is not self._direct_scheduler_conn:
-                processor = cast(DagFileProcessorProcess, self.waitables[sentinel])
+                processor = cast("DagFileProcessorProcess", self.waitables[sentinel])
                 self.waitables.pop(processor.waitable_handle)
                 self._processors.pop(processor.file_path)
                 self._collect_results_from_processor(processor)
@@ -1230,7 +1242,10 @@ class DagFileProcessorManager(LoggingMixin):
             )
 
             del self._callback_to_execute[file_path]
-            Stats.incr("dag_processing.processes", tags={"file_path": file_path, "action": "start"})
+            Stats.incr(
+                "dag_processing.processes",
+                tags={"file_path": normalize_name_for_stats(file_path, log_warning=False), "action": "start"},
+            )
             span = Trace.get_current_span()
             span.set_attribute("category", "processing")
             processor.start()
@@ -1366,8 +1381,9 @@ class DagFileProcessorManager(LoggingMixin):
                     processor.pid,
                     processor.start_time.isoformat(),
                 )
-                Stats.decr("dag_processing.processes", tags={"file_path": file_path, "action": "timeout"})
-                Stats.incr("dag_processing.processor_timeouts", tags={"file_path": file_path})
+                file_path_tag = normalize_name_for_stats(file_path, log_warning=False)
+                Stats.decr("dag_processing.processes", tags={"file_path": file_path_tag, "action": "timeout"})
+                Stats.incr("dag_processing.processor_timeouts", tags={"file_path": file_path_tag})
                 # Deprecated; may be removed in a future Airflow release.
                 Stats.incr("dag_file_processor_timeouts")
                 processor.kill()
@@ -1421,7 +1437,11 @@ class DagFileProcessorManager(LoggingMixin):
         """Stop all running processors."""
         for processor in self._processors.values():
             Stats.decr(
-                "dag_processing.processes", tags={"file_path": processor.file_path, "action": "terminate"}
+                "dag_processing.processes",
+                tags={
+                    "file_path": normalize_name_for_stats(processor.file_path, log_warning=False),
+                    "action": "terminate",
+                },
             )
             processor.terminate()
 

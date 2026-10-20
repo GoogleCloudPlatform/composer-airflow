@@ -612,3 +612,30 @@ def test_composer_allowed_characters():
     from airflow.metrics.validators import ALLOWED_CHARACTERS
 
     assert "@" in ALLOWED_CHARACTERS
+
+
+@pytest.mark.parametrize(
+    ("input_name", "log_warning", "expected_name", "expect_warning"),
+    [
+        ("valid_dag-name.1", True, "valid_dag-name.1", False),
+        ("basic_ dag", True, "basic__dag", True),
+        ("dags/folder/basic_ dag.py", False, "dags_folder_basic__dag.py", False),
+    ],
+)
+def test_normalize_name_for_stats(caplog, input_name, log_warning, expected_name, expect_warning):
+    from airflow.stats import normalize_name_for_stats
+
+    with caplog.at_level(logging.WARNING, logger="airflow.stats"):
+        result = normalize_name_for_stats(input_name, log_warning=log_warning)
+
+    assert result == expected_name
+    if expect_warning:
+        assert any(
+            record.levelname == "WARNING"
+            and f"Name '{input_name}' contains invalid characters for stats reporting. "
+            f"Reporting stats with normalized name '{expected_name}'."
+            in record.message
+            for record in caplog.records
+        )
+    else:
+        assert caplog.records == []
