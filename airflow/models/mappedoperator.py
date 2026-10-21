@@ -354,6 +354,7 @@ class MappedOperator(AbstractOperator):
             "_is_setup",
             "_is_teardown",
             "_on_failure_fail_dagrun",
+            "operator_extra_links",
         }
 
     @methodtools.lru_cache(maxsize=None)
