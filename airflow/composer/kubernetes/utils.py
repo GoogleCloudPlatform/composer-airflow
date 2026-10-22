@@ -142,6 +142,22 @@ def _get_composer_serverless_pod_metadata(pod: k8s.V1Pod):
         resources_disk_size_gb = MAX_RESOURCES_DISK_SIZE_GB
     disk_size_gb = 30 + resources_disk_size_gb  # add 30 GB for operating system, container images etc.
 
+    gce_vm_config = {
+        "selector": {
+            "matchLabels": {
+                "machineType": _get_composer_serverless_machine_type(pod.spec.containers[0].resources),
+                "diskType": _get_composer_serverless_disk_type(),
+                "diskSizeGb": str(disk_size_gb),
+            }
+        },
+        "logging": ["Workload", "System"],
+        "vmServiceAccount": _get_composer_serverless_peervm_sa(tenant_project_id),
+    }
+    if _should_configure_internet_egress_tag():
+        gce_vm_config["vmResourceManagerTags"] = {
+            f"{tenant_project_id}/internet-egress": "allow",
+        }
+
     return k8s.V1ObjectMeta(
         # All container-based tasks should be running in a dedicated "user workloads namespace".
         namespace=USER_WORKLOADS_NAMESPACE,
@@ -149,23 +165,13 @@ def _get_composer_serverless_pod_metadata(pod: k8s.V1Pod):
             USE_WORKLOAD_IDENTITY_SERVICE_LABEL: "true",
         },
         annotations={
-            GCE_VM_ANNOTATION: yaml.dump(
-                {
-                    "selector": {
-                        "matchLabels": {
-                            "machineType": _get_composer_serverless_machine_type(
-                                pod.spec.containers[0].resources
-                            ),
-                            "diskType": _get_composer_serverless_disk_type(),
-                            "diskSizeGb": str(disk_size_gb),
-                        }
-                    },
-                    "logging": ["Workload", "System"],
-                    "vmServiceAccount": _get_composer_serverless_peervm_sa(tenant_project_id),
-                }
-            ),
+            GCE_VM_ANNOTATION: yaml.dump(gce_vm_config),
         },
     )
+
+
+def _should_configure_internet_egress_tag() -> bool:
+    return os.environ.get("CONFIGURE_INTERNET_EGRESS_TAG", "false").lower() == "true"
 
 
 def _get_composer_serverless_peervm_sa(tenant_project_id) -> str:
