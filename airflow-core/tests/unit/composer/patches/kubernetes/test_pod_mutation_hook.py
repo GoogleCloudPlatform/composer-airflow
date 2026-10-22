@@ -174,6 +174,37 @@ class TestPodMutationHook:
             },
         )
 
+    @pytest.mark.parametrize("configure_tag_val", ["TRUE", "true", "True"])
+    @mock.patch.dict("os.environ", {"GCP_TENANT_PROJECT": "test-project-234"})
+    def test_get_peer_vm_pod_metadata_with_internet_egress_tag(self, configure_tag_val, monkeypatch):
+        monkeypatch.setenv("CONFIGURE_INTERNET_EGRESS_TAG", configure_tag_val)
+        actual = _get_peer_vm_pod_metadata(
+            pod=k8s.V1Pod(spec=k8s.V1PodSpec(containers=[k8s.V1Container(name="base")]))
+        )
+
+        assert actual == k8s.V1ObjectMeta(
+            namespace="composer-user-workloads",
+            labels={"node.gke.io/use-workload-identity-service": "true"},
+            annotations={
+                "node.gke.io/gce-vm": yaml.dump(
+                    {
+                        "selector": {
+                            "matchLabels": {
+                                "machineType": "e2-custom-small-2048",
+                                "diskType": "pd-standard",
+                                "diskSizeGb": "30",
+                            },
+                        },
+                        "logging": ["Workload", "System"],
+                        "vmServiceAccount": "peervm-vm@test-project-234.iam.gserviceaccount.com",
+                        "vmResourceManagerTags": {
+                            "test-project-234/internet-egress": "allow",
+                        },
+                    }
+                ),
+            },
+        )
+
     @pytest.mark.parametrize(
         ("pod", "expected_disk_size_gb"),
         [
