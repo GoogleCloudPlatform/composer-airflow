@@ -145,15 +145,19 @@ class TestDbTrim:
                 db_command.DEFAULT_SLEEP_BETWEEN_BATCHES_SECONDS,
             ),
             ("ENVIRONMENT_SIZE_EXTRA_LARGE", None, None, 15000, 0.2),
+            ("ENVIRONMENT_SIZE_X_EXTRA_LARGE", None, None, 15000, 0.2),
             # Test cases where only batch size is passed via CLI
             ("ENVIRONMENT_SIZE_SMALL", 2323, None, 2323, db_command.DEFAULT_SLEEP_BETWEEN_BATCHES_SECONDS),
             ("ENVIRONMENT_SIZE_EXTRA_LARGE", 1331, None, 1331, 0.2),
+            ("ENVIRONMENT_SIZE_X_EXTRA_LARGE", 1331, None, 1331, 0.2),
             # Test cases where only sleep is passed via CLI
             ("ENVIRONMENT_SIZE_SMALL", None, 0.4, db_command.DEFAULT_BATCH_SIZE, 0.4),
             ("ENVIRONMENT_SIZE_EXTRA_LARGE", None, 0.4, 15000, 0.4),
+            ("ENVIRONMENT_SIZE_X_EXTRA_LARGE", None, 0.4, 15000, 0.4),
             # Test cases where both batch size and sleep are passed via CLI
             ("ENVIRONMENT_SIZE_SMALL", 9999, 0.3, 9999, 0.3),
             ("ENVIRONMENT_SIZE_EXTRA_LARGE", 9999, 0.3, 9999, 0.3),
+            ("ENVIRONMENT_SIZE_X_EXTRA_LARGE", 9999, 0.3, 9999, 0.3),
             # Test cases for clamping logic
             (
                 "ENVIRONMENT_SIZE_SMALL",
@@ -188,12 +192,16 @@ class TestDbTrim:
             "no-env-uses-defaults",
             "unhandled-env-uses-defaults",
             "xl-env-uses-xl-defaults",
+            "xxl-env-uses-xl-defaults",
             "cli-batch-size-overrides-default-sleep",
             "cli-batch-size-overrides-xl-sleep",
+            "cli-batch-size-overrides-xxl-sleep",
             "cli-sleep-overrides-default-batch-size",
             "cli-sleep-does-not-override-xl-batch-size",
+            "cli-sleep-does-not-override-xxl-batch-size",
             "cli-args-override-defaults",
             "cli-args-override-xl-env",
+            "cli-args-override-xxl-env",
             "cli-batch-size-below-min-is-clamped",
             "cli-batch-size-above-max-is-clamped",
             "cli-sleep-below-min-is-clamped",

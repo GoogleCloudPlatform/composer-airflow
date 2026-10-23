@@ -44,12 +44,12 @@ DEFAULT_BATCH_SIZE = 1000
 @cli_utils.action_cli(check_db=False)
 def trim(args):
     def _calculate_retention_batch_size(env_size):
-        if env_size == "ENVIRONMENT_SIZE_EXTRA_LARGE":
+        if env_size in ("ENVIRONMENT_SIZE_EXTRA_LARGE", "ENVIRONMENT_SIZE_X_EXTRA_LARGE"):
             return XL_ENV_BATCH_SIZE
         return DEFAULT_BATCH_SIZE
 
     def _calculate_retention_sleep(env_size):
-        if env_size == "ENVIRONMENT_SIZE_EXTRA_LARGE":
+        if env_size in ("ENVIRONMENT_SIZE_EXTRA_LARGE", "ENVIRONMENT_SIZE_X_EXTRA_LARGE"):
             return XL_ENV_SLEEP_BETWEEN_BATCHES_SECONDS
         return DEFAULT_SLEEP_BETWEEN_BATCHES_SECONDS
 
