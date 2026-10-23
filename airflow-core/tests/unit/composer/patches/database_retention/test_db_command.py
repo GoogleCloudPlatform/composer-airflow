@@ -98,17 +98,24 @@ class TestDbCommand:
 
         execute_trim_mock.assert_called_once_with(*expected_args, **expected_kwargs)
 
-    @mock.patch("airflow.composer.patches.database_retention.db_command.execute_trim", autospec=True)
-    @mock.patch(
-        "airflow.composer.patches.database_retention.db_command.COMPOSER_ENVIRONMENT_SIZE",
-        "ENVIRONMENT_SIZE_EXTRA_LARGE",
+    @pytest.mark.parametrize(
+        "env_size",
+        [
+            "ENVIRONMENT_SIZE_EXTRA_LARGE",
+            "ENVIRONMENT_SIZE_X_EXTRA_LARGE",
+        ],
     )
-    def test_trim_xl_env(self, execute_trim_mock):
-        self.trim(
-            self.parser.parse_args(
-                ["db", "trim", "--acknowledge-composer-internal", "--retention-days", "30"]
+    @mock.patch("airflow.composer.patches.database_retention.db_command.execute_trim", autospec=True)
+    def test_trim_xl_env(self, execute_trim_mock, env_size):
+        with mock.patch(
+            "airflow.composer.patches.database_retention.db_command.COMPOSER_ENVIRONMENT_SIZE",
+            env_size,
+        ):
+            self.trim(
+                self.parser.parse_args(
+                    ["db", "trim", "--acknowledge-composer-internal", "--retention-days", "30"]
+                )
             )
-        )
 
         execute_trim_mock.assert_called_once_with(30, batch_size=15000, sleep_between_batches_seconds=0.2)
 
