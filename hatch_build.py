@@ -540,7 +540,10 @@ COMPOSER_DEPENDENCIES = [
     "orchestration-pipelines",
     "pandas<=2.1.4",  # Only as a constraint
     "paramiko<=3.5.1",  # Only as a constraint
-    "pip==23.2.1",
+    # pip 26.2.2 fixes security vulnerabilities (Internal bug). It is only used on
+    # Python 3.12+ so images on older Python versions keep the current pip.
+    "pip==23.2.1; python_version < '3.12'",
+    "pip==26.2.2; python_version >= '3.12'",
     "pyOpenSSL",
     "pipdeptree",
     "pygments>2.15.0",
