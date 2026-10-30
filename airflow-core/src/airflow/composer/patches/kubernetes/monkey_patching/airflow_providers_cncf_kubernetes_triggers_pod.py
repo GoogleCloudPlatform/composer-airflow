@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import functools
 import logging
+import time
 from typing import TYPE_CHECKING
 
 from airflow.composer.patches.kubernetes.utils import (
@@ -23,6 +24,7 @@ from airflow.composer.patches.kubernetes.utils import (
     PEER_VM_PLACEHOLDER_CONTAINER,
     PeerVmPlaceholderPodContainerNotFoundException,
     PeerVmPlaceholderPodShutDownException,
+    PeerVmPodContainerStatusesNotFoundException,
     await_pod_endpoint_creation,
     get_peer_vm_pod_container_statuses,
     write_logs_from_peer_vm,
@@ -42,6 +44,14 @@ if TYPE_CHECKING:
 
 
 log = logging.getLogger(__name__)
+
+# If we never saw the container running, it may just not be registered on Peer VM yet.
+# In that case we wait this long before assuming it already finished.
+CONTAINER_STATUSES_NOT_FOUND_GRACE_PERIOD_SECONDS = 60
+
+# Kept on the trigger between polls.
+_CONTAINER_OBSERVED_ATTR = "_composer_peer_vm_container_observed"
+_CONTAINER_STATUSES_NOT_FOUND_SINCE_ATTR = "_composer_peer_vm_container_statuses_not_found_since"
 
 
 def patch():
@@ -89,14 +99,51 @@ def _composer_kubernetes_pod_trigger_define_container_state(f):
         except PeerVmPlaceholderPodShutDownException:
             self.log.debug("KubernetesPodOperator pod is shut down.")
             return ContainerState.TERMINATED
+        except PeerVmPodContainerStatusesNotFoundException:
+            return _define_container_state_on_container_statuses_not_found(self)
 
         if pod_containers is None:
             return ContainerState.UNDEFINED
 
         container = next(c for c in pod_containers if c["container"] == self.base_container_name)
+        # Remember that we've seen the container. This is only kept in memory on the trigger object, so it's
+        # lost if the triggerer restarts. Then the trigger falls back to the grace period: if the pod is
+        # already gone, the container is reported as finished after the grace period instead of right away.
+        # Saving it in the DB isn't possible, because a trigger can't update its saved state while running.
+        setattr(self, _CONTAINER_OBSERVED_ATTR, True)
+        setattr(self, _CONTAINER_STATUSES_NOT_FOUND_SINCE_ATTR, None)
         return container["state"].lower()
 
     return wrapper
+
+
+def _define_container_state_on_container_statuses_not_found(trigger: KubernetesPodTrigger) -> ContainerState:
+    """
+    Decide the container state when Peer VM can't find the pod.
+
+    Peer VM removes the pod soon after its containers finish, so usually this means the container is done.
+    But the same error is returned before the pod shows up on Peer VM. So we only treat the container as
+    finished if we've seen it before, or if the pod has been missing for the whole grace period.
+    """
+    if getattr(trigger, _CONTAINER_OBSERVED_ATTR, False):
+        trigger.log.info("KubernetesPodOperator pod is already removed from Peer VM, container has finished.")
+        return ContainerState.TERMINATED
+
+    now = time.monotonic()
+    not_found_since = getattr(trigger, _CONTAINER_STATUSES_NOT_FOUND_SINCE_ATTR, None)
+    if not_found_since is None:
+        not_found_since = now
+        setattr(trigger, _CONTAINER_STATUSES_NOT_FOUND_SINCE_ATTR, not_found_since)
+
+    if now - not_found_since >= CONTAINER_STATUSES_NOT_FOUND_GRACE_PERIOD_SECONDS:
+        trigger.log.warning(
+            "KubernetesPodOperator pod hasn't shown up on Peer VM for %s seconds, assuming it has finished.",
+            CONTAINER_STATUSES_NOT_FOUND_GRACE_PERIOD_SECONDS,
+        )
+        return ContainerState.TERMINATED
+
+    trigger.log.debug("KubernetesPodOperator pod isn't on Peer VM yet, waiting.")
+    return ContainerState.UNDEFINED
 
 
 def _composer_kubernetes_pod_operator_write_logs(f):

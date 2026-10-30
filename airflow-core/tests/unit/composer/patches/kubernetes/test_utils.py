@@ -29,6 +29,7 @@ from airflow.composer.patches.kubernetes.utils import (
     PEER_VM_ENDPOINT_ANNOTATION,
     PeerVmPlaceholderPodContainerNotFoundException,
     PeerVmPlaceholderPodShutDownException,
+    PeerVmPodContainerStatusesNotFoundException,
     await_pod_endpoint_creation,
     exec_on_placeholder_pod,
     get_peer_vm_pod_container_statuses,
@@ -284,6 +285,31 @@ class TestUtils:
             mock.call(8.0),
             mock.call(16.0),
         ]
+
+    @mock.patch("airflow.composer.patches.kubernetes.utils.exec_on_placeholder_pod", autospec=True)
+    def test_get_peer_vm_pod_container_statuses_not_found(self, exec_on_placeholder_pod_mock):
+        error = (
+            'There was an error in calling kubernetes API: E0811 23:26:57.282819 15 execclient.go:104] "could '
+            'not call ContainerStatuses" err="rpc error: code = Unknown desc = failed to find containerStatuses '
+            'in pod pod-name in namespace composer-user-workloads" logger="ContainerStatuses"'
+        )
+        exec_on_placeholder_pod_mock.side_effect = AirflowException(error)
+
+        with pytest.raises(PeerVmPodContainerStatusesNotFoundException) as exc:
+            get_peer_vm_pod_container_statuses(mock.Mock(), pod=mock.Mock())
+
+        # Still an AirflowException with the same message, so other callers behave as before.
+        assert isinstance(exc.value, AirflowException)
+        assert str(exc.value) == error
+
+    @mock.patch("airflow.composer.patches.kubernetes.utils.exec_on_placeholder_pod", autospec=True)
+    def test_get_peer_vm_pod_container_statuses_other_error(self, exec_on_placeholder_pod_mock):
+        exec_on_placeholder_pod_mock.side_effect = AirflowException("There was an error: API error")
+
+        with pytest.raises(AirflowException) as exc:
+            get_peer_vm_pod_container_statuses(mock.Mock(), pod=mock.Mock())
+
+        assert type(exc.value) is AirflowException
 
     @mock.patch("airflow.composer.patches.kubernetes.utils.exec_on_placeholder_pod", autospec=True)
     def test_get_peer_vm_pod_container_statuses(self, exec_on_placeholder_pod_mock):
