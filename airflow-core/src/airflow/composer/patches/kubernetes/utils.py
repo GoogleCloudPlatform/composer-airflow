@@ -63,6 +63,10 @@ def before_log_custom_only_on_retries(retry_state: tenacity.RetryCallState):
 
 
 @tenacity.retry(
+    # Don't retry when the pod is already gone: the answer won't change, retrying only adds delay.
+    retry=tenacity.retry_if_not_exception_type(
+        (PeerVmPlaceholderPodContainerNotFoundException, PeerVmPlaceholderPodShutDownException)
+    ),
     stop=tenacity.stop_after_attempt(6),
     wait=tenacity.wait_exponential(multiplier=1, min=1, max=16),
     before=before_log_custom_only_on_retries,
