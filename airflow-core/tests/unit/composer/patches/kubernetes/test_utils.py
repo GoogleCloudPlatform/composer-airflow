@@ -103,7 +103,7 @@ class TestUtils:
         assert str(exc.value) == "There was an error in calling kubernetes API: API error"
 
     @mock.patch("airflow.composer.patches.kubernetes.utils.kubernetes_stream", autospec=True)
-    def test_exec_on_placeholder_pod_pod_shut_down(self, kubernetes_stream_mock):
+    def test_exec_on_placeholder_pod_pod_shut_down(self, kubernetes_stream_mock, exec_retry_sleep_mock):
         self_mock = mock.Mock()
         pod_mock = mock.Mock()
         kubernetes_stream_mock.return_value = mock.Mock(
@@ -117,6 +117,9 @@ class TestUtils:
             exec_on_placeholder_pod(self_mock, pod=pod_mock, command=["arg1", "arg2"])
 
         assert str(exc.value) == "Got 137 exit code on exec"
+        # The pod is gone, so there is no point in retrying.
+        assert kubernetes_stream_mock.call_count == 1
+        exec_retry_sleep_mock.assert_not_called()
 
     @mock.patch("airflow.composer.patches.kubernetes.utils.kubernetes_stream", autospec=True)
     def test_exec_on_placeholder_pod_unexpected_return_code(self, kubernetes_stream_mock):
@@ -135,7 +138,9 @@ class TestUtils:
         assert str(exc.value) == "There was an error in calling kubernetes API, return code: 58"
 
     @mock.patch("airflow.composer.patches.kubernetes.utils.kubernetes_stream", autospec=True)
-    def test_exec_on_placeholder_pod_return_code_value_error(self, kubernetes_stream_mock):
+    def test_exec_on_placeholder_pod_return_code_value_error(
+        self, kubernetes_stream_mock, exec_retry_sleep_mock
+    ):
         self_mock = mock.Mock()
         pod_mock = mock.Mock()
 
@@ -159,9 +164,11 @@ class TestUtils:
             exec_on_placeholder_pod(self_mock, pod=pod_mock, command=["arg1", "arg2"])
 
         assert str(exc.value) == "Error on parsing exit code"
+        assert kubernetes_stream_mock.call_count == 1
+        exec_retry_sleep_mock.assert_not_called()
 
     @mock.patch("airflow.composer.patches.kubernetes.utils.kubernetes_stream", autospec=True)
-    def test_exec_on_placeholder_pod_container_not_found(self, kubernetes_stream_mock):
+    def test_exec_on_placeholder_pod_container_not_found(self, kubernetes_stream_mock, exec_retry_sleep_mock):
         self_mock = mock.Mock()
         pod_mock = mock.Mock()
         kubernetes_stream_mock.side_effect = ApiException(
@@ -174,11 +181,13 @@ class TestUtils:
         assert str(exc.value) == (
             'Handshake status 500 Error -+-+- b\'container not found ("peervm-placeholder")'
         )
-        assert kubernetes_stream_mock.call_count == 6
+        # The container is gone, so there is no point in retrying.
+        assert kubernetes_stream_mock.call_count == 1
+        exec_retry_sleep_mock.assert_not_called()
 
     @mock.patch("airflow.composer.patches.kubernetes.utils.kubernetes_stream", autospec=True)
     def test_exec_on_placeholder_pod_container_not_found_masked_by_attribute_error(
-        self, kubernetes_stream_mock
+        self, kubernetes_stream_mock, exec_retry_sleep_mock
     ):
         self_mock = mock.Mock()
         pod_mock = mock.Mock()
@@ -196,7 +205,8 @@ class TestUtils:
             exec_on_placeholder_pod(self_mock, pod=pod_mock, command=["arg1", "arg2"])
 
         assert str(exc.value) == reason
-        assert kubernetes_stream_mock.call_count == 6
+        assert kubernetes_stream_mock.call_count == 1
+        exec_retry_sleep_mock.assert_not_called()
 
     @mock.patch("airflow.composer.patches.kubernetes.utils.kubernetes_stream", autospec=True)
     def test_exec_on_placeholder_pod_agent_failed(self, kubernetes_stream_mock):
@@ -208,6 +218,7 @@ class TestUtils:
             exec_on_placeholder_pod(self_mock, pod=pod_mock, command=["arg1", "arg2"])
 
         assert exc.value.reason == "Kubelet agent failed"
+        # Other errors may be temporary, so they are still retried.
         assert kubernetes_stream_mock.call_count == 6
 
     @mock.patch("airflow.composer.patches.kubernetes.utils.kubernetes_stream", autospec=True)
