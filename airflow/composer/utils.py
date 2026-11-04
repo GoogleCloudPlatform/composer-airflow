@@ -66,6 +66,12 @@ def is_serverless_composer():
     return major >= 3
 
 
+def get_troubleshooting_triggerer_docs_link():
+    """Return the triggerer troubleshooting page for the current Composer version (2 or 3)."""
+    docs_version = "composer-3" if is_serverless_composer() else "composer-2"
+    return f"https://cloud.google.com/composer/docs/{docs_version}/troubleshooting-triggerer"
+
+
 def get_component_hostname():
     """
     Act as a custom implementation for airflow.utils.net.get_hostname.

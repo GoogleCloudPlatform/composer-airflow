@@ -28,6 +28,7 @@ from airflow.composer.utils import (
     get_composer_gke_cluster_host,
     get_composer_version,
     get_locational_endpoint,
+    get_troubleshooting_triggerer_docs_link,
     initialize,
     is_composer_v1,
     is_serverless_composer,
@@ -74,6 +75,18 @@ class TestUtils:
     def test_is_serverless_composer(self, composer_version, expected_result):
         with mock.patch.dict("os.environ", {"COMPOSER_VERSION": composer_version}):
             assert is_serverless_composer() == expected_result
+
+    @pytest.mark.parametrize(
+        "composer_version, expected_link",
+        [
+            ("", "https://cloud.google.com/composer/docs/composer-2/troubleshooting-triggerer"),
+            ("2.16.0", "https://cloud.google.com/composer/docs/composer-2/troubleshooting-triggerer"),
+            ("3.0.0", "https://cloud.google.com/composer/docs/composer-3/troubleshooting-triggerer"),
+        ],
+    )
+    def test_get_troubleshooting_triggerer_docs_link(self, composer_version, expected_link):
+        with mock.patch.dict("os.environ", {"COMPOSER_VERSION": composer_version}):
+            assert get_troubleshooting_triggerer_docs_link() == expected_link
 
     @mock.patch("airflow.composer.utils.initialize", autospec=True)
     def test_initialize(self, initialize_mock):
