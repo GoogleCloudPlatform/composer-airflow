@@ -614,12 +614,15 @@ class TriggerRunner(threading.Thread, LoggingMixin):
             # be a busy event loop.
             time_elapsed = time.monotonic() - self.last_watchdog_run
             if time_elapsed > 0.5:
+                from airflow.composer.utils import get_troubleshooting_triggerer_docs_link
+
                 self.log.info(
                     "Triggerer's async thread was blocked for %.2f seconds, "
                     "likely due to the highly utilized environment. In case of "
                     "Warnings informing you about slow callback consider visiting "
-                    "https://cloud.google.com/composer/docs/composer-2/troubleshooting-triggerer.",
+                    "%s.",
                     time_elapsed,
+                    get_troubleshooting_triggerer_docs_link(),
                 )
                 Stats.incr("triggers.blocked_main_thread")
 
