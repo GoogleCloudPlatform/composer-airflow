@@ -31,10 +31,7 @@ google-cloud-filestore>=1.14.0
 google-cloud-firestore>=2.23.0
 litellm>=1.83.7 # This is to deal with multiple CVEs
 pandas<3.0.0  # pandas 3.0 breaks DataFrame serialization (qualname change). TODO: remove when upstream Airflow supports Pandas 3.0
-# pip 26.2.2 fixes security vulnerabilities (Internal bug). It is only used on
-# Python 3.12+ so images on older Python versions keep the current pip.
-pip==23.2.1; python_version < '3.12'
-pip==26.2.2; python_version >= '3.12'
+pip==26.2.2  # SV (Internal bug)
 pygments>2.15.0  # SV
 setuptools>=78.1.1  # SV
 # SQLAlchemy 2.1 removes ScalarAttributeImpl, breaking SQLAlchemy-Utils up to 0.42.1 (currently latest) used in Flask-AppBuilder.
