@@ -15,6 +15,7 @@ from airflow.composer.kubernetes.utils import (
     PEER_VM_ENDPOINT_ANNOTATION,
     PeerVmPlaceholderPodContainerNotFoundException,
     PeerVmPlaceholderPodShutDownException,
+    PeerVmPodContainerStatusesNotFoundException,
     _get_composer_serverless_disk_type,
     _get_composer_serverless_machine_type,
     _get_composer_serverless_peervm_sa,
@@ -805,6 +806,31 @@ class TestUtils:
         assert result == exec_result_expected
         assert read_stdout_mock.call_count == 1
         assert kubernetes_stream_mock.call_count == num_retries
+
+    @mock.patch("airflow.composer.kubernetes.utils.exec_on_placeholder_pod", autospec=True)
+    def test_get_peer_vm_pod_container_statuses_not_found(self, exec_on_placeholder_pod_mock):
+        error = (
+            'There was an error in calling kubernetes API: E0811 23:26:57.282819 15 execclient.go:104] "could '
+            'not call ContainerStatuses" err="rpc error: code = Unknown desc = failed to find containerStatuses '
+            'in pod pod-name in namespace composer-user-workloads" logger="ContainerStatuses"'
+        )
+        exec_on_placeholder_pod_mock.side_effect = AirflowException(error)
+
+        with pytest.raises(PeerVmPodContainerStatusesNotFoundException) as exc:
+            get_peer_vm_pod_container_statuses(mock.Mock(), pod=mock.Mock())
+
+        # Still an AirflowException with the same message, so other callers behave as before.
+        assert isinstance(exc.value, AirflowException)
+        assert str(exc.value) == error
+
+    @mock.patch("airflow.composer.kubernetes.utils.exec_on_placeholder_pod", autospec=True)
+    def test_get_peer_vm_pod_container_statuses_other_error(self, exec_on_placeholder_pod_mock):
+        exec_on_placeholder_pod_mock.side_effect = AirflowException("There was an error: API error")
+
+        with pytest.raises(AirflowException) as exc:
+            get_peer_vm_pod_container_statuses(mock.Mock(), pod=mock.Mock())
+
+        assert type(exc.value) is AirflowException
 
     @mock.patch("airflow.composer.kubernetes.utils.exec_on_placeholder_pod", autospec=True)
     def test_get_peer_vm_pod_container_statuses(self, exec_on_placeholder_pod_mock):

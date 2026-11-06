@@ -99,6 +99,15 @@ class PeerVmPlaceholderPodContainerNotFoundException(Exception):
     pass
 
 
+# Peer VM returns this when it doesn't know the pod: either the pod was already removed after it finished,
+# or it hasn't shown up yet.
+PEER_VM_CONTAINER_STATUSES_NOT_FOUND_ERROR = "failed to find containerStatuses in pod"
+
+
+class PeerVmPodContainerStatusesNotFoundException(AirflowException):
+    """Exception raised when Peer VM can't find the pod to return its container statuses."""
+
+
 def pod_mutation_hook_composer_serverless(pod: k8s.V1Pod):
     pod.metadata = PodGenerator.reconcile_metadata(pod.metadata, _get_composer_serverless_pod_metadata(pod))
 
@@ -427,8 +436,15 @@ def get_peer_vm_pod_container_statuses(self: PodManager, pod: V1Pod):
     Returns:
         List of dictionaries with container statuses, e.g.
         [{"container":"airflow-xcom-sidecar","state":"RUNNING"},{"container":"base","state":"TERMINATED"}].
+    Raises:
+        PeerVmPodContainerStatusesNotFoundException: if Peer VM can't find the pod.
     """
-    resp = exec_on_placeholder_pod(self, pod=pod, command=["placeholder-pod", "container-statuses"])
+    try:
+        resp = exec_on_placeholder_pod(self, pod=pod, command=["placeholder-pod", "container-statuses"])
+    except AirflowException as e:
+        if PEER_VM_CONTAINER_STATUSES_NOT_FOUND_ERROR in str(e):
+            raise PeerVmPodContainerStatusesNotFoundException(str(e)) from e
+        raise
     return json.loads(resp)
 
 
