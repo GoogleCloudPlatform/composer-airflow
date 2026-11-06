@@ -511,6 +511,9 @@ COMPOSER_DEPENDENCIES = [
     "aiodebug",
     # aiohttp and pygments in lower versions contain security vulnerabilities.
     "aiohttp>=3.8.5",
+    # Only as a constraint: celery 5.7.0 removed celery.backends.database.retry,
+    # still imported by apache-airflow-providers-celery 3.26.0
+    "celery<5.7.0",
     "confluent-kafka",
     "crcmod<2.0",
     "cryptography",
