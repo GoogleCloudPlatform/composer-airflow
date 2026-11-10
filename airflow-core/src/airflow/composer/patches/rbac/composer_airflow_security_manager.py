@@ -210,7 +210,9 @@ class ComposerAirflowSecurityManager(FabAirflowSecurityManagerOverride):
 
         managed_identities = set()
         if user.email:
-            managed_identities.add(f"user:{user.email.strip().lower()}")
+            user_id = user.email.strip()
+            identity = user_id if user_id.startswith("principal://") else user_id.lower()
+            managed_identities.add(f"user:{identity}")
         for g_name in google_groups:
             managed_identities.add(f"group:{g_name.strip().lower()}")
 

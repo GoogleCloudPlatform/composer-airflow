@@ -188,6 +188,49 @@ class TestComposerAirflowSecurityManager:
     @conf_vars(
         {("core", "auth_manager"): "airflow.composer.patches.rbac.composer_auth_manager.ComposerAuthManager"}
     )
+    @pytest.mark.parametrize(
+        ("user_email", "expected_roles"),
+        [
+            ("Test-User@Gmail.com", {"TestRole1"}),
+            (
+                "principal://iam.googleapis.com/locations/global/workforcePools/Pool-1/subject/Alice",
+                {"TestRole2"},
+            ),
+        ],
+    )
+    def test_reconcile_user_roles_case_sensitivity(self, user_email, expected_roles):
+        app = create_app(enable_plugins=False)
+        sm = app.appbuilder.sm
+        for role in ("TestRole1", "TestRole2", "TestRole3"):
+            sm.add_role(role)
+        bindings = [
+            {"role": "TestRole1", "members": ["user:test-user@gmail.com"]},
+            {
+                "role": "TestRole2",
+                "members": [
+                    "user:principal://iam.googleapis.com/locations/global/workforcePools/Pool-1/subject/Alice"
+                ],
+            },
+            {
+                "role": "TestRole3",
+                "members": [
+                    "user:principal://iam.googleapis.com/locations/global/workforcePools/pool-1/subject/alice"
+                ],
+            },
+        ]
+        user_mock = mock.Mock(id=9999, is_authenticated=True, email=user_email, roles=[])
+        with (
+            mock_rbac_bindings(bindings),
+            mock.patch.object(sm.session, "get", return_value=user_mock),
+            mock.patch.object(sm, "update_user"),
+        ):
+            resolved_user = sm.reconcile_user_roles(user_mock, [])
+
+        assert {r.name for r in resolved_user.roles} == expected_roles
+
+    @conf_vars(
+        {("core", "auth_manager"): "airflow.composer.patches.rbac.composer_auth_manager.ComposerAuthManager"}
+    )
     def test_reconcile_user_roles_no_bindings_match_strips_existing_roles(self):
         app = create_app(enable_plugins=False)
         sm = app.appbuilder.sm
