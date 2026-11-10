@@ -457,6 +457,42 @@ class TestBase:
         assert "TestRole3" not in resolved_role_names
         assert len(resolved_role_names) == 2
 
+    @pytest.mark.parametrize(
+        "user_email, expected_roles",
+        [
+            ("Test-User@Gmail.com", {"TestRole1"}),
+            (
+                "principal://iam.googleapis.com/locations/global/workforcePools/Pool-1/subject/Alice",
+                {"TestRole2"},
+            ),
+        ],
+    )
+    def test_reconcile_user_roles_case_sensitivity(self, user_email, expected_roles):
+        for role in ("TestRole1", "TestRole2", "TestRole3"):
+            self.sm.add_role(role)
+        bindings = [
+            {"role": "TestRole1", "members": ["user:test-user@gmail.com"]},
+            {
+                "role": "TestRole2",
+                "members": [
+                    "user:principal://iam.googleapis.com/locations/global/workforcePools/Pool-1/subject/Alice"
+                ],
+            },
+            {
+                "role": "TestRole3",
+                "members": [
+                    "user:principal://iam.googleapis.com/locations/global/workforcePools/pool-1/subject/alice"
+                ],
+            },
+        ]
+        user_mock = mock.Mock(id=9999, is_authenticated=True, email=user_email, roles=[])
+        with mock_rbac_bindings(bindings):
+            with mock.patch.object(self.sm.get_session, "get", return_value=user_mock):
+                with mock.patch.object(self.sm, "update_user"):
+                    resolved_user = self.sm.reconcile_user_roles(user_mock, [])
+
+        assert {r.name for r in resolved_user.roles} == expected_roles
+
     def test_reconcile_user_roles_no_bindings_match_strips_existing_roles(self):
         self.sm.add_role("TestRole")
         db_role = self.sm.find_role("TestRole")
